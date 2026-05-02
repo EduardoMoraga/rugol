@@ -1,15 +1,29 @@
 """Agents CRUD + run-now."""
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 
+from core import runtime_state
+from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Run
+from core.registry.service import upsert_agent_file
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
 router = APIRouter(prefix="/agents", tags=["agents"])
+
+NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$")
+ALLOWED_MODELS = {
+    "claude-opus-4-7",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001",
+    "claude-haiku-4-5",
+}
 
 
 class AgentDTO(BaseModel):
@@ -24,6 +38,41 @@ class AgentDTO(BaseModel):
 class RunNowBody(BaseModel):
     prompt: str
     session_id: str | None = None
+
+
+class AgentSpec(BaseModel):
+    name: str = Field(min_length=2, max_length=64)
+    model: str
+    description: str = ""
+    body: str
+
+    def to_markdown(self) -> str:
+        # Build deterministic, valid YAML frontmatter.
+        esc = lambda s: s.replace("\\", "\\\\").replace('"', '\\"')
+        frontmatter = (
+            "---\n"
+            f'name: {self.name}\n'
+            f'model: {self.model}\n'
+            f'description: "{esc(self.description.strip())}"\n'
+            "---\n\n"
+        )
+        body = self.body.strip() + "\n"
+        return frontmatter + body
+
+
+def _validate_spec(spec: AgentSpec) -> None:
+    if not NAME_RE.fullmatch(spec.name):
+        raise HTTPException(
+            status_code=400,
+            detail="Name must be lowercase, 3-64 chars, only letters/digits/dashes, no leading or trailing dash.",
+        )
+    if spec.model not in ALLOWED_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model must be one of: {', '.join(sorted(ALLOWED_MODELS))}",
+        )
+    if not spec.body.strip():
+        raise HTTPException(status_code=400, detail="Body cannot be empty.")
 
 
 @router.get("", response_model=list[AgentDTO])
@@ -71,6 +120,78 @@ async def run_now(agent_id: int, body: RunNowBody) -> dict:
         session_id=body.session_id,
     ))
     return {"run_id": run_id, "status": "queued"}
+
+
+@router.post("", status_code=201, response_model=AgentDTO)
+async def create_agent(body: AgentSpec) -> AgentDTO:
+    """Create a new agent by writing its .md to the configured AGENTS_DIR.
+
+    The watcher then upserts it into the DB. We also call upsert directly so
+    the response carries the persisted row (no race with the filesystem event).
+    """
+    _validate_spec(body)
+    agents_dir = runtime_state.agents_dir()
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    target = agents_dir / f"{body.name}.md"
+    if target.exists():
+        raise HTTPException(status_code=409, detail=f"Agent file already exists: {target.name}")
+
+    target.write_text(body.to_markdown(), encoding="utf-8")
+    await upsert_agent_file(target)
+
+    async with async_session_factory() as session:
+        a = (await session.execute(select(Agent).where(Agent.name == body.name))).scalar_one_or_none()
+        if a is None:
+            raise HTTPException(status_code=500, detail="Agent registered but not visible yet.")
+        await bus.publish("agent:registered", {"name": a.name, "via": "dashboard"})
+        return AgentDTO(
+            id=a.id, name=a.name, model=a.model, description=a.description,
+            status=a.status, last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
+        )
+
+
+@router.get("/{agent_id}/source")
+async def get_agent_source(agent_id: int) -> dict:
+    """Return the editable spec for the agent (frontmatter fields + body)."""
+    async with async_session_factory() as session:
+        a = await session.get(Agent, agent_id)
+        if a is None:
+            raise HTTPException(status_code=404, detail="agent not found")
+        return {
+            "id": a.id,
+            "name": a.name,
+            "model": a.model,
+            "description": a.description,
+            "body": a.body,
+            "source_path": a.source_path,
+        }
+
+
+@router.put("/{agent_id}")
+async def update_agent(agent_id: int, body: AgentSpec) -> AgentDTO:
+    """Rewrite the agent's `.md` file. Renames are not allowed in this endpoint."""
+    _validate_spec(body)
+    async with async_session_factory() as session:
+        a = await session.get(Agent, agent_id)
+        if a is None:
+            raise HTTPException(status_code=404, detail="agent not found")
+        if a.name != body.name:
+            raise HTTPException(
+                status_code=400,
+                detail="Renaming an agent is not supported here — delete the old file and create a new one.",
+            )
+        path = Path(a.source_path)
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(body.to_markdown(), encoding="utf-8")
+    await upsert_agent_file(path)
+
+    async with async_session_factory() as session:
+        a = await session.get(Agent, agent_id)
+        return AgentDTO(
+            id=a.id, name=a.name, model=a.model, description=a.description,
+            status=a.status, last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
+        )
 
 
 @router.get("/{agent_id}/runs")

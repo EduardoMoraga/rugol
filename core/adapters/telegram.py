@@ -13,8 +13,8 @@ from telegram import Update
 from telegram.error import Conflict, NetworkError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
+from core import runtime_state
 from core.adapters.base import Adapter
-from core.config import get_settings
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -28,12 +28,12 @@ class TelegramAdapter(Adapter):
         self._default_agent = default_agent
 
     async def start(self) -> None:
-        settings = get_settings()
-        if not settings.TELEGRAM_BOT_TOKEN:
+        token = runtime_state.telegram_token()
+        if not token:
             logger.info("telegram disabled (no token)")
             return
 
-        app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+        app = Application.builder().token(token).build()
         app.add_handler(CommandHandler("start", self._cmd_start))
         app.add_handler(CommandHandler("status", self._cmd_status))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle))
@@ -43,7 +43,7 @@ class TelegramAdapter(Adapter):
         await app.initialize()
         await app.start()
         await app.updater.start_polling(drop_pending_updates=True)
-        logger.info("telegram adapter started (allowed=%s)", settings.telegram_allowed_user_ids)
+        logger.info("telegram adapter started (allowed=%s)", runtime_state.telegram_allowed_user_ids())
 
     async def stop(self) -> None:
         if self._app:
@@ -60,13 +60,13 @@ class TelegramAdapter(Adapter):
     # Handlers ---------------------------------------------------------------
 
     def _is_authorized(self, update: Update) -> bool:
-        settings = get_settings()
+        allowed = runtime_state.telegram_allowed_user_ids()
         user = update.effective_user
         if not user:
             return False
-        if not settings.telegram_allowed_user_ids:
+        if not allowed:
             return False  # no allowlist = nobody
-        return user.id in settings.telegram_allowed_user_ids
+        return user.id in allowed
 
     async def _cmd_start(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_authorized(update):

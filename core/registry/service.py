@@ -6,6 +6,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+from core import runtime_state
 from core.bus import bus
 from core.config import get_settings
 from core.db import async_session_factory
@@ -19,8 +20,7 @@ logger = logging.getLogger(__name__)
 async def upsert_agent_file(path: Path) -> None:
     if not path.exists() or path.suffix != ".md":
         return
-    settings = get_settings()
-    parsed = load_agent_file(path, default_model=settings.DEFAULT_MODEL)
+    parsed = load_agent_file(path, default_model=runtime_state.default_model())
     async with async_session_factory() as session:
         existing = (await session.execute(
             select(Agent).where(Agent.name == parsed.name)
@@ -71,22 +71,22 @@ async def upsert_skill_file(path: Path) -> None:
 
 
 async def initial_scan() -> None:
-    """Walk the agents/ and skills/ directories at startup."""
-    settings = get_settings()
-    settings.AGENTS_DIR.mkdir(parents=True, exist_ok=True)
-    settings.SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+    """Walk the configured agents/skills folders at startup or on hot reload."""
+    agents_dir = runtime_state.agents_dir()
+    skills_dir = runtime_state.skills_dir()
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    skills_dir.mkdir(parents=True, exist_ok=True)
 
-    for path in settings.AGENTS_DIR.rglob("*.md"):
+    for path in agents_dir.rglob("*.md"):
         await upsert_agent_file(path)
-    for path in settings.SKILLS_DIR.rglob("*.md"):
+    for path in skills_dir.rglob("*.md"):
         await upsert_skill_file(path)
 
 
 def build_watcher() -> RegistryWatcher:
-    settings = get_settings()
     return RegistryWatcher(
-        agents_dir=settings.AGENTS_DIR,
-        skills_dir=settings.SKILLS_DIR,
+        agents_dir=runtime_state.agents_dir(),
+        skills_dir=runtime_state.skills_dir(),
         on_agent=upsert_agent_file,
         on_skill=upsert_skill_file,
     )

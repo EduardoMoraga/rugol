@@ -4,8 +4,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from core import runtime_state
 from core.adapters.base import Adapter
-from core.config import get_settings
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -21,8 +21,8 @@ class SlackAdapter(Adapter):
         self._default_agent = default_agent
 
     async def start(self) -> None:
-        settings = get_settings()
-        if not settings.slack_enabled:
+        bot_token, signing_secret, app_token = runtime_state.slack_tokens()
+        if not (bot_token and app_token):
             logger.info("slack disabled (no tokens)")
             return
 
@@ -34,8 +34,8 @@ class SlackAdapter(Adapter):
             return
 
         app = AsyncApp(
-            token=settings.SLACK_BOT_TOKEN,
-            signing_secret=settings.SLACK_SIGNING_SECRET,
+            token=bot_token,
+            signing_secret=signing_secret or None,
         )
 
         @app.event("app_mention")
@@ -52,7 +52,7 @@ class SlackAdapter(Adapter):
             except Exception as e:
                 await say(f"Error: {e}")
 
-        handler = AsyncSocketModeHandler(app, settings.SLACK_APP_TOKEN)
+        handler = AsyncSocketModeHandler(app, app_token)
         self._app = app
         self._handler = handler
         self._task = asyncio.create_task(handler.start_async())

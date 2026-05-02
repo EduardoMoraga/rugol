@@ -1,17 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0a0a;
-  --color-bg-elev: #111;
-  --color-border: #262626;
-  --color-fg: #fafafa;
-  --color-fg-muted: #a1a1aa;
-  --color-accent: #84cc16;
+  --color-bg: #08080a;
+  --color-bg-elev: #0f0f12;
+  --color-bg-elev-2: #15151a;
+  --color-border: #1e1e24;
+  --color-border-strong: #2a2a32;
+  --color-fg: #f4f4f5;
+  --color-fg-muted: #8b8b94;
+  --color-fg-subtle: #5a5a63;
+  --color-accent: #6366f1;
+  --color-accent-fg: #ffffff;
+  --color-accent-soft: rgba(99, 102, 241, 0.15);
+  --color-accent-strong: #818cf8;
+  --color-success: #4ade80;
   --color-warn: #f59e0b;
-  --color-error: #ef4444;
-  --color-idle: #71717a;
-  --font-sans: "Geist Sans", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --color-error: #f87171;
+  --color-running: #4ade80;
+  --color-idle: #6b7280;
+  --font-sans: "Geist Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
 }
 
 * {
@@ -19,27 +27,113 @@
 }
 
 html, body {
-  background: var(--color-bg);
+  background:
+    radial-gradient(circle at 20% -10%, rgba(99, 102, 241, 0.08), transparent 40%),
+    radial-gradient(circle at 80% 110%, rgba(99, 102, 241, 0.05), transparent 40%),
+    var(--color-bg);
+  background-attachment: fixed;
   color: var(--color-fg);
   font-family: var(--font-sans);
-  font-feature-settings: "cv11", "ss01";
+  font-feature-settings: "cv11", "ss01", "ss03";
   -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
 }
 
 ::selection {
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-accent-fg);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-strong); }
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 @layer components {
-  .card {
-    @apply bg-[--color-bg-elev] border border-[--color-border] rounded-lg p-4;
+  .surface {
+    background: linear-gradient(180deg, var(--color-bg-elev) 0%, var(--color-bg-elev-2) 100%);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
   }
-  .badge {
-    @apply inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium;
+  .surface-hover {
+    transition: border-color 150ms ease, transform 150ms ease;
   }
-  .badge-running { @apply bg-[--color-accent]/15 text-[--color-accent]; }
-  .badge-error   { @apply bg-[--color-error]/15  text-[--color-error]; }
-  .badge-warn    { @apply bg-[--color-warn]/15   text-[--color-warn]; }
-  .badge-idle    { @apply bg-[--color-idle]/15   text-[--color-idle]; }
+  .surface-hover:hover {
+    border-color: var(--color-border-strong);
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full font-medium tracking-wide;
+  }
+  .pill-running {
+    background: rgba(74, 222, 128, 0.12);
+    color: var(--color-running);
+  }
+  .pill-running::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-running);
+    box-shadow: 0 0 8px var(--color-running);
+    animation: pulse-soft 1.6s ease-in-out infinite;
+  }
+  .pill-error {
+    background: rgba(248, 113, 113, 0.12);
+    color: var(--color-error);
+  }
+  .pill-warn {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--color-warn);
+  }
+  .pill-idle {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--color-fg-muted);
+  }
+  .pill-accent {
+    background: var(--color-accent-soft);
+    color: var(--color-accent-strong);
+  }
+}
+
+/* ReactFlow overrides for dark theme */
+.react-flow__background pattern circle { fill: var(--color-border) !important; }
+.react-flow__controls {
+  background: var(--color-bg-elev) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-fg-muted) !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--color-bg-elev-2) !important;
+  color: var(--color-fg) !important;
+}
+.react-flow__minimap {
+  background: var(--color-bg-elev) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+.react-flow__edge-path {
+  stroke: var(--color-border-strong) !important;
+}
+.react-flow__edge-text {
+  font-family: var(--font-mono) !important;
+  fill: var(--color-fg-muted) !important;
+}
+.react-flow__edge-textbg {
+  fill: var(--color-bg) !important;
 }

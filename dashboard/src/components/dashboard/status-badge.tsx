@@ -1,15 +1,13 @@
-import { cn } from "@/lib/cn";
+import { Badge } from "@/components/ui/badge";
 
-const map: Record<string, string> = {
-  running: "badge-running",
-  idle: "badge-idle",
-  error: "badge-error",
-  failed: "badge-error",
-  completed: "badge-running",
-  cancelled: "badge-warn",
-  offline: "badge-idle",
+const tone = (status: string) => {
+  if (status === "running") return "running" as const;
+  if (status === "error" || status === "failed") return "error" as const;
+  if (status === "warn" || status === "cancelled") return "warn" as const;
+  if (status === "completed") return "running" as const;
+  return "idle" as const;
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  return <span className={cn("badge", map[status] ?? "badge-idle")}>{status}</span>;
+  return <Badge tone={tone(status)}>{status}</Badge>;
 }

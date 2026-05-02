@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CalendarClock, Hexagon, Network, GitBranch, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  CalendarClock,
+  Hexagon,
+  Network,
+  GitBranch,
+  Settings,
+  ChevronRight,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const items = [
@@ -18,29 +27,48 @@ const items = [
 export function NavRail() {
   const path = usePathname();
   return (
-    <nav className="w-56 shrink-0 border-r border-[--color-border] bg-[--color-bg-elev] p-3 flex flex-col gap-1">
-      <div className="px-3 py-3 mb-2">
-        <span className="text-lg font-semibold tracking-tight">Rogologo</span>
-        <p className="text-[10px] text-[--color-fg-muted] uppercase tracking-widest">alpha</p>
+    <nav className="w-60 shrink-0 border-r border-[--color-border] flex flex-col p-3 bg-gradient-to-b from-[--color-bg-elev] to-[--color-bg]">
+      <Link href="/" className="px-3 py-3 mb-2 group block">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[--color-accent] to-[--color-accent-strong] grid place-items-center text-white text-xs font-bold shadow-lg shadow-[--color-accent]/30">
+            R
+          </div>
+          <div>
+            <div className="text-base font-semibold tracking-tight">Rogologo</div>
+            <div className="text-[10px] text-[--color-fg-muted] uppercase tracking-widest">
+              v0.2 · alpha
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      <div className="space-y-0.5 flex-1">
+        {items.map(({ href, label, icon: Icon }) => {
+          const active = href === "/" ? path === "/" : path.startsWith(href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "group flex items-center justify-between gap-2 px-3 py-2 rounded-md text-[13px] transition-all",
+                active
+                  ? "bg-[--color-bg-elev-2] text-[--color-fg] border border-[--color-border]"
+                  : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-[--color-bg-elev]/50 border border-transparent",
+              )}
+            >
+              <span className="flex items-center gap-3">
+                <Icon size={15} aria-hidden className={active ? "text-[--color-accent-strong]" : ""} />
+                {label}
+              </span>
+              {active && <ChevronRight size={12} className="text-[--color-fg-muted]" />}
+            </Link>
+          );
+        })}
       </div>
-      {items.map(({ href, label, icon: Icon }) => {
-        const active = href === "/" ? path === "/" : path.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition",
-              active
-                ? "bg-[--color-border] text-[--color-fg]"
-                : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-[--color-border]/50",
-            )}
-          >
-            <Icon size={16} aria-hidden />
-            {label}
-          </Link>
-        );
-      })}
+
+      <div className="mt-2 px-3 py-2 text-[10px] text-[--color-fg-subtle]">
+        Local · {process.env.NEXT_PUBLIC_API_URL ?? "127.0.0.1:8000"}
+      </div>
     </nav>
   );
 }

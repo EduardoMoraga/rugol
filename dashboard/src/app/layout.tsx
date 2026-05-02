@@ -4,6 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Providers } from "./providers";
 import { NavRail } from "@/components/dashboard/nav-rail";
+import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Rogologo — Agent Operations Center",
@@ -16,7 +17,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen flex">
         <Providers>
           <NavRail />
-          <main className="flex-1 min-w-0">{children}</main>
+          <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+          <Toaster />
         </Providers>
       </body>
     </html>

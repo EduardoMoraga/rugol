@@ -5,6 +5,62 @@ All notable changes to Rogologo are documented here, following
 
 ## [Unreleased]
 
+### Sprint 3 — Real product (DONE, 2026-05-02)
+
+The "navigable scaffold" feedback was correct. This release fixes the bugs,
+gives Rogologo a real visual identity, and turns the dashboard into something
+you actually *operate* the system from — not just look at.
+
+**Fixed**
+- `/agents/[id]` 500 ("Jest worker child process exception"): replaced the
+  `params: Promise<>` + `use()` pattern with `useParams()`, which Turbopack
+  handles cleanly.
+- Ant farm hang: replaced the `react-pixi` WebGL implementation with a plain
+  HTML5 Canvas renderer. No WebGL context loss, no pixi version drift, smaller
+  bundle, smoother animation.
+- Ontology page hang: `<ReactFlow>` was bootstrapping `fitView` against zero
+  nodes and looping. Hard guard now renders an empty state until at least one
+  node exists, plus a `<ReactFlowProvider>` wrapper.
+
+**Design system**
+- New paleta inspired by Linear/Vercel: deeper background with subtle violet
+  glow, `surface` layered on a vertical gradient, indigo accent (`#6366f1`).
+- Typography hierarchy with Geist Sans / Geist Mono and tabular-nums on stats.
+- shadcn-style primitives: `Button` (5 variants), `Input`/`Textarea`/`Select`,
+  `Card`/`PageHeader`/`Stat`, `Badge` with running pulse, `Dialog`, `Tabs`,
+  `Toaster` (zustand-driven).
+- Sidebar redesigned with logo, accent gradient, active-route indicator.
+- Custom scrollbars and ReactFlow theme overrides.
+
+**Real product features**
+- `/agents/new` and `/agents/[id]/edit`: full UI to define an agent (name,
+  model, description, body) — Rogologo writes the markdown to your AGENTS_DIR
+  and the watcher picks it up. Validates name format and model whitelist.
+- "Scaffold with Moragent" dialog inside the agent form, documenting the
+  Moragent → Rogologo handoff.
+- `/settings`: real form for Telegram + Slack tokens, allowed user IDs, and
+  the agents/skills folder paths. Saving **hot-restarts the affected adapter
+  or watcher** with no backend bounce. Live status pills indicate whether
+  each subsystem is connected, configured-but-not-running, or absent.
+- Persistent activity feed (`<ActivityFeed />`) on the operations page, fed by
+  SSE, with pause/resume and click-to-run-detail.
+- Operations page rebuilt: header with core health pill, four primary stats,
+  live runs panel, agents preview grid, and the activity feed in a sticky
+  side column.
+
+**Backend**
+- `core/runtime_state.py`: new mutable settings layer. Persists to
+  `data/settings.json`, exposes `agents_dir/skills_dir/default_model/tokens`
+  with masked public DTO. Adapters and registry now read from here, falling
+  back to `core.config` when unset.
+- `core/api/settings.py`: `GET /api/settings`, `GET /api/settings/status`,
+  `POST /api/settings`. The POST hot-restarts Telegram, Slack, or the watcher
+  depending on which fields changed.
+- `core/api/agents.py`: `POST /api/agents` (create from UI, writes the .md),
+  `PUT /api/agents/{id}` (edit, rename guarded), `GET /api/agents/{id}/source`
+  (returns editable spec).
+
+
 ### Added
 - Project bootstrap: layout, license (MIT), gitignore, .env.example
 - Architecture document with full system diagram and data model

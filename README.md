@@ -92,28 +92,60 @@ docs/        Architecture, ADRs, screenshots
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the deep-dive.
 
-## What works today (v0.1.0-alpha)
+## Pair it with Moragent
+
+[Moragent](../../00-CORE/skills/moragent.md) is the Claude Code skill for
+**designing** rich agentic infrastructure — given an idea, it scaffolds the
+agent's prompt body, model, description, and memory seed.
+
+Rogologo is the **operations layer** for what Moragent designs:
+
+```
+   Moragent  ─►  produces well-formed .md spec
+                              │
+                              ▼
+   Rogologo  ─►  registers · runs · schedules · monitors · iterates
+```
+
+In the **New agent** form there's a *Scaffold with Moragent* button that walks
+you through the handoff: run `/moragent nuevo proyecto <idea>` in your Claude
+Code session, paste the result into Rogologo's form, save. The two systems
+stay independently versioned but converge on the same `.md` file format.
+
+## What works today (v0.2.0-alpha)
 
 Verified end-to-end on Windows 11 + Python 3.12 + Node 20:
 
-- ✓ Drop a `.md` into `agents-templates/`, it appears in the dashboard within
-  5 seconds (debounced watchdog).
-- ✓ Click **Run** on any agent, type a prompt, get redirected to a live
-  `/runs/[id]` page that streams the assistant's output token-by-token,
-  shows tool calls as they happen, and persists the final text + token cost
-  + session id to SQLite.
-- ✓ Create a recurring schedule with a cron expression and a prompt; the
-  job survives restart (APScheduler SQLite jobstore).
-- ✓ Browse the **ontology** as an interactive react-flow graph with typed
-  nodes (concept / entity / event) and labelled predicate edges.
+- ✓ **Create an agent from the dashboard** (no terminal): name, model,
+  description, prompt body — Rogologo writes the `.md` into your agents
+  folder and registers it.
+- ✓ **Edit any agent's spec** from `/agents/<id>/edit` and save; the watcher
+  reloads it.
+- ✓ **Drop a `.md` from elsewhere** into your AGENTS_DIR — it lands in the
+  dashboard within 5 seconds (debounced watchdog).
+- ✓ Click **Run**, type a prompt, get redirected to a live `/runs/[id]` page
+  that streams the assistant's output token-by-token, shows tool calls as
+  they happen, and persists the final text + token cost + session id to SQLite.
+- ✓ Create a recurring schedule with a cron expression; the job survives
+  restart (APScheduler SQLite jobstore).
+- ✓ **Paste your Telegram bot token + allowed user IDs into `/settings` and
+  hit Save**. The bot starts polling immediately. No backend restart, no
+  `.env` editing.
+- ✓ Same for **Slack** (bot token + app-level token + signing secret) — saves
+  trigger a hot restart of the socket-mode handler.
+- ✓ Switch the **agents folder** from `/settings` to point at your real
+  `.claude/agents/` and the watcher rescans on the spot.
+- ✓ Browse the **ontology** as an interactive graph (typed nodes, labelled
+  predicate edges, minimap, pan/zoom).
 - ✓ Review **self-improvement** proposals on a tabbed page with a
   syntax-coloured diff viewer; every change requires explicit approval.
-- ✓ Bundled `claude` CLI is invoked via `claude-agent-sdk` 0.1.x using your
-  Pro/Max subscription, no API charges.
+- ✓ Persistent **activity feed** in the operations page tells you what the
+  fleet is doing, in real time.
+- ✓ The bundled `claude` CLI is invoked via `claude-agent-sdk` 0.1.x using
+  your Pro/Max subscription, no API charges.
 
-Telegram and Slack adapters compile and start; they auto-disable until you
-provide tokens. The Windows installer (`install.bat` + `wizard.ps1`) is
-checked in but has not been dry-run on a clean PC yet — that is Sprint 3.
+The Windows installer (`install.bat` + `wizard.ps1`) is checked in but has not
+been dry-run on a clean PC yet — that is the next sprint.
 
 ## Status
 

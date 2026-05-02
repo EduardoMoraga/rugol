@@ -1,11 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { AgentCard } from "@/components/dashboard/agent-card";
-import { EmptyState } from "@/components/dashboard/empty-state";
 import { fetchAgents, type Agent } from "@/lib/api";
+import { AgentCard } from "@/components/dashboard/agent-card";
+import { PageHeader } from "@/components/ui/card";
+import { Input, Select } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export default function AgentsPage() {
   const { data, isLoading, error } = useQuery({
@@ -15,7 +18,7 @@ export default function AgentsPage() {
   });
 
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -30,39 +33,43 @@ export default function AgentsPage() {
     });
   }, [data, query, statusFilter]);
 
-  const totalAgents = data?.length ?? 0;
+  const total = data?.length ?? 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Agents</h1>
-        <p className="text-sm text-[--color-fg-muted]">
-          {totalAgents} registered · {filtered.length} shown
-        </p>
-      </header>
+    <div className="p-8 space-y-6 max-w-6xl mx-auto">
+      <PageHeader
+        title="Agents"
+        description={`${total} registered · ${filtered.length} shown`}
+        actions={
+          <Link href="/agents/new">
+            <Button variant="primary">
+              <Plus size={14} /> New agent
+            </Button>
+          </Link>
+        }
+      />
 
-      {totalAgents > 0 && (
+      {total > 0 && (
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[--color-fg-muted]" />
-            <input
+          <div className="relative flex-1 min-w-[280px] max-w-md">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[--color-fg-muted] pointer-events-none"
+            />
+            <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, description, or model…"
-              className="w-full bg-[--color-bg] border border-[--color-border] rounded pl-8 pr-3 py-2 text-sm"
+              className="pl-9"
             />
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-[--color-bg] border border-[--color-border] rounded px-3 py-2 text-sm"
-          >
+          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-44">
             <option value="all">All statuses</option>
             <option value="idle">Idle</option>
             <option value="running">Running</option>
             <option value="error">Error</option>
             <option value="offline">Offline</option>
-          </select>
+          </Select>
         </div>
       )}
 
@@ -70,24 +77,39 @@ export default function AgentsPage() {
       {error && <p className="text-sm text-[--color-error]">Failed to load agents.</p>}
 
       {data && data.length === 0 && (
-        <EmptyState
-          title="No agents yet"
-          body="Drop a markdown file under agents-templates/ (or your AGENTS_DIR) and it'll appear here within seconds."
-          ctaLabel="See examples"
-          ctaHref="https://github.com/eduardomoraga/rogologo/tree/main/agents-templates"
-        />
+        <div className="surface p-10 text-center space-y-4">
+          <Sparkles size={28} className="mx-auto text-[--color-accent-strong]" />
+          <div>
+            <h2 className="text-lg font-semibold">No agents yet</h2>
+            <p className="text-sm text-[--color-fg-muted] mt-1 max-w-md mx-auto">
+              Create one from the dashboard, drop a markdown file into your agents folder,
+              or scaffold one with Moragent — they all converge here.
+            </p>
+          </div>
+          <div className="flex items-center justify-center gap-2">
+            <Link href="/agents/new">
+              <Button variant="primary">
+                <Plus size={13} /> New agent
+              </Button>
+            </Link>
+            <Link href="/settings">
+              <Button variant="secondary">Configure agents folder</Button>
+            </Link>
+          </div>
+        </div>
       )}
 
       {data && data.length > 0 && filtered.length === 0 && (
-        <EmptyState
-          title="Nothing matches"
-          body="No agent matches your search and status filter."
-        />
+        <div className="surface p-8 text-center text-sm text-[--color-fg-muted]">
+          Nothing matches your search.
+        </div>
       )}
 
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((a: Agent) => <AgentCard key={a.id} agent={a} />)}
+          {filtered.map((a) => (
+            <AgentCard key={a.id} agent={a} />
+          ))}
         </div>
       )}
     </div>

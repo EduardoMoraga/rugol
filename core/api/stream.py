@@ -13,13 +13,21 @@ router = APIRouter(tags=["stream"])
 
 
 @router.get("/stream")
-async def stream(request: Request, topics: str = "*") -> EventSourceResponse:
-    """topics is a comma-separated list of glob patterns. Default: all events."""
+async def stream(
+    request: Request,
+    topics: str = "*",
+    run_id: int | None = None,
+) -> EventSourceResponse:
+    """SSE feed.
+
+    `topics` — comma-separated glob patterns over the bus topic. Default `*`.
+    `run_id` — when provided, drops events whose payload doesn't carry the
+               matching run_id (server-side filter, avoids burning bandwidth
+               in a single-run detail panel).
+    """
     patterns = [t.strip() for t in topics.split(",") if t.strip()] or ["*"]
 
     async def event_gen():
-        # Multiplex multiple subscriptions
-        queues: list[asyncio.Queue] = []
         tasks: list[asyncio.Task] = []
 
         async def feed(pattern: str) -> None:
@@ -36,12 +44,13 @@ async def stream(request: Request, topics: str = "*") -> EventSourceResponse:
                     break
                 try:
                     evt = await asyncio.wait_for(out_q.get(), timeout=15.0)
+                    if run_id is not None and evt.data.get("run_id") != run_id:
+                        continue
                     yield {
                         "event": "message",
                         "data": json.dumps({"topic": evt.topic, "data": evt.data, "ts": evt.ts}),
                     }
                 except asyncio.TimeoutError:
-                    # Heartbeat to keep proxies happy
                     yield {"event": "ping", "data": "{}"}
         finally:
             for t in tasks:

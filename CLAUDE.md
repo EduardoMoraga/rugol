@@ -144,10 +144,21 @@ When in doubt, ask `rogologo-architect` first.
 - [x] `POST /api/agents/{id}/run` invokes `claude-agent-sdk` end-to-end
 - [x] Tokens, cost, session id persist; status transitions emit bus events
 - [x] Dashboard `pnpm dev` serves all 7 routes, proxies `/api/*` to core
-- [x] All 4 bundled templates (`brand-architect`, `daily-digest`,
-      `inbox-watcher`, `maintenance`) load on first scan
+- [x] All 4 bundled templates load on first scan
 - [x] Local dev quickstart documented in `docs/quickstart.md`
 
-**Next: Sprint 2 — Dashboard polish, Sprint 3 — distribution.**
+**Sprint 2 — Dashboard MVP (DONE, 2026-05-02)**
+- [x] Run detail page `/runs/[id]` with live SSE streaming + cancel
+- [x] Agent detail Run-now form, redirects to live run view
+- [x] Agents list search + status filter
+- [x] Schedules CRUD UI with cron presets and delete
+- [x] Improvements review with pending/approved/rejected tabs and coloured diff
+- [x] Ontology graph with react-flow (typed nodes, predicate labels, minimap)
+- [x] Backend: persisted `final_text`, run_id-filtered SSE, idempotent
+      column-add migrator for SQLite
 
-See `ROADMAP.md` for sprints 2–5 toward public beta.
+**Next: Sprint 3 — Windows installer verified on a clean PC, release v0.1.0
+with screenshots and a < 90-second video. Sprint 4 — teams in Slack +
+self-improving loop hardening. Sprint 5 — public launch.**
+
+See `ROADMAP.md` for sprints 3–5 toward public beta.

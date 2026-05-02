@@ -48,6 +48,31 @@ All notable changes to Rogologo are documented here, following
 - `pnpm dev` serves the dashboard at `:3000`; `/api/*` is proxied to the core
   on `:8000`. All seven UI routes return 200, SSE hook reconnects on error.
 
+### Sprint 2 — Dashboard MVP (DONE, 2026-05-02)
+- `core/db/models.py`: persist run `final_text` (Text, nullable) so the run
+  detail panel can replay completed runs without re-streaming.
+- `core/db/base.py`: lightweight column-add migrator runs on every `init_db`,
+  so existing SQLite files pick up nullable schema additions without a wipe.
+- `core/api/runs.py`: `/api/runs/{id}` now returns `final_text`.
+- `core/api/stream.py`: optional `run_id` query param filters server-side so
+  a run-detail subscription doesn't receive other agents' chatter.
+- `core/runner/orchestrator.py`: writes `final_text` to the row on completion.
+- Dashboard:
+  - `/runs/[id]` — new page with prompt, live streaming output, tool-call
+    timeline, token/cost stats, cancel button, error block, polling fallback.
+  - `/agents/[id]` — real Run-now form with prompt textarea; submission
+    redirects to the live `/runs/[id]` view.
+  - `/agents` — search by name/description/model + status filter.
+  - `/schedules` — full create form with cron presets, agent picker, prompt,
+    enabled toggle; delete with confirm; agent name resolved from id.
+  - `/improvements` — pending/approved/rejected tabs, syntax-coloured diff
+    viewer (additions, deletions, hunks, headers), agent name resolution.
+  - `/ontology` — interactive `react-flow` graph (typed colour-coded nodes,
+    predicate edge labels, minimap, controls, circular layout) plus a
+    type-summary header.
+  - `useStream` accepts `runId` to wire the server-side filter.
+- Verified end-to-end with a fresh run #2 returning persisted `final_text`.
+
 ## [0.1.0] - TBD
 
 First public alpha.

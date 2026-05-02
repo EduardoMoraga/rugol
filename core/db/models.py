@@ -89,6 +89,7 @@ class Run(Base):
     cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     session_id: Mapped[str | None] = mapped_column(String(128), default=None)
     error_message: Mapped[str | None] = mapped_column(Text, default=None)
+    final_text: Mapped[str | None] = mapped_column(Text, default=None)
 
     agent: Mapped[Agent] = relationship(back_populates="runs")
     messages: Mapped[list["Message"]] = relationship(back_populates="run", cascade="all, delete-orphan")

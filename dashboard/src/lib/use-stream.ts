@@ -8,10 +8,20 @@ export interface StreamEvent {
   ts: number;
 }
 
+interface StreamOpts {
+  /** Restrict server-side delivery to events whose payload carries this run_id. */
+  runId?: number;
+}
+
 /** Subscribe to SSE topics. Reconnects with exponential backoff on error. */
-export function useStream(topics: string, onEvent: (evt: StreamEvent) => void) {
+export function useStream(
+  topics: string,
+  onEvent: (evt: StreamEvent) => void,
+  opts: StreamOpts = {},
+) {
   const handlerRef = useRef(onEvent);
   handlerRef.current = onEvent;
+  const { runId } = opts;
 
   useEffect(() => {
     let es: EventSource | null = null;
@@ -20,14 +30,16 @@ export function useStream(topics: string, onEvent: (evt: StreamEvent) => void) {
 
     function connect() {
       if (cancelled) return;
-      const url = `/api/stream?topics=${encodeURIComponent(topics)}`;
+      const params = new URLSearchParams({ topics });
+      if (runId !== undefined) params.set("run_id", String(runId));
+      const url = `/api/stream?${params.toString()}`;
       es = new EventSource(url);
       es.addEventListener("message", (e) => {
         try {
           const data = JSON.parse((e as MessageEvent).data);
           handlerRef.current(data as StreamEvent);
           backoff = 500;
-        } catch (err) {
+        } catch {
           // ignore malformed events
         }
       });
@@ -45,5 +57,5 @@ export function useStream(topics: string, onEvent: (evt: StreamEvent) => void) {
       cancelled = true;
       es?.close();
     };
-  }, [topics]);
+  }, [topics, runId]);
 }

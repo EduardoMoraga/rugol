@@ -50,6 +50,7 @@ async def get_run(run_id: int) -> dict:
             "cost_usd": r.cost_usd,
             "session_id": r.session_id,
             "error_message": r.error_message,
+            "final_text": r.final_text,
         }
 
 

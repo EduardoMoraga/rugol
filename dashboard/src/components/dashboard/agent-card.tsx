@@ -1,23 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMutation } from "@tanstack/react-query";
-import { Play } from "lucide-react";
-import { runAgentNow, type Agent } from "@/lib/api";
+import { ChevronRight } from "lucide-react";
+import { type Agent } from "@/lib/api";
 import { StatusBadge } from "./status-badge";
 
 export function AgentCard({ agent }: { agent: Agent }) {
-  const run = useMutation({
-    mutationFn: () => runAgentNow(agent.id, "Tick — auto-triggered from dashboard."),
-  });
-
   return (
-    <article className="card hover:border-[--color-fg-muted]/40 transition group">
+    <Link
+      href={`/agents/${agent.id}`}
+      className="card hover:border-[--color-fg-muted]/40 transition group block"
+    >
       <header className="flex items-start justify-between gap-3">
-        <Link href={`/agents/${agent.id}`} className="min-w-0">
+        <div className="min-w-0">
           <h3 className="font-semibold truncate">{agent.name}</h3>
           <p className="text-xs text-[--color-fg-muted] font-mono">{agent.model}</p>
-        </Link>
+        </div>
         <StatusBadge status={agent.status} />
       </header>
 
@@ -28,17 +26,13 @@ export function AgentCard({ agent }: { agent: Agent }) {
       <footer className="flex items-center justify-between mt-4">
         <span className="text-xs text-[--color-fg-muted]">
           {agent.last_run_at
-            ? `last run ${new Date(agent.last_run_at).toLocaleTimeString()}`
+            ? `last run ${new Date(agent.last_run_at).toLocaleString()}`
             : "never run"}
         </span>
-        <button
-          onClick={() => run.mutate()}
-          disabled={run.isPending}
-          className="text-xs flex items-center gap-1 px-2 py-1 rounded border border-[--color-border] hover:bg-[--color-border] transition disabled:opacity-50"
-        >
-          <Play size={12} /> {run.isPending ? "Queued" : "Run"}
-        </button>
+        <span className="text-xs text-[--color-fg-muted] group-hover:text-[--color-fg] inline-flex items-center gap-0.5 transition">
+          Open <ChevronRight size={12} />
+        </span>
       </footer>
-    </article>
+    </Link>
   );
 }

@@ -106,6 +106,7 @@ class RuntimeOrchestrator:
             run.output_tokens = result.output_tokens
             run.cost_usd = result.cost_usd
             run.session_id = result.session_id
+            run.final_text = result.final_text
             agent = await session.get(Agent, run.agent_id)
             if agent:
                 agent.status = "idle"

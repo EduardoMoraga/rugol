@@ -1,59 +1,59 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { fetchOntologyEdges, fetchOntologyNodes } from "@/lib/api";
 import { EmptyState } from "@/components/dashboard/empty-state";
+
+const OntologyGraph = dynamic(
+  () => import("@/components/ontology/ontology-graph").then((m) => m.OntologyGraph),
+  {
+    ssr: false,
+    loading: () => <p className="text-sm text-[--color-fg-muted]">Loading the graph…</p>,
+  },
+);
 
 export default function OntologyPage() {
   const nodes = useQuery({ queryKey: ["onto-nodes"], queryFn: fetchOntologyNodes });
   const edges = useQuery({ queryKey: ["onto-edges"], queryFn: fetchOntologyEdges });
 
-  const isEmpty = nodes.data?.length === 0 && edges.data?.length === 0;
+  const isEmpty = !nodes.data?.length && !edges.data?.length;
+
+  const types = new Map<string, number>();
+  (nodes.data ?? []).forEach((n) => types.set(n.type, (types.get(n.type) ?? 0) + 1));
 
   return (
     <div className="p-6 space-y-6">
-      <header>
+      <header className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Ontology</h1>
-        <p className="text-sm text-[--color-fg-muted]">Shared memory graph — facts agents have written.</p>
+        <p className="text-sm text-[--color-fg-muted]">
+          Shared memory graph — facts agents have written. Each node is a concept,
+          entity, or event; edges carry the predicate that connects them.
+        </p>
       </header>
 
-      {isEmpty && (
+      {isEmpty ? (
         <EmptyState
           title="The graph is empty"
-          body="Agents will populate this as they learn. You can also seed it manually via the API."
+          body="Agents will populate this as they learn. You can also seed it manually with POST /api/ontology/triples."
           ctaLabel="See API"
-          ctaHref="/api/docs"
+          ctaHref="http://localhost:8000/docs"
         />
-      )}
-
-      {!isEmpty && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[--color-fg-muted] mb-2">
-              Nodes ({nodes.data?.length ?? 0})
-            </h2>
-            <div className="space-y-1">
-              {nodes.data?.slice(0, 20).map((n) => (
-                <div key={n.id} className="card text-sm">
-                  <span className="badge badge-idle mr-2">{n.type}</span>
-                  {n.label}
-                </div>
-              ))}
-            </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-3 text-xs text-[--color-fg-muted]">
+            <span>{nodes.data?.length ?? 0} nodes</span>
+            <span>·</span>
+            <span>{edges.data?.length ?? 0} edges</span>
+            {Array.from(types.entries()).map(([t, n]) => (
+              <span key={t}>
+                · {n} {t}
+                {n === 1 ? "" : "s"}
+              </span>
+            ))}
           </div>
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-[--color-fg-muted] mb-2">
-              Edges ({edges.data?.length ?? 0})
-            </h2>
-            <div className="space-y-1">
-              {edges.data?.slice(0, 20).map((e) => (
-                <div key={e.id} className="card text-sm font-mono">
-                  {e.src} → <span className="text-[--color-accent]">{e.predicate}</span> → {e.dst}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+          <OntologyGraph nodes={nodes.data ?? []} edges={edges.data ?? []} />
+        </>
       )}
     </div>
   );

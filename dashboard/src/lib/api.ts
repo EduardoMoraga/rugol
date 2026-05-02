@@ -23,6 +23,13 @@ export interface RunSummary {
   error_message?: string | null;
 }
 
+export interface RunDetail extends RunSummary {
+  agent_id: number;
+  prompt: string;
+  session_id?: string | null;
+  final_text?: string | null;
+}
+
 export interface Schedule {
   id: number;
   agent_id: number;
@@ -64,12 +71,18 @@ export const fetchAgents = () => get<Agent[]>("/api/agents");
 export const fetchAgent = (id: number) => get<Agent>(`/api/agents/${id}`);
 export const fetchAgentRuns = (id: number) => get<RunSummary[]>(`/api/agents/${id}/runs`);
 export const fetchRecentRuns = () => get<RunSummary[]>("/api/runs?limit=20");
+export const fetchRun = (id: number) => get<RunDetail>(`/api/runs/${id}`);
+export const cancelRun = (id: number) => post<{ cancelled: boolean }>(`/api/runs/${id}/cancel`);
 export const runAgentNow = (id: number, prompt: string) =>
   post<{ run_id: number; status: string }>(`/api/agents/${id}/run`, { prompt });
 
 export const fetchSchedules = () => get<Schedule[]>("/api/schedules");
-export const createSchedule = (agent_id: number, cron_expr: string, prompt: string) =>
-  post<Schedule>("/api/schedules", { agent_id, cron_expr, prompt });
+export const createSchedule = (agent_id: number, cron_expr: string, prompt: string, enabled = true) =>
+  post<Schedule>("/api/schedules", { agent_id, cron_expr, prompt, enabled });
+export const deleteSchedule = async (id: number) => {
+  const r = await fetch(`/api/schedules/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+};
 
 export const fetchOntologyNodes = () => get<OntologyNode[]>("/api/ontology/nodes");
 export const fetchOntologyEdges = () => get<OntologyEdge[]>("/api/ontology/edges");

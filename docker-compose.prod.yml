@@ -1,0 +1,42 @@
+# Production overlay — adds Postgres + Redis. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: rogologo-db
+    environment:
+      POSTGRES_USER: rogologo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rogologo}
+      POSTGRES_DB: rogologo
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rogologo"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: rogologo-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  core:
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://rogologo:${POSTGRES_PASSWORD:-rogologo}@db:5432/rogologo
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  db_data:

@@ -1,0 +1,27 @@
+[project]
+name = "rogologo"
+version = "0.1.0"
+description = "Open-source operations center for Claude Code agents."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Eduardo Moraga" }]
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "ASYNC", "UP", "N"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+exclude = ["tests/", "scripts/"]

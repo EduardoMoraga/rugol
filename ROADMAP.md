@@ -1,0 +1,121 @@
+# Rogologo — Roadmap
+
+> Each sprint is two weeks. Goal: ship a public beta in 8 weeks.
+> Track issues with the matching label on GitHub.
+
+## Sprint 0 — Bootstrap (DONE)
+
+- [x] Project scaffold, agents created, docs written, decisions captured
+- [x] Repo layout, license, gitignore
+- [x] Architecture and ADRs published
+- [x] CLAUDE.md guides every future agent invocation
+
+## Sprint 1 — Backend MVP (week 1-2)
+
+**Goal:** A user can run `python -m core.main`, hit `/api/agents`, and see a
+list of `.md` files registered. They can `POST /api/runs` to fire an agent and
+stream its output via SSE.
+
+**Tickets:**
+- `feat(core): FastAPI app skeleton with health, agents, runs, schedules, sse`
+- `feat(core): SQLite + SQLAlchemy async + alembic migrations`
+- `feat(core): filesystem registry that auto-loads agents/*.md and skills/*.md`
+- `feat(core): RuntimeOrchestrator with semaphore + bus + claude-agent-sdk runner`
+- `feat(core): APScheduler integration with cron + one-shot triggers`
+- `feat(core): Telegram adapter ported from eduagent-gateway`
+- `feat(core): Slack adapter (Bolt for Python, socket mode)`
+- `test(core): pytest fixtures for an in-process FastAPI client`
+
+**Definition of done:** running `pytest` passes; running `uvicorn core.main:app`
+shows a healthy app with a sample agent loaded; sending a Telegram message
+triggers a real Claude run and replies.
+
+## Sprint 2 — Dashboard MVP (week 3-4)
+
+**Goal:** A user opens `http://localhost:3000` and sees their agents as cards
+with live status. Clicking one opens a detail panel with run history, schedules,
+and a "Run now" button. The ant-farm renders all agents as sprites.
+
+**Tickets:**
+- `feat(dashboard): Next.js 15 App Router + Tailwind v4 + shadcn baseline`
+- `feat(dashboard): /api proxy + SSE hook (useStream)`
+- `feat(dashboard): Agents list page with cards, status badges, search`
+- `feat(dashboard): Agent detail panel with tabs (overview, runs, schedules, memory)`
+- `feat(dashboard): Schedules CRUD UI with cron picker`
+- `feat(dashboard): Run history timeline with cost/tokens columns`
+- `feat(dashboard): Ant-farm canvas with react-pixi (hex grid + sprites)`
+- `feat(dashboard): EN/ES i18n with next-intl`
+- `feat(dashboard): Empty states for every list (zero agents, zero runs, etc.)`
+
+**Definition of done:** Lighthouse mobile > 90; ant-farm runs at 60 fps with
+30 agents; all strings translated.
+
+## Sprint 3 — Distribution (week 5-6)
+
+**Goal:** A non-developer on a clean Windows 11 box can install Rogologo and
+have a working dashboard in under 10 minutes.
+
+**Tickets:**
+- `feat(installer): Windows .bat that calls a PowerShell wizard`
+- `feat(installer): preflight (Docker Desktop, Node 20, Claude Code CLI)`
+- `feat(installer): interactive token capture with masked input`
+- `feat(installer): claude /login passthrough`
+- `feat(installer): docker compose up + open browser`
+- `feat(devops): docker-compose.yml with profiles (default + prod)`
+- `feat(devops): GitHub Actions release workflow (build images, attach assets)`
+- `feat(devops): docker-compose health checks for every service`
+- `docs: quickstart with screenshots`
+
+**Definition of done:** ships v0.1.0 to GitHub Releases; the install video
+is < 90 seconds end-to-end.
+
+## Sprint 4 — Differentiators (week 7-8)
+
+**Goal:** The features no other open project has — ant-farm polish, ontology,
+self-improving, teams in Slack — are demoable and stable.
+
+**Tickets:**
+- `feat(core): ontology triple store + MemoryWrite tool exposed to agents`
+- `feat(dashboard): ontology graph viewer (react-flow)`
+- `feat(core): self-improving loop with reflection prompt + diff queue`
+- `feat(dashboard): improvement review UI (approve/reject diff)`
+- `feat(core): teams — multiple agents bound to one Slack channel`
+- `feat(core): @mention routing + agent-to-agent handoff`
+- `feat(dashboard): chat replay viewer (rerun a session)`
+- `polish: ant-farm sprites, sound effects toggle, dark/light theme`
+
+**Definition of done:** demo video shows a Slack channel where three agents
+collaborate, ontology graph grows during the demo, and one agent's diff is
+approved live.
+
+## Sprint 5 — Public Beta (week 9-10)
+
+**Goal:** Make it real-world ready and invite the world.
+
+- `chore: hardening (rate limits, error budgets, log redaction)`
+- `chore: typed Python (mypy strict on core/)`
+- `feat: import wizard for existing .claude/agents/ folders elsewhere on disk`
+- `feat: telemetry (opt-in) for usage stats`
+- `docs: contribution guide, code of conduct, security policy`
+- `marketing: launch on Show HN, r/LocalLLaMA, X, LinkedIn`
+- `marketing: 60-second product video`
+- `marketing: write to Anthropic devrel`
+
+## Beyond v1 (backlog)
+
+- Linux & macOS installers
+- Mobile PWA wrapper
+- Multi-LLM (OpenAI / local Ollama) via pluggable runners
+- RBAC and multi-user
+- Hosted Cloud SaaS edition
+- Marketplace for community-published agents
+
+## Success metrics
+
+| Metric | Target |
+|--------|--------|
+| GitHub stars at launch + 30 days | ≥ 500 |
+| Install-to-first-run time | ≤ 10 min |
+| Crash-free sessions | ≥ 99% |
+| Active installs reporting telemetry | ≥ 100 in 60 days |
+| Anthropic devrel response | "Let's chat" 🤝 |

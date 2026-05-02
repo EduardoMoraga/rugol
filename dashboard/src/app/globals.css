@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-bg-elev: #111;
+  --color-border: #262626;
+  --color-fg: #fafafa;
+  --color-fg-muted: #a1a1aa;
+  --color-accent: #84cc16;
+  --color-warn: #f59e0b;
+  --color-error: #ef4444;
+  --color-idle: #71717a;
+  --font-sans: "Geist Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html, body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-accent);
+  color: var(--color-bg);
+}
+
+@layer components {
+  .card {
+    @apply bg-[--color-bg-elev] border border-[--color-border] rounded-lg p-4;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium;
+  }
+  .badge-running { @apply bg-[--color-accent]/15 text-[--color-accent]; }
+  .badge-error   { @apply bg-[--color-error]/15  text-[--color-error]; }
+  .badge-warn    { @apply bg-[--color-warn]/15   text-[--color-warn]; }
+  .badge-idle    { @apply bg-[--color-idle]/15   text-[--color-idle]; }
+}

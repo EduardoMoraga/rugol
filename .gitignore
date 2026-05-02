@@ -1,0 +1,73 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+.pnpm-store/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Claude Code session state (per-developer, not shared)
+.claude/
+
+# Logs & runtime
+logs/
+*.log
+sessions/
+attachments/
+*.lock
+!package-lock.json
+!pnpm-lock.yaml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/
+db_data/
+
+# Docker
+.docker/
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+
+# Build artifacts for the installer
+installer/dist/
+installer/build/
+*.exe
+!installer/*.exe.placeholder

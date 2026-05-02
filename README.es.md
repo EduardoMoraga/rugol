@@ -92,10 +92,34 @@ docs/        Arquitectura, ADRs, screenshots
 
 Ver [ARCHITECTURE.md](ARCHITECTURE.md) para el deep-dive.
 
+## Lo que ya funciona (v0.1.0-alpha)
+
+Verificado end-to-end en Windows 11 + Python 3.12 + Node 20:
+
+- ✓ Tirás un `.md` en `agents-templates/`, aparece en el dashboard en 5
+  segundos (watchdog con debounce).
+- ✓ Hacés clic en **Run** sobre cualquier agente, escribís un prompt y te
+  redirige a `/runs/[id]` que streamea el output token a token, muestra
+  las tool calls a medida que ocurren y persiste el texto final + costo
+  en tokens + session id en SQLite.
+- ✓ Creás un schedule recurrente con expresión cron y prompt; el job
+  sobrevive al restart (jobstore SQLite de APScheduler).
+- ✓ Navegás la **ontología** como un grafo react-flow interactivo con
+  nodos tipados (concept / entity / event) y aristas con label predicado.
+- ✓ Revisás propuestas de **auto-mejora** en una página con tabs y un
+  visor de diff con colores; cada cambio requiere aprobación explícita.
+- ✓ El `claude` CLI bundleado se invoca vía `claude-agent-sdk` 0.1.x
+  usando tu suscripción Pro/Max, sin cargos de API.
+
+Los adapters Telegram y Slack compilan y arrancan; se auto-deshabilitan si
+no hay tokens. El instalador Windows (`install.bat` + `wizard.ps1`) está
+commiteado pero todavía no se hizo dry-run en una PC limpia — es Sprint 3.
+
 ## Estado
 
-**Alpha.** La plomería funciona. El producto se está puliendo. Dale star al
-repo para seguir el camino a v1.0 ([ROADMAP.md](ROADMAP.md)).
+**Alpha.** La plomería funciona y el dashboard es usable. El producto se
+está puliendo. Dale star al repo para seguir el camino a v1.0
+([ROADMAP.md](ROADMAP.md)).
 
 ## Construido sobre
 

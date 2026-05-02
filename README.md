@@ -92,10 +92,34 @@ docs/        Architecture, ADRs, screenshots
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the deep-dive.
 
+## What works today (v0.1.0-alpha)
+
+Verified end-to-end on Windows 11 + Python 3.12 + Node 20:
+
+- ✓ Drop a `.md` into `agents-templates/`, it appears in the dashboard within
+  5 seconds (debounced watchdog).
+- ✓ Click **Run** on any agent, type a prompt, get redirected to a live
+  `/runs/[id]` page that streams the assistant's output token-by-token,
+  shows tool calls as they happen, and persists the final text + token cost
+  + session id to SQLite.
+- ✓ Create a recurring schedule with a cron expression and a prompt; the
+  job survives restart (APScheduler SQLite jobstore).
+- ✓ Browse the **ontology** as an interactive react-flow graph with typed
+  nodes (concept / entity / event) and labelled predicate edges.
+- ✓ Review **self-improvement** proposals on a tabbed page with a
+  syntax-coloured diff viewer; every change requires explicit approval.
+- ✓ Bundled `claude` CLI is invoked via `claude-agent-sdk` 0.1.x using your
+  Pro/Max subscription, no API charges.
+
+Telegram and Slack adapters compile and start; they auto-disable until you
+provide tokens. The Windows installer (`install.bat` + `wizard.ps1`) is
+checked in but has not been dry-run on a clean PC yet — that is Sprint 3.
+
 ## Status
 
-**Alpha.** The plumbing works. The product is being polished. Star this repo
-to follow the road to v1.0 ([ROADMAP.md](ROADMAP.md)).
+**Alpha.** The plumbing works and the dashboard is usable. The product is
+being polished. Star this repo to follow the road to v1.0
+([ROADMAP.md](ROADMAP.md)).
 
 ## Built on the shoulders of
 

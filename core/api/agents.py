@@ -40,6 +40,7 @@ class AgentDTO(BaseModel):
     project_color: str | None = None
     project_icon: str | None = None
     tools: list[str] | None = None  # Capa 5; None/[] → preset
+    mcp_servers: dict | None = None  # Capa 8; per-agent MCP server configs
 
 
 class RunNowBody(BaseModel):
@@ -65,9 +66,11 @@ class AgentSpec(BaseModel):
     body: str
     project_slug: str | None = None        # ADR-005
     tools: list[str] | None = None         # Capa 5
+    mcp_servers: dict | None = None        # Capa 8
 
     def to_markdown(self) -> str:
         # Build deterministic, valid YAML frontmatter.
+        import json
         esc = lambda s: s.replace("\\", "\\\\").replace('"', '\\"')
         lines = ["---", f"name: {self.name}", f"model: {self.model}"]
         if self.project_slug:
@@ -76,6 +79,10 @@ class AgentSpec(BaseModel):
             tool_csv = ", ".join(t.strip() for t in self.tools if t.strip())
             if tool_csv:
                 lines.append(f"tools: [{tool_csv}]")
+        if self.mcp_servers:
+            # Serialize MCP servers as a flow JSON dict — YAML accepts JSON
+            # as a subset, the parser round-trips correctly through both.
+            lines.append(f"mcp_servers: {json.dumps(self.mcp_servers, ensure_ascii=False)}")
         lines.append(f'description: "{esc(self.description.strip())}"')
         lines.append("---")
         frontmatter = "\n".join(lines) + "\n\n"
@@ -112,6 +119,7 @@ def _to_dto(a: Agent, project: Project | None) -> AgentDTO:
         project_color=project.color if project else None,
         project_icon=project.icon if project else None,
         tools=list(a.tools) if a.tools else None,
+        mcp_servers=dict(a.mcp_servers) if a.mcp_servers else None,
     )
 
 
@@ -225,6 +233,7 @@ async def get_agent_source(agent_id: int) -> dict:
             "project_slug": p.slug if p else None,
             "project_name": p.name if p else None,
             "tools": list(a.tools) if a.tools else None,
+            "mcp_servers": dict(a.mcp_servers) if a.mcp_servers else None,
         }
 
 
@@ -274,6 +283,7 @@ async def move_agent(agent_id: int, body: dict) -> AgentDTO:
             body=a.body,
             project_slug=target_slug,
             tools=list(a.tools) if a.tools else None,
+            mcp_servers=dict(a.mcp_servers) if a.mcp_servers else None,
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)

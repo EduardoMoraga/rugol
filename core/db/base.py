@@ -49,6 +49,8 @@ async def init_db() -> None:
             ("agents", "tools_json", "TEXT"),
             # Capa 3: per-project living list of lessons / biases (JSON array).
             ("projects", "lessons_json", "TEXT"),
+            # Capa 8: per-agent MCP servers (JSON dict keyed by server name).
+            ("agents", "mcp_servers_json", "TEXT"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

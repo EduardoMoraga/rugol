@@ -65,6 +65,19 @@ export interface ProjectRun {
   prompt: string;
 }
 
+export interface McpStdioServer {
+  type?: "stdio";
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+export interface McpHttpServer {
+  type: "http" | "sse";
+  url: string;
+  headers?: Record<string, string>;
+}
+export type McpServer = McpStdioServer | McpHttpServer;
+
 export interface Agent {
   id: number;
   name: string;
@@ -78,6 +91,7 @@ export interface Agent {
   project_color: string | null;
   project_icon: string | null;
   tools: string[] | null;
+  mcp_servers: Record<string, McpServer> | null;
 }
 
 export interface RunSummary {
@@ -263,6 +277,7 @@ export interface AgentSpec {
   body: string;
   project_slug?: string;
   tools?: string[] | null;
+  mcp_servers?: Record<string, McpServer> | null;
 }
 
 export interface AgentSource extends Omit<AgentSpec, "project_slug"> {

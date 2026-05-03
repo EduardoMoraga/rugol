@@ -18,6 +18,7 @@ class ParsedAgent:
     source_path: str
     project_slug: str | None = None  # ADR-005; None → loader assigns to Workspace
     tools: list[str] | None = None    # Capa 5; None or [] → full preset
+    mcp_servers: dict | None = None   # Capa 8; per-agent MCP server configs
 
 
 @dataclass
@@ -56,6 +57,8 @@ def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> Par
     elif isinstance(raw_tools, str) and raw_tools.strip():
         # Tolerate `tools: Read, Grep, Bash` written as a CSV string.
         tools = [t.strip() for t in raw_tools.split(",") if t.strip()]
+    raw_mcp = meta.get("mcp_servers")
+    mcp_servers: dict | None = raw_mcp if isinstance(raw_mcp, dict) and raw_mcp else None
     body = post.content
     return ParsedAgent(
         name=name,
@@ -66,6 +69,7 @@ def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> Par
         source_path=str(path.resolve()),
         project_slug=project_slug,
         tools=tools,
+        mcp_servers=mcp_servers,
     )
 
 

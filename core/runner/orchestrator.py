@@ -123,6 +123,7 @@ class RuntimeOrchestrator:
                 tools=agent.tools,
                 project_context=project_context,
                 agent_id=agent.id,
+                mcp_servers=agent.mcp_servers,
             )
         )
         self._active[run_id] = task
@@ -136,6 +137,7 @@ class RuntimeOrchestrator:
         tools: list[str] | None = None,
         project_context: str | None = None,
         agent_id: int | None = None,
+        mcp_servers: dict | None = None,
     ) -> None:
         async with self._sem:
             try:
@@ -148,6 +150,7 @@ class RuntimeOrchestrator:
                     run_id=run_id,
                     tools=tools,
                     project_context=project_context,
+                    mcp_servers=mcp_servers,
                 )
                 await self._mark_completed(run_id, result)
                 # Capa 4: spawn the devil's advocate run after the original

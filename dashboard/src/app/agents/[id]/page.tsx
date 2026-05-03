@@ -11,6 +11,7 @@ import {
   BookOpen,
   Network,
   ListTree,
+  Plug,
 } from "lucide-react";
 import {
   AVAILABLE_TOOLS,
@@ -118,6 +119,10 @@ export default function AgentDetail() {
             <Wrench size={12} />
             <span className="ml-1.5">Tools</span>
           </TabsTrigger>
+          <TabsTrigger value="mcp">
+            <Plug size={12} />
+            <span className="ml-1.5">MCP</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-5 space-y-6">
@@ -178,6 +183,10 @@ export default function AgentDetail() {
 
         <TabsContent value="tools" className="mt-5">
           <ToolsPane agentId={agentId} />
+        </TabsContent>
+
+        <TabsContent value="mcp" className="mt-5">
+          <McpPane agentId={agentId} />
         </TabsContent>
       </Tabs>
     </div>
@@ -258,6 +267,219 @@ function MemoryPane({ agentName }: { agentName: string }) {
     </div>
   );
 }
+
+function McpPane({ agentId }: { agentId: number }) {
+  const qc = useQueryClient();
+  const source = useQuery({
+    queryKey: ["agent-source", agentId],
+    queryFn: () => fetchAgentSource(agentId),
+  });
+  const initial = source.data?.mcp_servers ?? null;
+  const [draft, setDraft] = useState<Record<string, any>>({});
+  // Form state for adding a new server.
+  const [newName, setNewName] = useState("");
+  const [newCommand, setNewCommand] = useState("");
+  const [newArgs, setNewArgs] = useState("");
+  const [newEnv, setNewEnv] = useState("");
+
+  // Sync draft when the source loads/changes.
+  useEffect(() => {
+    setDraft(initial ? { ...initial } : {});
+  }, [JSON.stringify(initial)]);
+
+  const save = useMutation({
+    mutationFn: (mcp_servers: Record<string, any> | null) => {
+      if (!source.data) throw new Error("source not loaded");
+      const s = source.data as AgentSource;
+      return updateAgent(agentId, {
+        name: s.name,
+        model: s.model,
+        description: s.description,
+        body: s.body,
+        project_slug: s.project_slug ?? undefined,
+        tools: s.tools ?? undefined,
+        mcp_servers,
+      });
+    },
+    onSuccess: () => {
+      toast({ tone: "success", title: "MCP servers actualizados" });
+      qc.invalidateQueries({ queryKey: ["agent-source", agentId] });
+      qc.invalidateQueries({ queryKey: ["agent", agentId] });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+  });
+
+  if (source.isLoading) {
+    return <p className="text-sm text-[--color-fg-muted]">Cargando spec…</p>;
+  }
+
+  function addServer() {
+    if (!newName.trim() || !newCommand.trim()) return;
+    const argsList = newArgs.trim() ? newArgs.trim().split(/\s+/) : [];
+    const envObj: Record<string, string> = {};
+    newEnv.split("\n").forEach((line) => {
+      const [k, ...rest] = line.split("=");
+      if (k && rest.length > 0) envObj[k.trim()] = rest.join("=").trim();
+    });
+    setDraft({
+      ...draft,
+      [newName.trim()]: {
+        type: "stdio",
+        command: newCommand.trim(),
+        ...(argsList.length ? { args: argsList } : {}),
+        ...(Object.keys(envObj).length ? { env: envObj } : {}),
+      },
+    });
+    setNewName("");
+    setNewCommand("");
+    setNewArgs("");
+    setNewEnv("");
+  }
+
+  function removeServer(name: string) {
+    const next = { ...draft };
+    delete next[name];
+    setDraft(next);
+  }
+
+  function persist() {
+    save.mutate(Object.keys(draft).length === 0 ? null : draft);
+  }
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(initial ?? {});
+  const serverNames = Object.keys(draft);
+
+  return (
+    <Card className="space-y-4">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">MCP servers del agente</h2>
+          <p className="text-xs text-[--color-fg-muted] mt-1 max-w-xl">
+            Conectá MCP servers extra solo para este agente — Asana, Notion, Slack,
+            tu propio server local. Se pasan a Claude vía{" "}
+            <code className="font-mono">ClaudeAgentOptions.mcp_servers</code>. Los MCP
+            globales del workspace siguen disponibles igual.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={persist}
+          disabled={save.isPending || !dirty}
+        >
+          {save.isPending ? "Guardando…" : dirty ? "Guardar" : "Sin cambios"}
+        </Button>
+      </header>
+
+      {serverNames.length === 0 ? (
+        <Card className="text-center py-8">
+          <p className="text-sm text-[--color-fg-muted]">
+            Este agente todavía no tiene MCP servers extra. Agregá uno abajo.
+          </p>
+        </Card>
+      ) : (
+        <ul className="space-y-2">
+          {serverNames.map((name) => {
+            const cfg = draft[name];
+            return (
+              <li key={name} className="surface px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-sm font-mono text-[--color-fg]">{name}</p>
+                  <p className="text-[11px] text-[--color-fg-muted] font-mono break-all">
+                    {cfg?.type ?? "stdio"} · {cfg?.command || cfg?.url}
+                    {cfg?.args && ` ${cfg.args.join(" ")}`}
+                  </p>
+                  {cfg?.env && Object.keys(cfg.env).length > 0 && (
+                    <p className="text-[10px] text-[--color-fg-subtle] font-mono">
+                      env: {Object.keys(cfg.env).join(", ")}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => removeServer(name)}
+                  className="opacity-50 hover:opacity-100 hover:text-[--color-error] transition shrink-0"
+                  title="Quitar"
+                >
+                  ×
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <Card className="space-y-3 border border-dashed">
+        <p className="text-xs uppercase tracking-widest text-[--color-fg-muted] font-medium">
+          Agregar MCP server (stdio)
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-[11px] text-[--color-fg-muted]">Nombre</label>
+            <input
+              type="text"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="my-asana"
+              className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] text-[--color-fg-muted]">Comando</label>
+            <input
+              type="text"
+              value={newCommand}
+              onChange={(e) => setNewCommand(e.target.value)}
+              placeholder="npx"
+              className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] text-[--color-fg-muted]">
+            Args (separados por espacio)
+          </label>
+          <input
+            type="text"
+            value={newArgs}
+            onChange={(e) => setNewArgs(e.target.value)}
+            placeholder="-y @asana/mcp-server"
+            className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] text-[--color-fg-muted]">
+            Variables de entorno (KEY=value, una por línea)
+          </label>
+          <textarea
+            value={newEnv}
+            onChange={(e) => setNewEnv(e.target.value)}
+            rows={3}
+            placeholder="ASANA_TOKEN=xxxx&#10;ASANA_WORKSPACE=123"
+            spellCheck={false}
+            className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={addServer}
+            disabled={!newName.trim() || !newCommand.trim()}
+          >
+            Agregar (no guarda hasta tocar Guardar arriba)
+          </Button>
+        </div>
+        <p className="text-[10.5px] text-[--color-fg-subtle]">
+          Para SSE/HTTP, editá el JSON manualmente desde Edit spec por ahora.
+          Próxima iteración: tipo SSE/HTTP en este formulario.
+        </p>
+      </Card>
+    </Card>
+  );
+}
+
 
 function ProjectMover({ agent }: { agent: any }) {
   const qc = useQueryClient();

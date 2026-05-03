@@ -57,6 +57,7 @@ async def run_agent(
     run_id: int | None = None,
     tools: list[str] | None = None,
     project_context: str | None = None,
+    mcp_servers: dict | None = None,
 ) -> RunResult:
     """Invoke claude-agent-sdk and stream events while collecting the result.
 
@@ -66,6 +67,10 @@ async def run_agent(
     `project_context`: rendered mission + lessons appended to the system
     prompt so the agent is anchored to its project (Capa 3). Skipped when
     None (e.g. orphan agents).
+
+    `mcp_servers`: per-agent MCP server configurations (Capa 8). Dict keyed
+    by server name; values are McpServerConfig (stdio/sse/http). Passed
+    straight through to the SDK; ignored when None or empty.
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
@@ -89,6 +94,8 @@ async def run_agent(
     )
     if tools:
         options_kwargs["tools"] = list(tools)
+    if mcp_servers:
+        options_kwargs["mcp_servers"] = dict(mcp_servers)
     options = ClaudeAgentOptions(**options_kwargs)
 
     parts: list[str] = []

@@ -75,6 +75,10 @@ class Agent(Base):
     # claude_code preset (all built-in tools). When set, the runner passes
     # the list to ClaudeAgentOptions.tools and the model sees only those.
     tools: Mapped[list[str] | None] = mapped_column("tools_json", JSON, default=None)
+    # Capa 8: per-agent MCP servers. Stored as a dict keyed by server name,
+    # each value matching McpServerConfig shape (stdio | sse | http). None
+    # or empty → no per-agent MCP servers, just the SDK defaults.
+    mcp_servers: Mapped[dict | None] = mapped_column("mcp_servers_json", JSON, default=None)
     last_run_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

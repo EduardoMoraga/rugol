@@ -98,7 +98,42 @@ export function AntFarmCanvas() {
     let raf = 0;
     let alive = true;
 
-    const positions = hexLayout(merged.length, 92, size.w / 2, size.h / 2);
+    // Capa 9: cluster agents by project. Each cluster gets a center point
+    // on a hex grid; its agents orbit that center. Visually you see your
+    // departments as constellations, not a uniform soup of dots.
+    type Cluster = {
+      slug: string;
+      name: string;
+      color: string;
+      center: Pos;
+      agents: Agent[];
+    };
+    const grouped = new Map<string, Cluster>();
+    merged.forEach((a) => {
+      const slug = a.project_slug || "_orphan";
+      let c = grouped.get(slug);
+      if (!c) {
+        c = {
+          slug,
+          name: a.project_name || "Workspace",
+          color: a.project_color || "#7280a8",
+          center: { x: 0, y: 0 },
+          agents: [],
+        };
+        grouped.set(slug, c);
+      }
+      c.agents.push(a);
+    });
+    const clusters = Array.from(grouped.values());
+    const clusterCenters = hexLayout(
+      clusters.length,
+      Math.min(size.w, size.h) * 0.32,
+      size.w / 2,
+      size.h / 2,
+    );
+    clusters.forEach((c, i) => {
+      c.center = clusterCenters[i] ?? { x: size.w / 2, y: size.h / 2 };
+    });
 
     function draw(t: number) {
       if (!alive || !ctx) return;
@@ -120,43 +155,87 @@ export function AntFarmCanvas() {
         ctx.stroke();
       }
 
-      merged.forEach((agent, i) => {
-        const pos = positions[i];
-        if (!pos) return;
-        const color = STATE_COLOR[agent.status] ?? STATE_COLOR.idle;
-        const isLive = agent.status === "running";
-        const phase = (t / 600 + i * 0.7) % (Math.PI * 2);
-        const wobble = isLive ? 4 : 0;
-        const cx = pos.x + Math.cos(phase) * wobble;
-        const cy = pos.y + Math.sin(phase) * wobble;
-
-        // Halo
-        const haloR = isLive ? 26 + Math.sin(t / 350) * 4 : 18;
-        const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, haloR);
-        grad.addColorStop(0, hexA(color, 0.45));
-        grad.addColorStop(1, hexA(color, 0));
-        ctx.fillStyle = grad;
+      // Per-cluster: draw the project halo (color), the connector lines,
+      // and the cluster label first so dots stack on top.
+      clusters.forEach((c) => {
+        const orbitR = Math.max(38, 16 + c.agents.length * 10);
+        // Project tint background.
+        const haloGrad = ctx.createRadialGradient(c.center.x, c.center.y, 4, c.center.x, c.center.y, orbitR + 28);
+        haloGrad.addColorStop(0, hexA(c.color, 0.16));
+        haloGrad.addColorStop(1, hexA(c.color, 0));
+        ctx.fillStyle = haloGrad;
         ctx.beginPath();
-        ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+        ctx.arc(c.center.x, c.center.y, orbitR + 28, 0, Math.PI * 2);
         ctx.fill();
 
-        // Body
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-        ctx.fill();
+        // Connector lines — only between members of the same cluster, faint.
+        if (c.agents.length > 1) {
+          ctx.strokeStyle = hexA(c.color, 0.18);
+          ctx.lineWidth = 1;
+          c.agents.forEach((_, i) => {
+            const angleA = (i / c.agents.length) * Math.PI * 2 + (t / 8000);
+            const ax = c.center.x + Math.cos(angleA) * orbitR;
+            const ay = c.center.y + Math.sin(angleA) * orbitR;
+            const next = (i + 1) % c.agents.length;
+            const angleB = (next / c.agents.length) * Math.PI * 2 + (t / 8000);
+            const bx = c.center.x + Math.cos(angleB) * orbitR;
+            const by = c.center.y + Math.sin(angleB) * orbitR;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+          });
+        }
 
-        // Inner glow
-        ctx.fillStyle = "rgba(255,255,255,0.85)";
-        ctx.beginPath();
-        ctx.arc(cx - 1.5, cy - 1.5, 1.8, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Label
-        ctx.fillStyle = "rgba(244,244,245,0.65)";
-        ctx.font = "11px ui-monospace, 'Geist Mono', monospace";
+        // Cluster label.
+        ctx.fillStyle = hexA(c.color, 0.85);
+        ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(agent.name, cx, cy + 24);
+        ctx.fillText(c.name.toUpperCase(), c.center.x, c.center.y - orbitR - 14);
+        ctx.fillStyle = "rgba(244,244,245,0.4)";
+        ctx.font = "10px ui-monospace, 'Geist Mono', monospace";
+        ctx.fillText(`${c.agents.length} agente${c.agents.length === 1 ? "" : "s"}`, c.center.x, c.center.y - orbitR - 1);
+      });
+
+      // Now draw agents on top, orbiting their cluster center.
+      clusters.forEach((c) => {
+        const orbitR = Math.max(38, 16 + c.agents.length * 10);
+        c.agents.forEach((agent, i) => {
+          const stateColor = STATE_COLOR[agent.status] ?? STATE_COLOR.idle;
+          const isLive = agent.status === "running";
+          const angle = (i / c.agents.length) * Math.PI * 2 + (t / 8000);
+          const cx = c.center.x + Math.cos(angle) * orbitR;
+          const cy = c.center.y + Math.sin(angle) * orbitR;
+
+          // Project-tinted halo.
+          const haloR = isLive ? 22 + Math.sin(t / 350) * 4 : 14;
+          const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, haloR);
+          grad.addColorStop(0, hexA(c.color, 0.55));
+          grad.addColorStop(1, hexA(c.color, 0));
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Body — color reflects RUN STATUS (so live runs visibly pulse green
+          // even inside a project's tint).
+          ctx.fillStyle = stateColor;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Inner glow.
+          ctx.fillStyle = "rgba(255,255,255,0.85)";
+          ctx.beginPath();
+          ctx.arc(cx - 1.2, cy - 1.2, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Agent label.
+          ctx.fillStyle = "rgba(244,244,245,0.7)";
+          ctx.font = "10.5px ui-monospace, 'Geist Mono', monospace";
+          ctx.textAlign = "center";
+          ctx.fillText(agent.name, cx, cy + 20);
+        });
       });
 
       raf = requestAnimationFrame(draw);

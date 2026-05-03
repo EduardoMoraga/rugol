@@ -23,6 +23,7 @@ import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
 import { TemplateCatalog } from "@/components/projects/template-catalog";
+import { OnboardingHero } from "@/components/projects/onboarding-hero";
 
 const PALETTE = [
   "#7280a8", "#5b8def", "#7c5cff", "#c44d8c",
@@ -40,40 +41,54 @@ export default function ProjectsHome() {
   const totalAgents = (projects.data ?? []).reduce((s, p) => s + p.agent_count, 0);
   const totalRuns24h = (projects.data ?? []).reduce((s, p) => s + p.runs_24h, 0);
   const totalCost24h = (projects.data ?? []).reduce((s, p) => s + p.cost_24h, 0);
+  // Capa 10: show the emotional hero only when the user has nothing real
+  // yet — i.e. only the bare Workspace project (or no projects at all).
+  const isFirstUse =
+    !projects.isLoading &&
+    (!projects.data ||
+      projects.data.every((p) => p.slug === "workspace"));
 
   return (
     <div className="p-8 space-y-8 max-w-[1400px] mx-auto">
-      <PageHeader
-        title="Proyectos"
-        description="Cada proyecto es un departamento con misión propia y un equipo de agentes que trabaja en él. Vos sos el CEO; ellos ejecutan."
-        actions={
-          <div className="flex items-center gap-2">
-            <Link href="/architect">
-              <Button variant="primary">
-                <Sparkles size={14} /> Diseñar con Architect
-              </Button>
-            </Link>
-            <NewProjectDialog />
-          </div>
-        }
-      />
+      {isFirstUse && <OnboardingHero />}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Proyectos activos" value={totalProjects} />
-        <Stat label="Agentes en plantilla" value={totalAgents} />
-        <Stat label="Runs · 24h" value={totalRuns24h} />
-        <Stat label="Costo · 24h" value={`$${totalCost24h.toFixed(3)}`} />
-      </div>
+      {!isFirstUse && (
+        <PageHeader
+          title="Proyectos"
+          description="Cada proyecto es un departamento con misión propia y un equipo de agentes que trabaja en él. Vos sos el CEO; ellos ejecutan."
+          actions={
+            <div className="flex items-center gap-2">
+              <Link href="/architect">
+                <Button variant="primary">
+                  <Sparkles size={14} /> Diseñar con Architect
+                </Button>
+              </Link>
+              <NewProjectDialog />
+            </div>
+          }
+        />
+      )}
+
+      {!isFirstUse && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Stat label="Proyectos activos" value={totalProjects} />
+          <Stat label="Agentes en plantilla" value={totalAgents} />
+          <Stat label="Runs · 24h" value={totalRuns24h} />
+          <Stat label="Costo · 24h" value={`$${totalCost24h.toFixed(3)}`} />
+        </div>
+      )}
 
       {projects.isLoading && (
         <p className="text-sm text-[--color-fg-muted]">Cargando proyectos…</p>
       )}
 
-      <TemplateCatalog />
+      <div id="template-catalog">
+        <TemplateCatalog />
+      </div>
 
       {projects.data && projects.data.length === 0 && <EmptyState />}
 
-      {projects.data && projects.data.length > 0 && (
+      {projects.data && projects.data.length > 0 && !isFirstUse && (
         <h2 className="text-sm font-semibold tracking-tight pt-2">
           Tus proyectos
         </h2>

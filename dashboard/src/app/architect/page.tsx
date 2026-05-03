@@ -54,18 +54,22 @@ export default function ArchitectPage() {
   const [deployResult, setDeployResult] = useState<DeployResult | null>(null);
   const router = useRouter();
 
+  const [proposeError, setProposeError] = useState<string | null>(null);
   const proposeMut = useMutation({
     mutationFn: ({ i, c }: { i: string; c: string }) => proposeArchitecture(i, c),
+    onMutate: () => setProposeError(null),
     onSuccess: (p) => {
       setProposal(p);
       setStage("review");
     },
-    onError: (e: Error) =>
+    onError: (e: Error) => {
+      setProposeError(e.message);
       toast({
         tone: "error",
         title: "Architect failed",
         body: e.message.slice(0, 200),
-      }),
+      });
+    },
   });
 
   const deployMut = useMutation({
@@ -113,14 +117,30 @@ export default function ArchitectPage() {
       <Stepper stage={stage} />
 
       {stage === "idea" && (
-        <IdeaStage
-          idea={idea}
-          setIdea={setIdea}
-          constraints={constraints}
-          setConstraints={setConstraints}
-          onSubmit={submitIdea}
-          loading={proposeMut.isPending}
-        />
+        <>
+          <IdeaStage
+            idea={idea}
+            setIdea={setIdea}
+            constraints={constraints}
+            setConstraints={setConstraints}
+            onSubmit={submitIdea}
+            loading={proposeMut.isPending}
+          />
+          {proposeError && (
+            <div className="surface border-[--color-error]/40 p-5 space-y-2">
+              <h3 className="text-sm font-semibold text-[--color-error]">
+                Architect could not produce a usable proposal
+              </h3>
+              <pre className="text-xs whitespace-pre-wrap font-mono text-[--color-fg-muted] max-h-[420px] overflow-y-auto">
+                {proposeError}
+              </pre>
+              <p className="text-xs text-[--color-fg-muted]">
+                Tip: tighten the idea to one sentence about an outcome (what should the team produce?).
+                Long constraints are fine; the model usually fails on a vague goal, not on too much context.
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {stage === "review" && proposal && (

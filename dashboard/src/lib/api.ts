@@ -51,9 +51,28 @@ export interface Improvement {
   created_at: string;
 }
 
+async function readError(r: Response): Promise<string> {
+  // FastAPI returns {"detail": "..."} on validation errors. Surface that
+  // verbatim so the dashboard can show what actually went wrong instead of
+  // a meaningless "422 Unprocessable Entity".
+  try {
+    const j = await r.clone().json();
+    if (j && typeof j.detail === "string") return j.detail;
+    if (j && Array.isArray(j.detail)) return j.detail.map((d: any) => d.msg).join("; ");
+    if (j && typeof j === "object") return JSON.stringify(j);
+  } catch {
+    // not JSON — fall through
+  }
+  try {
+    const t = await r.text();
+    if (t) return t.slice(0, 1200);
+  } catch {}
+  return `${r.status} ${r.statusText}`;
+}
+
 async function get<T>(path: string): Promise<T> {
   const r = await fetch(path, { cache: "no-store" });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  if (!r.ok) throw new Error(await readError(r));
   return r.json();
 }
 
@@ -63,7 +82,7 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!r.ok) throw new Error(`${r.status} ${r.statusText}`);
+  if (!r.ok) throw new Error(await readError(r));
   return r.json();
 }
 

@@ -27,7 +27,11 @@ async def propose_endpoint(body: ProposeBody) -> dict:
     try:
         p = await propose(idea=body.idea, constraints=body.constraints)
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Architect could not return a usable proposal: {e}")
+        # ValueError → user-facing config / parsing problem. Echo the message
+        # in full so the dashboard can show it (it includes a model-output
+        # snippet on parse failures).
+        logger.warning("architect.propose unprocessable: %s", e)
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
         logger.exception("architect.propose failed")
         raise HTTPException(status_code=500, detail=str(e))

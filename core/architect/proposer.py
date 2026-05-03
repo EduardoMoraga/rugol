@@ -17,67 +17,44 @@ from core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-META_PROMPT = """You are the Rogologo Architect. A developer comes to you with a one-line idea
-and you propose the smallest coherent agentic infrastructure that makes the idea real
-on the Rogologo platform — a control plane for Claude Code agents that runs locally on
-a Windows PC.
+# Tight prompt — long inputs + long output + Sonnet = slow. The schema is
+# kept small; design rules are bullet-form. Bodies capped at 150-300 words.
+META_PROMPT = """You are the Rogologo Architect. Given a one-line outcome from a developer, design the smallest coherent agentic system that delivers it on Rogologo (a local Claude Code agent control plane).
 
-USER'S IDEA
------------
-{idea}
+IDEA: {idea}
 
-ADDITIONAL CONSTRAINTS
-----------------------
-{constraints}
+CONSTRAINTS: {constraints}
 
-WHAT YOU MUST RETURN
---------------------
-Reply with one fenced JSON block (```json ... ```) and nothing else outside the fence.
-The JSON must validate against this shape:
+Reply with EXACTLY ONE JSON object. No prose around it. May be bare or wrapped in a single ```json fence.
 
-{{
-  "summary": "2-3 sentence summary of what you propose and why this shape (not these words).",
-  "rationale": "1-2 paragraphs explaining the trade-offs you took: why this many agents, why these models, what you deliberately did NOT include.",
-  "agents": [
-    {{
-      "name": "lowercase-with-dashes-3-to-40-chars",
-      "model": "claude-opus-4-7" | "claude-sonnet-4-6" | "claude-haiku-4-5-20251001",
-      "description": "ONE sentence shown on a card — what this agent does, in plain language.",
-      "body": "FULL prompt body in markdown, 200-600 words. MUST include sections: '## Who you are', '## When you are invoked', '## What you do, step by step', '## Output format', '## Constraints'. Be specific. Reference concrete tools, formats, cadences."
-    }}
-  ],
-  "skills": [
-    {{
-      "name": "lowercase-with-dashes",
-      "description": "ONE sentence — when to use this skill.",
-      "body": "Markdown body that another agent can follow when invoked. 100-300 words."
-    }}
-  ],
-  "schedules": [
-    {{
-      "agent_name": "must match one of the agents above",
-      "cron_expr": "valid 5-field cron expression in UTC, e.g. '0 13 * * 1' for Mondays 1pm UTC",
-      "prompt": "What is sent to the agent every time the schedule fires."
-    }}
-  ],
-  "ontology_seeds": [
-    {{ "src": "Subject as a short label", "predicate": "verb-with-dashes", "dst": "Object label" }}
-  ]
-}}
+Rules for string values inside the JSON:
+- NO triple backticks. Use single backticks for inline code, or describe code blocks in prose.
+- Encode literal line breaks as \\n.
+- No trailing commas. Double-quote every key.
+- Inside example placeholders, use angle-brackets like <date>, never curly braces.
 
-DESIGN RULES
-------------
-1. **Right-size the team.** Most ideas need 1–3 agents. Five is the upper bound. Each agent must have a sharp, non-overlapping role. If you cannot articulate the role in one sentence, drop the agent.
-2. **Pick the right model.** Use claude-sonnet-4-6 by default. Reserve claude-opus-4-7 for genuinely strategic / multi-step reasoning work. Use claude-haiku-4-5-20251001 for routine triage / classification / formatting.
-3. **Skills only when reused.** Propose a skill only if (a) two or more agents would invoke it, OR (b) it represents a discrete reusable capability worth naming. Otherwise inline the instruction in the agent's body.
-4. **Schedules are optional.** Only propose a schedule when the cadence is obvious from the idea. Do not invent schedules to look thorough.
-5. **Ontology seeds are optional.** Useful when the idea has obvious entities/relationships (e.g. "weekly LinkedIn post" → "Eduardo writes-on LinkedIn"). Do not seed generic facts.
-6. **No emoji.** No filler. No "leverage" / "synergy" / "robust solution".
-7. **Voice in agent bodies.** Direct, second-person, imperative. Tell the agent what it is and what to do. Do not narrate.
-8. **Be honest about what won't work yet.** If a part of the idea cannot be done with current tools (e.g. needs an integration Rogologo does not have), call it out in the `rationale`.
+Schema (illustrative; replace every value, drop optional sections you don't use):
 
-Now design the system.
-"""
+  "summary": "2-3 sentences on what you propose and why this shape."
+  "rationale": "One paragraph: trade-offs taken, what you deliberately did NOT include, what cannot work yet."
+  "agents": array of objects with these fields:
+      "name": lowercase, dashes only, 3-40 chars
+      "model": one of "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"
+      "description": one sentence shown on the agent's card
+      "body": markdown 150-300 words. Include sections: ## Who you are, ## When you are invoked, ## What you do (numbered steps), ## Output format, ## Constraints. Direct, second-person, imperative. No emoji.
+  "skills": array of objects with "name", "description", "body" (100-200 words). Empty array if none.
+  "schedules": array of objects with "agent_name" (must match an agent), "cron_expr" (5-field cron in UTC), "prompt". Empty if none.
+  "ontology_seeds": array of objects with "src", "predicate", "dst". Empty if none.
+
+Design rules:
+- Team size: 1-3 agents typical, 5 max. Each agent has a sharp, non-overlapping role.
+- Models: Sonnet by default. Opus only for real strategic reasoning. Haiku for triage / classification / formatting.
+- Skills only when 2+ agents share the capability OR it is a discrete reusable thing worth naming.
+- Schedules and ontology_seeds are optional. Do not invent them to look thorough.
+- Be honest in `rationale` about what cannot work yet (missing integrations, etc).
+- Keep agent bodies concise. Quality over length.
+
+Return the JSON now. No greeting, no commentary, just the object."""
 
 
 @dataclass
@@ -147,27 +124,93 @@ def _pick(d: dict, cls) -> dict:
     return {k: v for k, v in d.items() if k in fields}
 
 
-_JSON_FENCE = re.compile(r"```(?:json)?\s*([\[{].*?[\]}])\s*```", re.DOTALL)
-
-
 def _extract_json(text: str) -> dict:
-    """Pull a JSON object out of the model's reply. Tolerant to fences and wrapping prose."""
+    """Pull a JSON object out of the model's reply.
+
+    Tolerant to:
+    - Fenced ```json {...} ``` blocks with backticks INSIDE the JSON strings.
+    - Fences with no `json` language hint.
+    - Naked JSON with leading or trailing prose.
+    - Embedded triple backticks inside string literals.
+    """
     if not text or not text.strip():
-        raise ValueError("empty response from architect")
-    m = _JSON_FENCE.search(text)
-    candidate = m.group(1) if m else text
-    # If the model omitted the fence, try to find the outermost { ... }.
-    if not m:
-        start = candidate.find("{")
-        end = candidate.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            raise ValueError("no JSON object found in architect response")
-        candidate = candidate[start : end + 1]
-    return json.loads(candidate)
+        raise ValueError("empty response from architect (no text generated)")
+
+    stripped = text.strip()
+    fence_inner = _strip_outer_fence(stripped)
+    haystack = fence_inner if fence_inner and "{" in fence_inner else stripped
+
+    obj_start = haystack.find("{")
+    if obj_start == -1:
+        raise ValueError("no '{' found in architect response")
+    obj_end = _matching_brace(haystack, obj_start)
+    if obj_end == -1:
+        obj_end = haystack.rfind("}")
+        if obj_end == -1 or obj_end <= obj_start:
+            raise ValueError("no balanced JSON object found in architect response")
+
+    candidate = haystack[obj_start : obj_end + 1]
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as e:
+        salvaged = re.sub(r",(\s*[}\]])", r"\1", candidate)
+        try:
+            return json.loads(salvaged)
+        except json.JSONDecodeError:
+            raise ValueError(
+                f"architect produced a malformed JSON object near char {e.pos}: {e.msg}"
+            ) from e
+
+
+def _strip_outer_fence(text: str) -> str:
+    if not text.startswith("```"):
+        return ""
+    first_nl = text.find("\n")
+    if first_nl == -1:
+        return ""
+    inner_start = first_nl + 1
+    last_fence = text.rfind("```")
+    if last_fence <= inner_start:
+        return ""
+    return text[inner_start:last_fence].strip()
+
+
+def _matching_brace(s: str, start: int) -> int:
+    """Return the index of the '}' that closes the '{' at `start`, ignoring
+    braces inside JSON string literals. -1 if not found.
+    """
+    depth = 0
+    i = start
+    in_str = False
+    escape = False
+    while i < len(s):
+        ch = s[i]
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+        else:
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return i
+        i += 1
+    return -1
+
+
+PROPOSE_TIMEOUT_SECONDS = 180
 
 
 async def propose(*, idea: str, constraints: str = "", workspace_dir=None) -> Proposal:
     """One-shot call to claude-agent-sdk; parses JSON and returns a Proposal."""
+    import asyncio
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
     except ImportError as e:
@@ -191,34 +234,60 @@ async def propose(*, idea: str, constraints: str = "", workspace_dir=None) -> Pr
         system_prompt={
             "type": "preset",
             "preset": "claude_code",
-            "append": "You are operating as the Rogologo Architect — design output only, no tool use, no file writes.",
+            "append": "You are the Rogologo Architect. Output only the JSON object specified. Do not call tools, do not write files.",
         },
-        setting_sources=[],
+        # Without these the bundled CLI cannot resolve subscription credentials
+        # and the subprocess hangs silently.
+        setting_sources=["user", "project", "local"],
         env=env,
     )
 
-    full_prompt = META_PROMPT.format(
-        idea=idea.strip() or "(no idea provided)",
-        constraints=constraints.strip() or "(none)",
+    full_prompt = (
+        META_PROMPT
+        .replace("{idea}", idea.strip() or "(no idea provided)")
+        .replace("{constraints}", constraints.strip() or "(none)")
     )
 
     parts: list[str] = []
-    async for message in query(prompt=full_prompt, options=options):
-        kind = type(message).__name__
-        if kind == "AssistantMessage":
-            for block in getattr(message, "content", []) or []:
-                btype = getattr(block, "type", None) or type(block).__name__.lower()
-                if btype in {"text", "textblock"}:
-                    parts.append(getattr(block, "text", "") or "")
-        elif kind == "ResultMessage":
-            result = getattr(message, "result", None)
-            if result and not parts:
-                parts.append(str(result))
+
+    async def _drain():
+        async for message in query(prompt=full_prompt, options=options):
+            kind = type(message).__name__
+            if kind == "AssistantMessage":
+                for block in getattr(message, "content", []) or []:
+                    btype = getattr(block, "type", None) or type(block).__name__.lower()
+                    if btype in {"text", "textblock"}:
+                        parts.append(getattr(block, "text", "") or "")
+            elif kind == "ResultMessage":
+                result = getattr(message, "result", None)
+                if result and not parts:
+                    parts.append(str(result))
+
+    try:
+        await asyncio.wait_for(_drain(), timeout=PROPOSE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise ValueError(
+            f"Architect did not finish within {PROPOSE_TIMEOUT_SECONDS}s. "
+            f"Tighten the idea or shorten the constraints — the model is taking too long. "
+            f"(Got {sum(len(p) for p in parts)} chars so far.)"
+        )
 
     raw = "".join(parts).strip()
-    data = _extract_json(raw)
+    if not raw:
+        raise ValueError(
+            "Architect returned no text. The Claude CLI may not be authenticated — "
+            "run `claude /login` once and retry."
+        )
+    try:
+        data = _extract_json(raw)
+    except ValueError as e:
+        snippet = raw[:800]
+        raise ValueError(f"{e}\n\n--- model said (first 800 chars) ---\n{snippet}") from e
     p = Proposal.from_dict(data)
     p.raw_response = raw
     if not p.agents:
-        raise ValueError("Architect returned a proposal with zero agents.")
+        raise ValueError(
+            "Architect returned a proposal with zero agents. Try restating the idea "
+            "with a clearer outcome."
+        )
     return p

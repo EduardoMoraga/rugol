@@ -154,6 +154,79 @@ export interface SettingsUpdate {
   default_model?: string;
 }
 
+// --- Skills ---
+export interface Skill {
+  id: number;
+  name: string;
+  description: string;
+  source_path: string;
+}
+export interface SkillSource extends Skill {
+  body: string;
+}
+export interface SkillSpec {
+  name: string;
+  description: string;
+  body: string;
+}
+export const fetchSkills = () => get<Skill[]>("/api/skills");
+export const fetchSkillSource = (id: number) => get<SkillSource>(`/api/skills/${id}`);
+export const createSkill = (spec: SkillSpec) => post<Skill>("/api/skills", spec);
+export const updateSkillSpec = async (id: number, spec: SkillSpec): Promise<Skill> => {
+  const r = await fetch(`/api/skills/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(spec),
+  });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return r.json();
+};
+
+// --- Architect ---
+export interface ProposalAgent {
+  name: string;
+  model: string;
+  description: string;
+  body: string;
+}
+export interface ProposalSkill {
+  name: string;
+  description: string;
+  body: string;
+}
+export interface ProposalSchedule {
+  agent_name: string;
+  cron_expr: string;
+  prompt: string;
+}
+export interface ProposalTriple {
+  src: string;
+  predicate: string;
+  dst: string;
+}
+export interface Proposal {
+  summary: string;
+  rationale: string;
+  agents: ProposalAgent[];
+  skills: ProposalSkill[];
+  schedules: ProposalSchedule[];
+  ontology_seeds: ProposalTriple[];
+}
+export interface DeployResult {
+  agents_created: string[];
+  agents_skipped: { name: string; reason: string }[];
+  skills_created: string[];
+  skills_skipped: { name: string; reason: string }[];
+  schedules_created: number[];
+  schedules_skipped: { agent_name: string; reason: string }[];
+  ontology_edges_created: number;
+}
+
+export const proposeArchitecture = (idea: string, constraints = "") =>
+  post<Proposal>("/api/architect/propose", { idea, constraints });
+export const deployProposal = (proposal: Proposal) =>
+  post<DeployResult>("/api/architect/deploy", { proposal });
+
 export const fetchSettings = () => get<PublicSettings>("/api/settings");
 export const fetchSettingsStatus = () => get<SettingsStatus>("/api/settings/status");
 export const updateSettings = (upd: SettingsUpdate) =>

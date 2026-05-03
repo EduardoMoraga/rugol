@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Cpu, DollarSign, Plus, Rocket, Settings, Zap } from "lucide-react";
+import { Plus, Rocket, Settings, Sparkles, Zap } from "lucide-react";
 import { fetchAgents, fetchHealth, fetchRecentRuns } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/card";
@@ -19,8 +19,11 @@ export default function OperationsPage() {
   const last24h = (runs.data ?? []).filter(
     (r) => Date.now() - new Date(r.started_at).getTime() < 86_400_000,
   );
-  const cost24h = last24h.reduce((s, r) => s + (r.cost_usd || 0), 0);
-  const tokens24h = last24h.reduce((s, r) => s + (r.input_tokens + r.output_tokens), 0);
+  const cost24h = last24h.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
+  const tokens24h = last24h.reduce(
+    (s, r) => s + (Number(r.input_tokens) || 0) + (Number(r.output_tokens) || 0),
+    0,
+  );
   const liveRuns = (runs.data ?? []).filter((r) => r.status === "running").slice(0, 5);
 
   return (
@@ -43,13 +46,18 @@ export default function OperationsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/agents/new">
+          <Link href="/architect">
             <Button variant="primary">
+              <Sparkles size={14} /> Design with Architect
+            </Button>
+          </Link>
+          <Link href="/agents/new">
+            <Button variant="secondary">
               <Plus size={14} /> New agent
             </Button>
           </Link>
           <Link href="/settings">
-            <Button variant="secondary">
+            <Button variant="ghost">
               <Settings size={14} /> Settings
             </Button>
           </Link>
@@ -138,13 +146,14 @@ export default function OperationsPage() {
               ))}
               {(agents.data ?? []).length === 0 && (
                 <Link
-                  href="/agents/new"
-                  className="surface surface-hover px-5 py-6 col-span-full text-center group"
+                  href="/architect"
+                  className="surface surface-hover px-5 py-6 col-span-full text-center group border-[--color-accent]/30 bg-[--color-accent-soft]/40"
                 >
-                  <Rocket size={22} className="mx-auto text-[--color-accent-strong]" />
-                  <p className="text-sm font-medium mt-2">Create your first agent</p>
-                  <p className="text-xs text-[--color-fg-muted] mt-1">
-                    Three minutes from idea to running.
+                  <Sparkles size={22} className="mx-auto text-[--color-accent-strong]" />
+                  <p className="text-sm font-medium mt-2">Start with Architect</p>
+                  <p className="text-xs text-[--color-fg-muted] mt-1 max-w-md mx-auto">
+                    Describe your idea in one line — Architect proposes the agents, skills,
+                    schedules, and ontology seeds you'd otherwise sketch on a napkin.
                   </p>
                 </Link>
               )}

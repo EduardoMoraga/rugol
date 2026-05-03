@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Sparkles } from "lucide-react";
+import { Plus, Search, Sparkles, Wand2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAgents, type Agent } from "@/lib/api";
 import { AgentCard } from "@/components/dashboard/agent-card";
@@ -41,11 +41,18 @@ export default function AgentsPage() {
         title="Agents"
         description={`${total} registered · ${filtered.length} shown`}
         actions={
-          <Link href="/agents/new">
-            <Button variant="primary">
-              <Plus size={14} /> New agent
-            </Button>
-          </Link>
+          <>
+            <Link href="/architect">
+              <Button variant="primary">
+                <Wand2 size={13} /> Design a team
+              </Button>
+            </Link>
+            <Link href="/agents/new">
+              <Button variant="secondary">
+                <Plus size={13} /> Add one
+              </Button>
+            </Link>
+          </>
         }
       />
 
@@ -82,18 +89,24 @@ export default function AgentsPage() {
           <div>
             <h2 className="text-lg font-semibold">No agents yet</h2>
             <p className="text-sm text-[--color-fg-muted] mt-1 max-w-md mx-auto">
-              Create one from the dashboard, drop a markdown file into your agents folder,
-              or scaffold one with Moragent — they all converge here.
+              The fastest path: describe your idea, let Architect propose a team, review,
+              deploy. Or drop a markdown file into your agents folder if you already know
+              what you want.
             </p>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Link href="/agents/new">
+            <Link href="/architect">
               <Button variant="primary">
-                <Plus size={13} /> New agent
+                <Wand2 size={13} /> Start with Architect
+              </Button>
+            </Link>
+            <Link href="/agents/new">
+              <Button variant="secondary">
+                <Plus size={13} /> Add one manually
               </Button>
             </Link>
             <Link href="/settings">
-              <Button variant="secondary">Configure agents folder</Button>
+              <Button variant="ghost">Configure agents folder</Button>
             </Link>
           </div>
         </div>

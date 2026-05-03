@@ -25,7 +25,10 @@ async def list_recent(limit: int = 100) -> list[dict]:
                 "status": r.status,
                 "started_at": r.started_at.isoformat(),
                 "ended_at": r.ended_at.isoformat() if r.ended_at else None,
-                "cost_usd": r.cost_usd,
+                "cost_usd": r.cost_usd or 0.0,
+                "input_tokens": r.input_tokens or 0,
+                "output_tokens": r.output_tokens or 0,
+                "prompt": (r.prompt or "")[:200],
             }
             for r in rows
         ]

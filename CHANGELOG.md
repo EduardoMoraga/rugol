@@ -5,6 +5,59 @@ All notable changes to Rogologo are documented here, following
 
 ## [Unreleased]
 
+### Sprint 4 — Architect (the OpenClaw gap closer, 2026-05-02)
+
+This is the answer to the question "why would I pick this over OpenClaw". The
+Architect turns a one-line idea into a complete, editable proposal — agents,
+skills, schedules, ontology seeds — and ships it to disk on approval. End to
+end inside the dashboard.
+
+**New: the Architect flow**
+- `/architect` — three-stage page (idea → review → done) where you describe
+  the outcome you want. A meta-prompt asks Claude Sonnet 4.6 to design the
+  smallest coherent stack that delivers it. The proposal returns as a JSON
+  payload that you review and edit *card by card* before deploying.
+- Every proposed agent, skill, schedule, and ontology triple is editable
+  inline. Add/remove agents, retitle skills, adjust cron expressions, drop
+  triples you do not want.
+- "Deploy" writes the markdown files into `AGENTS_DIR`/`SKILLS_DIR`, creates
+  the schedules in APScheduler, seeds the ontology — and shows a result card
+  with what was created / skipped (existing files are never overwritten).
+- Backend: `core/architect/proposer.py` (META_PROMPT + JSON parsing),
+  `core/architect/deployer.py` (file writes + scheduler/ontology integration),
+  `core/api/architect.py` (`POST /api/architect/propose` + `/deploy`).
+- Tested end-to-end with the LinkedIn idea — Architect returned a
+  honestly-scoped two-agent design (a haiku-based week-harvester and a
+  sonnet-based linkedin-drafter) with a candid rationale section and called
+  out what wouldn't work yet (no LinkedIn API).
+
+**Agent detail with real tabs**
+- `/agents/[id]` rebuilt with tabs: **Overview** (run-now + recent runs),
+  **Spec** (full prompt body, syntax-friendly read-only view),
+  **Memory** (shared ontology with provenance roadmap noted),
+  **Tools** (the inherited Claude Code toolkit, with whitelisting roadmap).
+
+**Skills as first-class**
+- `/skills` lists every registered skill with description and an "open spec"
+  dialog showing the full markdown.
+- Backend: `GET /api/skills`, `GET /api/skills/{id}`, `POST /api/skills`,
+  `PUT /api/skills/{id}`. The Architect already creates skills as part of a
+  deploy.
+
+**Bugs fixed**
+- Operations stat showed *Received NaN for the children attribute* because
+  `/api/runs` did not return `input_tokens`/`output_tokens`. Backend now
+  returns them; frontend has defensive `Number(x) || 0` coalescing.
+
+**Plumbing**
+- `next.config.ts` — `experimental.proxyTimeout = 240_000` so the dashboard
+  proxy survives the Architect's 15-40s LLM call.
+- Nav rail: Architect added as the primary CTA (accent-tinted), Skills slot
+  added.
+- Operations / agents pages: empty states and primary CTAs now point to the
+  Architect first, manual creation second.
+
+
 ### Sprint 3 — Real product (DONE, 2026-05-02)
 
 The "navigable scaffold" feedback was correct. This release fixes the bugs,

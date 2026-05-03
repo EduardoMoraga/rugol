@@ -11,12 +11,16 @@ import {
   GitBranch,
   Settings,
   ChevronRight,
+  Sparkles,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const items = [
   { href: "/", label: "Operations", icon: LayoutDashboard },
+  { href: "/architect", label: "Architect", icon: Sparkles, primary: true },
   { href: "/agents", label: "Agents", icon: Users },
+  { href: "/skills", label: "Skills", icon: Wrench },
   { href: "/schedules", label: "Schedules", icon: CalendarClock },
   { href: "/ant-farm", label: "Ant farm", icon: Hexagon },
   { href: "/ontology", label: "Ontology", icon: Network },
@@ -43,21 +47,27 @@ export function NavRail() {
       </Link>
 
       <div className="space-y-0.5 flex-1">
-        {items.map(({ href, label, icon: Icon }) => {
+        {items.map(({ href, label, icon: Icon, primary }) => {
           const active = href === "/" ? path === "/" : path.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
               className={cn(
-                "group flex items-center justify-between gap-2 px-3 py-2 rounded-md text-[13px] transition-all",
+                "group flex items-center justify-between gap-2 px-3 py-2 rounded-md text-[13px] transition-all border",
                 active
-                  ? "bg-[--color-bg-elev-2] text-[--color-fg] border border-[--color-border]"
-                  : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-[--color-bg-elev]/50 border border-transparent",
+                  ? "bg-[--color-bg-elev-2] text-[--color-fg] border-[--color-border]"
+                  : primary
+                    ? "border-[--color-accent]/30 bg-[--color-accent-soft] text-[--color-accent-strong] hover:bg-[--color-accent]/20"
+                    : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-[--color-bg-elev]/50 border-transparent",
               )}
             >
               <span className="flex items-center gap-3">
-                <Icon size={15} aria-hidden className={active ? "text-[--color-accent-strong]" : ""} />
+                <Icon
+                  size={15}
+                  aria-hidden
+                  className={active ? "text-[--color-accent-strong]" : primary ? "text-[--color-accent-strong]" : ""}
+                />
                 {label}
               </span>
               {active && <ChevronRight size={12} className="text-[--color-fg-muted]" />}

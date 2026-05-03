@@ -92,30 +92,47 @@ docs/        Architecture, ADRs, screenshots
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the deep-dive.
 
-## Pair it with Moragent
+## The Architect
 
-[Moragent](../../00-CORE/skills/moragent.md) is the Claude Code skill for
-**designing** rich agentic infrastructure — given an idea, it scaffolds the
-agent's prompt body, model, description, and memory seed.
+OpenClaw and similar gateways give you a great 1:1 chat with one agent. They
+do not design the team you actually need.
 
-Rogologo is the **operations layer** for what Moragent designs:
+Rogologo's `/architect` does. You type a one-line outcome ("draft three
+LinkedIn posts every Monday from what I shipped"), and a meta-prompted Claude
+returns a complete, editable proposal:
 
-```
-   Moragent  ─►  produces well-formed .md spec
-                              │
-                              ▼
-   Rogologo  ─►  registers · runs · schedules · monitors · iterates
-```
+- **The agents** (1–5, each with a sharp role, model choice, and 200–600 word
+  prompt body)
+- **The skills** they share (only when reuse justifies a separate file)
+- **The schedules** that drive the cadence (UTC cron expressions)
+- **The ontology seeds** that connect them
 
-In the **New agent** form there's a *Scaffold with Moragent* button that walks
-you through the handoff: run `/moragent nuevo proyecto <idea>` in your Claude
-Code session, paste the result into Rogologo's form, save. The two systems
-stay independently versioned but converge on the same `.md` file format.
+You review every piece in editable cards, drop the ones you do not want,
+tweak names and prompts, and click **Deploy**. Rogologo writes the markdown
+files, registers the schedules, seeds the ontology — all on disk, all
+inspectable. Nothing is overwritten silently.
 
-## What works today (v0.2.0-alpha)
+This is the difference. Rogologo is **the conversation that turns "I have
+an idea" into a running fleet of agents**, not a chat window.
+
+> Pairs naturally with [Moragent](../../00-CORE/skills/moragent.md), the
+> Claude Code skill for hand-designing agentic infrastructure inside a
+> Claude Code session. Use Architect when you want the design done for you;
+> use Moragent when you want to drive the design yourself. Both produce the
+> same `.md` format Rogologo runs.
+
+## What works today (v0.3.0-alpha)
 
 Verified end-to-end on Windows 11 + Python 3.12 + Node 20:
 
+- ✓ **Describe an idea, get a proposal**: `/architect` returns 1–5 agents,
+  skills, schedules, and ontology seeds in 15–40 seconds. Every piece is
+  editable inline before deploy.
+- ✓ **One-click deploy of the proposal**: writes the markdown files, creates
+  the schedules, seeds the ontology. Existing files never overwritten.
+- ✓ **Agent detail with tabs**: Overview / Spec / Memory / Tools — see who
+  the agent is, what it knows, and what it can use.
+- ✓ **Skills page** lists every reusable capability with full spec dialog.
 - ✓ **Create an agent from the dashboard** (no terminal): name, model,
   description, prompt body — Rogologo writes the `.md` into your agents
   folder and registers it.

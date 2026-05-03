@@ -24,11 +24,15 @@ export function AgentCard({ agent }: { agent: Agent }) {
 
       {agent.project_slug && (
         <div className="mb-3">
+          {/* asLink=false: AgentCard already wraps the whole tile in <Link>;
+              nesting another <a> here triggers React's "<a> inside <a>"
+              hydration error. */}
           <ProjectBadge
             slug={agent.project_slug}
             name={agent.project_name}
             color={agent.project_color}
             icon={agent.project_icon}
+            asLink={false}
           />
         </div>
       )}

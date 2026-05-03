@@ -194,8 +194,8 @@ export default function ProjectDetail() {
                   Este proyecto todavía no tiene agentes asignados.
                 </p>
                 <p className="text-xs text-[--color-fg-subtle] max-w-md mx-auto">
-                  Usá Architect para diseñar el equipo a partir de una idea, o creá uno
-                  manualmente y elegí este proyecto.
+                  Usa Architect para diseñar el equipo a partir de una idea, o crea uno
+                  manualmente y elige este proyecto.
                 </p>
               </Card>
             ) : (

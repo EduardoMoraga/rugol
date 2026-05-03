@@ -606,7 +606,7 @@ function ToolsPane({ agentId }: { agentId: number }) {
       {!isWhitelisted && (
         <div className="text-xs text-[--color-fg-muted] surface px-3 py-2 inline-flex items-center gap-2">
           <Wrench size={12} className="text-[--color-accent-strong]" />
-          Modo preset completo: tildá una tool abajo para activar el whitelist.
+          Modo preset completo: marca una tool abajo para activar el whitelist.
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

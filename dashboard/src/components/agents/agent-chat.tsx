@@ -371,8 +371,8 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSl
             rows={2}
             placeholder={
               liveTurn
-                ? "El agente está respondiendo… esperá que termine"
-                : `Pedile algo a ${agentName}… (Ctrl+Enter para enviar)`
+                ? "El agente está respondiendo… espera a que termine"
+                : `Pídele algo a ${agentName}… (Ctrl+Enter para enviar)`
             }
             disabled={!!liveTurn}
             className="resize-none"
@@ -383,7 +383,7 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSl
         </div>
         {lastSessionId ? (
           <p className="text-[10.5px] text-[--color-fg-subtle]">
-            Cada mensaje continúa la sesión — el agente recuerda. Reiniciá para empezar de cero.
+            Cada mensaje continúa la sesión — el agente recuerda. Reinicia para empezar de cero.
           </p>
         ) : (
           <p className="text-[10.5px] text-[--color-fg-subtle]">
@@ -400,10 +400,10 @@ function EmptyChat({ agentName }: { agentName: string }) {
     <div className="text-center text-sm text-[--color-fg-muted] py-12 space-y-2">
       <Bot size={28} className="mx-auto text-[--color-fg-subtle]" />
       <p>
-        Empezá la conversación con <span className="text-[--color-fg]">{agentName}</span>.
+        Empieza la conversación con <span className="text-[--color-fg]">{agentName}</span>.
       </p>
       <p className="text-[12px] text-[--color-fg-subtle] max-w-md mx-auto">
-        Cada turno se ejecuta como un run real — vas a ver tokens, costo y poder
+        Cada turno se ejecuta como un run real — verás tokens, costo y podrás
         abrir cualquier respuesta en su página de detalle para inspeccionarla.
       </p>
     </div>
@@ -466,7 +466,7 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] text-[--color-fg-subtle] uppercase tracking-wider mb-1">
-            vos
+            tú
             {turn.taskType && (
               <span className="ml-2 text-[--color-fg-muted]">
                 · {TASK_TYPES.find((t) => t.id === turn.taskType)?.label.toLowerCase()}

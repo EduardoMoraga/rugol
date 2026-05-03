@@ -55,7 +55,7 @@ export default function ProjectsHome() {
       {!isFirstUse && (
         <PageHeader
           title="Proyectos"
-          description="Cada proyecto es un departamento con misión propia y un equipo de agentes que trabaja en él. Vos sos el CEO; ellos ejecutan."
+          description="Cada proyecto es un departamento con misión propia y un equipo de agentes que trabaja en él. Tú eres el CEO; ellos ejecutan."
           actions={
             <div className="flex items-center gap-2">
               <Link href="/architect">
@@ -161,11 +161,11 @@ function EmptyState() {
       <Briefcase size={36} className="mx-auto text-[--color-fg-subtle]" />
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
-          Todavía no tenés proyectos
+          Todavía no tienes proyectos
         </h2>
         <p className="text-sm text-[--color-fg-muted] mt-1 max-w-md mx-auto">
-          Empezá describiendo una idea — Architect propone el equipo, las skills
-          y los rituales — o creá un proyecto manualmente.
+          Empieza describiendo una idea — Architect propone el equipo, las skills
+          y los rituales — o crea un proyecto manualmente.
         </p>
       </div>
       <div className="flex items-center justify-center gap-2 pt-2">
@@ -223,7 +223,7 @@ function NewProjectDialog() {
       </DialogTrigger>
       <DialogContent
         title="Nuevo proyecto"
-        description="Definí una misión clara — los agentes la van a leer antes de cada run para mantenerse anclados."
+        description="Define una misión clara — los agentes la van a leer antes de cada run para mantenerse anclados."
       >
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">

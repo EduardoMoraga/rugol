@@ -111,7 +111,7 @@ class SlackAdapter(Adapter):
             parts = text.split(maxsplit=1)
             text = parts[1].strip() if len(parts) > 1 else ""
             if not text:
-                await say("¿En qué te ayudo? Mandame algo después del mention.")
+                await say("¿En qué te ayudo? Envíame algo después del mention.")
                 return
         channel = event.get("channel")
         thread_ts = event.get("thread_ts") or event.get("ts")  # reply in thread
@@ -128,8 +128,8 @@ class SlackAdapter(Adapter):
         bound = await _lookup_binding(str(channel))
         if not bound:
             await say(
-                text=f"Este canal (`{channel}`) no está bindeado todavía. "
-                     f"Probá `@bot bind <agente>` o usá el dashboard.",
+                text=f"Este canal (`{channel}`) no está vinculado todavía. "
+                     f"Prueba `@bot bind <agente>` o usa el dashboard.",
                 thread_ts=thread_ts,
             )
             return
@@ -164,7 +164,7 @@ class SlackAdapter(Adapter):
                 select(Agent).where(Agent.name == agent_name)
             )).scalar_one_or_none()
             if agent is None:
-                await say(text=f"No existe el agente `{agent_name}`. Probá `agents`.", thread_ts=thread_ts)
+                await say(text=f"No existe el agente `{agent_name}`. Prueba `agents`.", thread_ts=thread_ts)
                 return
             existing = (await session.execute(
                 select(ChannelBinding).where(
@@ -181,9 +181,9 @@ class SlackAdapter(Adapter):
                     external_id=str(channel),
                     agent_id=agent.id,
                 ))
-                action = "bindeado"
+                action = "vinculado"
             await session.commit()
-        await say(text=f"Canal {action} a *{agent_name}*. Mandame algo y va.", thread_ts=thread_ts)
+        await say(text=f"Canal {action} a *{agent_name}*. Envíame algo y va.", thread_ts=thread_ts)
 
     async def _cmd_agents(self, thread_ts: str, say) -> None:
         async with async_session_factory() as session:

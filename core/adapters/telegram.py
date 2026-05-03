@@ -113,14 +113,14 @@ class TelegramAdapter(Adapter):
         bound = await _lookup_binding(str(chat_id))
         if bound:
             await update.message.reply_text(
-                f"Hola. Este chat está bindeado a *{bound['agent_name']}*. "
-                "Mandá cualquier mensaje y se lo paso.\n\n"
+                f"Hola. Este chat está vinculado a *{bound['agent_name']}*. "
+                "Envía cualquier mensaje y se lo paso.\n\n"
                 "Comandos: /agents · /bind <agente> · /status · /whoami",
                 parse_mode="Markdown",
             )
         else:
             await update.message.reply_text(
-                f"Hola. Este chat (id `{chat_id}`) todavía no está bindeado a ningún agente.\n\n"
+                f"Hola. Este chat (id `{chat_id}`) todavía no está vinculado a ningún agente.\n\n"
                 "Para usarlo:\n"
                 "• `/agents` para ver agentes disponibles\n"
                 "• `/bind <nombre-del-agente>` para asociar este chat\n"
@@ -141,7 +141,7 @@ class TelegramAdapter(Adapter):
         c = update.effective_chat
         await update.message.reply_text(
             f"user_id: `{u.id if u else '?'}`\nchat_id: `{c.id if c else '?'}`\n\n"
-            "Compartile estos ids al operador para que te agregue al allowlist.",
+            "Comparte estos ids al operador para que te agregue al allowlist.",
             parse_mode="Markdown",
         )
 
@@ -177,7 +177,7 @@ class TelegramAdapter(Adapter):
                 select(Agent).where(Agent.name == agent_name)
             )).scalar_one_or_none()
             if agent is None:
-                await update.message.reply_text(f"No existe el agente `{agent_name}`. Probá `/agents`.", parse_mode="Markdown")
+                await update.message.reply_text(f"No existe el agente `{agent_name}`. Prueba `/agents`.", parse_mode="Markdown")
                 return
             existing = (await session.execute(
                 select(ChannelBinding).where(
@@ -195,9 +195,9 @@ class TelegramAdapter(Adapter):
                     agent_id=agent.id,
                     label=update.effective_chat.title or update.effective_user.username if update.effective_user else None,
                 ))
-                action = "bindeado"
+                action = "vinculado"
             await session.commit()
-        await update.message.reply_text(f"Chat {action} a *{agent_name}*. Mandá un mensaje y va.", parse_mode="Markdown")
+        await update.message.reply_text(f"Chat {action} a *{agent_name}*. Envía un mensaje y va.", parse_mode="Markdown")
 
     # Message dispatch -------------------------------------------------------
 
@@ -211,7 +211,7 @@ class TelegramAdapter(Adapter):
         bound = await _lookup_binding(str(chat_id))
         if not bound:
             await update.message.reply_text(
-                f"Este chat (`{chat_id}`) no está bindeado. Usá `/bind <agente>` o `/agents`.",
+                f"Este chat (`{chat_id}`) no está vinculado. Usa `/bind <agente>` o `/agents`.",
                 parse_mode="Markdown",
             )
             return

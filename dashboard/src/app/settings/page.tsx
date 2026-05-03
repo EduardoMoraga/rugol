@@ -424,7 +424,7 @@ function ChannelsSection() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <FieldLabel hint={type === "telegram" ? "chat_id (mandá /whoami al bot)" : "channel id (e.g. C0ABC123)"}>
+            <FieldLabel hint={type === "telegram" ? "chat_id (envía /whoami al bot)" : "channel id (e.g. C0ABC123)"}>
               External ID
             </FieldLabel>
             <Input

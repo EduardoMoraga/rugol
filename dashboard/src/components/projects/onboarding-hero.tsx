@@ -33,11 +33,11 @@ export function OnboardingHero() {
         <h1 className="text-3xl md:text-4xl font-semibold tracking-tight leading-[1.1]">
           La vida es la sumatoria de proyectos.
           <br />
-          <span className="text-[--color-fg-muted]">Vos sos el CEO; ellos ejecutan.</span>
+          <span className="text-[--color-fg-muted]">Tú eres el CEO; ellos ejecutan.</span>
         </h1>
         <p className="text-[15px] text-[--color-fg-muted] leading-relaxed max-w-2xl">
-          Rogologo es tu sala de control de agentes. No pensás "qué agente creo" —
-          pensás "qué proyecto necesito": tu marca, tu día a día, ayudar a tu hija a
+          Rogologo es tu sala de control de agentes. No piensas "qué agente creo" —
+          piensas "qué proyecto necesito": tu marca, tu día a día, ayudar a tu hija a
           estudiar, tu pipeline comercial. El equipo de agentes se arma alrededor de eso.
         </p>
         <p className="text-[14px] text-[--color-fg] leading-relaxed">

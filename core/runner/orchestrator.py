@@ -11,14 +11,45 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from core.bus import bus
 from core.config import get_settings
 from core.db import async_session_factory
-from core.db.models import Agent, Run
+from core.db.models import Agent, Project, Run
 from core.runner.claude_runner import run_agent
 
 logger = logging.getLogger(__name__)
+
+
+def _build_project_context(project: Project) -> str | None:
+    """Render project mission + lessons as a system-prompt anchor.
+
+    Capa 3: every run inside a project sees this context appended to the
+    system prompt — the mission keeps the agent anchored, the lessons
+    encode what the team has already learned to avoid repeating mistakes.
+    Returns None when there's nothing useful to inject.
+    """
+    parts: list[str] = []
+    mission = (project.mission or "").strip()
+    if mission:
+        parts.append(f"## Project mission\n{mission}")
+    lessons = project.lessons or []
+    if lessons:
+        rendered = []
+        for l in lessons:
+            if not isinstance(l, dict):
+                continue
+            text = str(l.get("text") or "").strip()
+            kind = str(l.get("kind") or "lesson").strip().upper()
+            if text:
+                rendered.append(f"- [{kind}] {text}")
+        if rendered:
+            parts.append(
+                "## Project lessons (read these BEFORE acting — they reflect what the team learned the hard way)\n"
+                + "\n".join(rendered)
+            )
+    return ("\n\n".join(parts)) if parts else None
 
 
 @dataclass
@@ -43,7 +74,9 @@ class RuntimeOrchestrator:
         """Persist a Run row and spawn the runner task. Returns run_id."""
         async with async_session_factory() as session:
             agent = (await session.execute(
-                select(Agent).where(Agent.name == req.agent_name)
+                select(Agent)
+                .where(Agent.name == req.agent_name)
+                .options(selectinload(Agent.project))
             )).scalar_one_or_none()
             if agent is None:
                 raise ValueError(f"Agent not found: {req.agent_name}")
@@ -61,6 +94,8 @@ class RuntimeOrchestrator:
             run_id = run.id
             agent.status = "running"
             agent.last_run_at = dt.datetime.now(dt.timezone.utc)
+            project = agent.project
+            project_context = _build_project_context(project) if project else None
             await session.commit()
 
         await bus.publish("run:started", {
@@ -70,7 +105,13 @@ class RuntimeOrchestrator:
         })
 
         task = asyncio.create_task(
-            self._execute(run_id, req, model=agent.model, tools=agent.tools)
+            self._execute(
+                run_id, req,
+                model=agent.model,
+                tools=agent.tools,
+                project_context=project_context,
+                agent_id=agent.id,
+            )
         )
         self._active[run_id] = task
         return run_id
@@ -81,6 +122,8 @@ class RuntimeOrchestrator:
         req: RunRequest,
         model: str,
         tools: list[str] | None = None,
+        project_context: str | None = None,
+        agent_id: int | None = None,
     ) -> None:
         async with self._sem:
             try:
@@ -92,6 +135,7 @@ class RuntimeOrchestrator:
                     session_id=req.session_id,
                     run_id=run_id,
                     tools=tools,
+                    project_context=project_context,
                 )
                 await self._mark_completed(run_id, result)
             except asyncio.CancelledError:
@@ -102,6 +146,28 @@ class RuntimeOrchestrator:
                 await self._mark_status(run_id, "failed", error=str(e))
             finally:
                 self._active.pop(run_id, None)
+                # Capa 3: best-effort fire-and-forget reflection. Never let
+                # this throw or the user sees a stale run row.
+                if agent_id is not None:
+                    asyncio.create_task(
+                        self._maybe_reflect(agent_id, req.agent_name)
+                    )
+
+    async def _maybe_reflect(self, agent_id: int, agent_name: str) -> None:
+        """If the agent is due for reflection, spawn it. Errors are swallowed."""
+        try:
+            from core.improvements.trigger import is_due
+            from core.improvements.reflector import propose_improvement
+            if not await is_due(agent_id):
+                return
+            logger.info("reflection due for agent %s — spawning", agent_name)
+            imp_id = await propose_improvement(agent_id, self._workspace)
+            if imp_id is not None:
+                await bus.publish("improvement:proposed", {
+                    "id": imp_id, "agent": agent_name, "agent_id": agent_id,
+                })
+        except Exception:
+            logger.exception("reflection cycle failed for agent %s", agent_name)
 
     async def _mark_completed(self, run_id: int, result) -> None:
         agent_name = ""

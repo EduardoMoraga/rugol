@@ -29,8 +29,9 @@ class Project(Base):
 
     The unit of mental account in Rogologo is the project, not the agent
     (see ADR-005). Each project carries its own mission text, its own
-    visual identity (color + lucide icon name), and over time its own
-    memory and bias-list (Capa 3).
+    visual identity (color + lucide icon name), and (Capa 3) a living
+    list of "lessons" — bias corrections, decisions, or domain facts the
+    team learned and that every run reads as anchor before acting.
     """
 
     __tablename__ = "projects"
@@ -44,6 +45,11 @@ class Project(Base):
     color: Mapped[str] = mapped_column(String(16), default="#7280a8")
     icon: Mapped[str] = mapped_column(String(32), default="briefcase")
     status: Mapped[str] = mapped_column(String(16), default="active")  # active|archived
+    # Capa 3: living list of approved lessons. Each item is
+    # {kind: "lesson"|"bias"|"fact", text: str, source: "user"|"reflection",
+    #  added_at: iso8601}. Injected into every run's system prompt for the
+    # team, anchoring the agents against drift.
+    lessons: Mapped[list[dict] | None] = mapped_column("lessons_json", JSON, default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 

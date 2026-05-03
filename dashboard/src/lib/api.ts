@@ -1,5 +1,12 @@
 // Typed API client. All requests go through Next.js rewrites → FastAPI core.
 
+export interface Lesson {
+  kind: "lesson" | "bias" | "fact";
+  text: string;
+  source: "user" | "reflection";
+  added_at: string;
+}
+
 export interface Project {
   id: number;
   slug: string;
@@ -9,6 +16,7 @@ export interface Project {
   color: string;
   icon: string;
   status: "active" | "archived";
+  lessons: Lesson[];
   agent_count: number;
   runs_24h: number;
   cost_24h: number;
@@ -200,6 +208,18 @@ export const updateProject = async (idOrSlug: string | number, body: ProjectUpda
 export const deleteProject = async (idOrSlug: string | number): Promise<void> => {
   const r = await fetch(`/api/projects/${idOrSlug}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await readError(r));
+};
+export const addProjectLesson = (
+  idOrSlug: string | number,
+  body: { text: string; kind?: "lesson" | "bias" | "fact" },
+) => post<Project>(`/api/projects/${idOrSlug}/lessons`, body);
+export const removeProjectLesson = async (
+  idOrSlug: string | number,
+  index: number,
+): Promise<Project> => {
+  const r = await fetch(`/api/projects/${idOrSlug}/lessons/${index}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
 };
 export const fetchRecentRuns = () => get<RunSummary[]>("/api/runs?limit=20");
 export const fetchRun = (id: number) => get<RunDetail>(`/api/runs/${id}`);

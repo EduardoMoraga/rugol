@@ -56,11 +56,16 @@ async def run_agent(
     session_id: str | None = None,
     run_id: int | None = None,
     tools: list[str] | None = None,
+    project_context: str | None = None,
 ) -> RunResult:
     """Invoke claude-agent-sdk and stream events while collecting the result.
 
     `tools`: optional whitelist of built-in tool names. None or empty list
     means "use the full claude_code preset" (Capa 5).
+
+    `project_context`: rendered mission + lessons appended to the system
+    prompt so the agent is anchored to its project (Capa 3). Skipped when
+    None (e.g. orphan agents).
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
@@ -69,11 +74,15 @@ async def run_agent(
             "claude-agent-sdk is not installed. Install it with `pip install claude-agent-sdk`."
         ) from e
 
+    system_append = SYSTEM_PROMPT_APPEND
+    if project_context:
+        system_append = f"{SYSTEM_PROMPT_APPEND}\n\n{project_context}"
+
     options_kwargs: dict = dict(
         cwd=str(workspace_dir),
         model=model,
         permission_mode="bypassPermissions",
-        system_prompt={"type": "preset", "preset": "claude_code", "append": SYSTEM_PROMPT_APPEND},
+        system_prompt={"type": "preset", "preset": "claude_code", "append": system_append},
         resume=session_id,
         setting_sources=["user", "project", "local"],
         env=_build_env(),

@@ -47,6 +47,8 @@ async def init_db() -> None:
             ("agents", "project_id", "INTEGER REFERENCES projects(id) ON DELETE SET NULL"),
             # Capa 5: per-agent tool whitelist (JSON array, nullable = preset).
             ("agents", "tools_json", "TEXT"),
+            # Capa 3: per-project living list of lessons / biases (JSON array).
+            ("projects", "lessons_json", "TEXT"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

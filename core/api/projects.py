@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import re
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -33,11 +34,17 @@ class ProjectDTO(BaseModel):
     color: str
     icon: str
     status: str
+    lessons: list[dict] = Field(default_factory=list)
     agent_count: int = 0
     runs_24h: int = 0
     cost_24h: float = 0.0
     created_at: str
     updated_at: str
+
+
+class LessonAdd(BaseModel):
+    text: str = Field(min_length=4, max_length=500)
+    kind: Literal["lesson", "bias", "fact"] = "lesson"
 
 
 class ProjectCreate(BaseModel):
@@ -81,6 +88,7 @@ def _to_dto(p: Project, agent_count: int, runs_24h: int, cost_24h: float) -> Pro
         color=p.color,
         icon=p.icon,
         status=p.status,
+        lessons=list(p.lessons or []),
         agent_count=agent_count,
         runs_24h=runs_24h,
         cost_24h=cost_24h,
@@ -229,6 +237,50 @@ async def list_project_agents(id_or_slug: str) -> list[dict]:
             }
             for a in rows
         ]
+
+
+@router.post("/{id_or_slug}/lessons", response_model=ProjectDTO)
+async def add_lesson(id_or_slug: str, body: LessonAdd) -> ProjectDTO:
+    """Append a new lesson to the project's living list (Capa 3).
+
+    Lessons are surfaced inside every run's system prompt. They're how the
+    project remembers what the team learned the hard way — biases corrected,
+    decisions made, domain facts the agents shouldn't have to re-derive.
+    """
+    async with async_session_factory() as session:
+        p = await _resolve(session, id_or_slug)
+        if p is None:
+            raise HTTPException(status_code=404, detail="project not found")
+        item = {
+            "kind": body.kind,
+            "text": body.text.strip(),
+            "source": "user",
+            "added_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+        current = list(p.lessons or [])
+        current.append(item)
+        p.lessons = current
+        await session.commit()
+        ac, r24, c24 = await _aggregate(session, p.id)
+        await bus.publish("project:lesson-added", {"project_slug": p.slug, "kind": body.kind})
+        return _to_dto(p, ac, r24, c24)
+
+
+@router.delete("/{id_or_slug}/lessons/{index}", response_model=ProjectDTO)
+async def remove_lesson(id_or_slug: str, index: int) -> ProjectDTO:
+    """Remove a lesson by its position in the list."""
+    async with async_session_factory() as session:
+        p = await _resolve(session, id_or_slug)
+        if p is None:
+            raise HTTPException(status_code=404, detail="project not found")
+        current = list(p.lessons or [])
+        if not (0 <= index < len(current)):
+            raise HTTPException(status_code=404, detail="lesson index out of range")
+        current.pop(index)
+        p.lessons = current
+        await session.commit()
+        ac, r24, c24 = await _aggregate(session, p.id)
+        return _to_dto(p, ac, r24, c24)
 
 
 @router.get("/{id_or_slug}/runs")

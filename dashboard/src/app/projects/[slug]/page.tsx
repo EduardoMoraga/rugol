@@ -13,13 +13,19 @@ import {
   Users,
   Activity,
   DollarSign,
+  Brain,
+  X,
 } from "lucide-react";
 import {
+  addProjectLesson,
   deleteProject,
   fetchProject,
   fetchProjectAgents,
   fetchProjectRuns,
+  removeProjectLesson,
   updateProject,
+  type Lesson,
+  type Project,
   type ProjectUpdate,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -155,6 +161,10 @@ export default function ProjectDetail() {
             <Users size={12} />
             <span className="ml-1.5">Equipo ({p.agent_count})</span>
           </TabsTrigger>
+          <TabsTrigger value="lessons">
+            <Brain size={12} />
+            <span className="ml-1.5">Lecciones ({p.lessons.length})</span>
+          </TabsTrigger>
           <TabsTrigger value="runs">
             <Activity size={12} />
             <span className="ml-1.5">Runs recientes</span>
@@ -213,6 +223,10 @@ export default function ProjectDetail() {
           </CardSection>
         </TabsContent>
 
+        <TabsContent value="lessons" className="mt-5">
+          <LessonsPane project={p} />
+        </TabsContent>
+
         <TabsContent value="runs" className="mt-5">
           <CardSection>
             <h2 className="text-sm font-semibold tracking-tight mb-3">Últimos {(runs.data ?? []).length} runs</h2>
@@ -253,6 +267,137 @@ export default function ProjectDetail() {
     </div>
   );
 }
+
+function LessonsPane({ project }: { project: Project }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState("");
+  const [kind, setKind] = useState<Lesson["kind"]>("lesson");
+
+  const add = useMutation({
+    mutationFn: (body: { text: string; kind: Lesson["kind"] }) =>
+      addProjectLesson(project.slug, body),
+    onSuccess: () => {
+      setDraft("");
+      qc.invalidateQueries({ queryKey: ["project", project.slug] });
+      toast({ tone: "success", title: "Lección guardada" });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (index: number) => removeProjectLesson(project.slug, index),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", project.slug] }),
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo borrar", body: e.message }),
+  });
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!draft.trim() || draft.trim().length < 4) return;
+    add.mutate({ text: draft.trim(), kind });
+  }
+
+  return (
+    <div className="space-y-5">
+      <Card className="space-y-3">
+        <header>
+          <h2 className="text-sm font-semibold tracking-tight inline-flex items-center gap-2">
+            <Brain size={13} className="text-[--color-accent-strong]" />
+            Lecciones vivas del proyecto
+          </h2>
+          <p className="text-xs text-[--color-fg-muted] mt-1 max-w-2xl">
+            Cada agente del equipo lee esta lista <strong>antes</strong> de cada
+            run. Funciona como anclaje: lo que el equipo aprendió de la mala,
+            las decisiones tomadas, los sesgos detectados. Pensalo como las
+            "reglas de la casa" — no más de 10-15 ítems o pierde foco.
+          </p>
+        </header>
+        <form onSubmit={submit} className="flex items-end gap-2">
+          <div className="flex-1 space-y-1.5">
+            <FieldLabel hint="qué tipo de aprendizaje es">
+              Nueva lección
+            </FieldLabel>
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder='ej: "El cliente Acme prefiere correos cortos sin asunto en mayúsculas"'
+              className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent] transition"
+              maxLength={500}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Tipo</FieldLabel>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as Lesson["kind"])}
+              className="px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent]"
+            >
+              <option value="lesson">lesson</option>
+              <option value="bias">bias</option>
+              <option value="fact">fact</option>
+            </select>
+          </div>
+          <Button type="submit" variant="primary" disabled={add.isPending || draft.trim().length < 4}>
+            <Plus size={13} /> Agregar
+          </Button>
+        </form>
+      </Card>
+
+      {project.lessons.length === 0 ? (
+        <Card className="text-center py-10 space-y-2">
+          <p className="text-sm text-[--color-fg-muted]">
+            Todavía no hay lecciones registradas para este proyecto.
+          </p>
+          <p className="text-xs text-[--color-fg-subtle] max-w-md mx-auto">
+            Empezá con 2-3 reglas que el equipo nunca debería romper. Las
+            siguientes van a aparecer cuando aprueves propuestas de mejora
+            (Improvements) y las promueves a lección.
+          </p>
+        </Card>
+      ) : (
+        <ul className="space-y-2">
+          {project.lessons.map((l, i) => (
+            <li
+              key={i}
+              className="surface px-4 py-3 flex items-start justify-between gap-3 group"
+            >
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <span
+                  className={`text-[10px] uppercase tracking-widest font-semibold px-1.5 py-0.5 rounded ${
+                    l.kind === "bias"
+                      ? "bg-[--color-error]/15 text-[--color-error]"
+                      : l.kind === "fact"
+                        ? "bg-[--color-accent-soft] text-[--color-accent-strong]"
+                        : "bg-[--color-success]/15 text-[--color-success]"
+                  }`}
+                >
+                  {l.kind}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-[--color-fg] leading-relaxed">{l.text}</p>
+                  <p className="text-[10px] text-[--color-fg-subtle] mt-1 font-mono">
+                    {l.source} · {new Date(l.added_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => remove.mutate(i)}
+                disabled={remove.isPending}
+                title="Borrar"
+                className="opacity-50 hover:opacity-100 hover:text-[--color-error] transition shrink-0"
+              >
+                <X size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 
 function EditProjectDialog({ project }: { project: ReturnType<typeof useQuery<any>>["data"] | any }) {
   const qc = useQueryClient();

@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
+import { TemplateCatalog } from "@/components/projects/template-catalog";
 
 const PALETTE = [
   "#7280a8", "#5b8def", "#7c5cff", "#c44d8c",
@@ -68,7 +69,15 @@ export default function ProjectsHome() {
         <p className="text-sm text-[--color-fg-muted]">Cargando proyectos…</p>
       )}
 
+      <TemplateCatalog />
+
       {projects.data && projects.data.length === 0 && <EmptyState />}
+
+      {projects.data && projects.data.length > 0 && (
+        <h2 className="text-sm font-semibold tracking-tight pt-2">
+          Tus proyectos
+        </h2>
+      )}
 
       {projects.data && projects.data.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

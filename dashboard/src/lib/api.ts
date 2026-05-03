@@ -156,6 +156,27 @@ export const fetchAgentRuns = (id: number) => get<RunSummary[]>(`/api/agents/${i
 export const moveAgent = (id: number, project_slug: string) =>
   post<Agent>(`/api/agents/${id}/move`, { project_slug });
 
+// --- Templates (Capa 6) ---
+export interface TemplateCard {
+  id: string;
+  title: string;
+  pitch: string;
+  story: string;
+  audience: "casual" | "pro";
+  project: { name: string; slug: string; color: string; icon: string; mission: string } | null;
+  agent_count: number;
+  schedule_count: number;
+}
+export interface TemplateFull extends TemplateCard {
+  proposal: Proposal;
+}
+export const fetchTemplates = () => get<TemplateCard[]>("/api/templates");
+export const fetchTemplate = (id: string) => get<TemplateFull>(`/api/templates/${id}`);
+export const cloneTemplate = (
+  id: string,
+  body: { slug_override?: string; target_agents_dir?: string; target_skills_dir?: string } = {},
+) => post<DeployResult>(`/api/templates/${id}/clone`, body);
+
 // --- Projects (ADR-005) ---
 export const fetchProjects = (includeArchived = false) =>
   get<Project[]>(`/api/projects${includeArchived ? "?include_archived=true" : ""}`);

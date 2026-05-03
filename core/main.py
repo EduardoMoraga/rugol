@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core import __version__
 from core.adapters.slack import SlackAdapter
 from core.adapters.telegram import TelegramAdapter
-from core.api import agents, architect, health, improvements, ontology, projects, runs, schedules, settings as settings_api, skills, stream
+from core.api import agents, architect, health, improvements, ontology, projects, runs, schedules, settings as settings_api, skills, stream, templates
 from core.config import get_settings
 from core.db import init_db
 from core.registry.service import build_watcher, initial_scan
@@ -83,6 +83,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router, prefix="/api")
     app.include_router(projects.router, prefix="/api")
+    app.include_router(templates.router, prefix="/api")
     app.include_router(agents.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
     app.include_router(schedules.router, prefix="/api")

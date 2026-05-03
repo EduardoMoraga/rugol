@@ -224,8 +224,18 @@ export const removeProjectLesson = async (
 export const fetchRecentRuns = () => get<RunSummary[]>("/api/runs?limit=20");
 export const fetchRun = (id: number) => get<RunDetail>(`/api/runs/${id}`);
 export const cancelRun = (id: number) => post<{ cancelled: boolean }>(`/api/runs/${id}/cancel`);
-export const runAgentNow = (id: number, prompt: string) =>
-  post<{ run_id: number; status: string }>(`/api/agents/${id}/run`, { prompt });
+export interface RunNowOptions {
+  session_id?: string | null;
+  task_type?: "fast" | "think" | "deep";
+  seek_devils_advocate?: boolean;
+}
+export const runAgentNow = (id: number, prompt: string, opts: RunNowOptions = {}) =>
+  post<{ run_id: number; status: string }>(`/api/agents/${id}/run`, {
+    prompt,
+    session_id: opts.session_id ?? null,
+    task_type: opts.task_type ?? null,
+    seek_devils_advocate: opts.seek_devils_advocate ?? false,
+  });
 
 export const fetchSchedules = () => get<Schedule[]>("/api/schedules");
 export const createSchedule = (agent_id: number, cron_expr: string, prompt: string, enabled = true) =>

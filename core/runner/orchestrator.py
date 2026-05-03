@@ -56,10 +56,18 @@ def _build_project_context(project: Project) -> str | None:
 class RunRequest:
     agent_name: str
     prompt: str
-    source: str  # schedule|telegram|slack|dashboard|api
+    source: str  # schedule|telegram|slack|dashboard|api|devils-advocate
     schedule_id: int | None = None
     session_id: str | None = None
     metadata: dict | None = None
+    # Capa 4: System 1/2 selector overrides the agent's default model
+    # ("fast" → haiku, "deep" → opus). None means use the agent's model.
+    model_override: str | None = None
+    # Capa 4: when true, after this run completes, the orchestrator
+    # spawns a critique run that challenges the answer.
+    seek_devils_advocate: bool = False
+    # Internal: the parent run id when this is the devil's advocate run.
+    advocate_for_run_id: int | None = None
 
 
 class RuntimeOrchestrator:
@@ -102,12 +110,16 @@ class RuntimeOrchestrator:
             "run_id": run_id,
             "agent": req.agent_name,
             "source": req.source,
+            "advocate_for_run_id": req.advocate_for_run_id,
         })
 
+        # Capa 4: System 1/2 selector overrides the agent's default model
+        # for this run. None falls back to the agent's normal choice.
+        effective_model = req.model_override or agent.model
         task = asyncio.create_task(
             self._execute(
                 run_id, req,
-                model=agent.model,
+                model=effective_model,
                 tools=agent.tools,
                 project_context=project_context,
                 agent_id=agent.id,
@@ -138,6 +150,18 @@ class RuntimeOrchestrator:
                     project_context=project_context,
                 )
                 await self._mark_completed(run_id, result)
+                # Capa 4: spawn the devil's advocate run after the original
+                # finishes. Same agent, same project context, opus model,
+                # critique meta-prompt. Detached task so the user's primary
+                # run isn't held back.
+                if req.seek_devils_advocate and not req.advocate_for_run_id:
+                    asyncio.create_task(
+                        self._spawn_devils_advocate(
+                            req.agent_name, req.prompt,
+                            primary_run_id=run_id,
+                            primary_text=result.final_text,
+                        )
+                    )
             except asyncio.CancelledError:
                 await self._mark_status(run_id, "cancelled", error="cancelled by user")
                 raise
@@ -152,6 +176,41 @@ class RuntimeOrchestrator:
                     asyncio.create_task(
                         self._maybe_reflect(agent_id, req.agent_name)
                     )
+
+    async def _spawn_devils_advocate(
+        self,
+        agent_name: str,
+        original_prompt: str,
+        primary_run_id: int,
+        primary_text: str,
+    ) -> None:
+        """Spawn a critique run on the same agent. Uses opus to maximize the
+        chance of catching real problems, not generic objections."""
+        try:
+            critique_prompt = (
+                "You are this same agent's devil's advocate. The agent just produced an "
+                "answer; your job is to challenge it specifically and helpfully — not "
+                "to be contrarian for sport.\n\n"
+                f"## Original prompt the user sent\n{original_prompt}\n\n"
+                f"## The agent's answer\n{primary_text}\n\n"
+                "## Your task\n"
+                "1. Identify the single weakest assumption in the answer (be specific, "
+                "quote it).\n"
+                "2. Identify ONE blind spot — something the agent did not consider but "
+                "should have, given the prompt.\n"
+                "3. Propose a sharper version of the answer in 1-3 sentences.\n\n"
+                "Be useful, not academic. If the answer is genuinely solid, say so and "
+                "stop — false positives waste the user's attention."
+            )
+            await self.enqueue(RunRequest(
+                agent_name=agent_name,
+                prompt=critique_prompt,
+                source="devils-advocate",
+                model_override="claude-opus-4-7",
+                advocate_for_run_id=primary_run_id,
+            ))
+        except Exception:
+            logger.exception("devil's advocate spawn failed for run %s", primary_run_id)
 
     async def _maybe_reflect(self, agent_id: int, agent_name: str) -> None:
         """If the agent is due for reflection, spawn it. Errors are swallowed."""

@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot } from "lucide-react";
-import { cancelRun, fetchRun, runAgentNow, type RunDetail } from "@/lib/api";
+import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale } from "lucide-react";
+import { cancelRun, fetchRun, runAgentNow, type RunDetail, type RunNowOptions } from "@/lib/api";
 import { useStream } from "@/lib/use-stream";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -24,7 +24,23 @@ interface Turn {
   status: "queued" | "streaming" | "completed" | "failed" | "cancelled";
   startedAt: number;
   cost?: number;
+  taskType?: TaskType;
+  /** Devil's advocate critique attached to this turn (Capa 4). */
+  advocate?: {
+    runId?: number;
+    text: string;
+    status: Turn["status"];
+    cost?: number;
+  };
 }
+
+type TaskType = "fast" | "think" | "deep";
+
+const TASK_TYPES: { id: TaskType; label: string; hint: string; icon: typeof Zap }[] = [
+  { id: "fast", label: "Heurística", hint: "respuesta rápida (haiku)", icon: Zap },
+  { id: "think", label: "Pensar", hint: "modelo del agente", icon: Brain },
+  { id: "deep", label: "Deliberar", hint: "razonamiento profundo (opus)", icon: Scale },
+];
 
 interface Props {
   agentId: number;
@@ -45,8 +61,13 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
   const qc = useQueryClient();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
+  const [taskType, setTaskType] = useState<TaskType>("think");
+  const [seekAdvocate, setSeekAdvocate] = useState(false);
   const tailRef = useRef<HTMLDivElement>(null);
   const liveTurnIdRef = useRef<string | null>(null);
+  // Map advocate runId → parent turn id, so when SSE events arrive for the
+  // critique run we can attach them to the right bubble.
+  const advocateRunToTurnRef = useRef<Map<number, string>>(new Map());
 
   const lastSessionId = (() => {
     for (let i = turns.length - 1; i >= 0; i--) {
@@ -65,10 +86,16 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
         status: "queued",
         startedAt: Date.now(),
         sessionId: lastSessionId,
+        taskType,
       };
       liveTurnIdRef.current = local.id;
       setTurns((t) => [...t, local]);
-      const res = await runAgentNow(agentId, prompt);
+      const opts: RunNowOptions = {
+        session_id: lastSessionId,
+        task_type: taskType,
+        seek_devils_advocate: seekAdvocate,
+      };
+      const res = await runAgentNow(agentId, prompt, opts);
       setTurns((t) =>
         t.map((x) =>
           x.id === local.id ? { ...x, runId: res.run_id, status: "streaming" } : x,
@@ -94,14 +121,60 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
   });
 
   // Stream consumer: deltas + completion finalize the matching turn.
+  // Also listens for devil's advocate runs (source=devils-advocate, with
+  // advocate_for_run_id pointing at a parent run) and routes their text
+  // into the parent turn's `advocate` field.
   useStream(
     "run:*",
     (e) => {
       const rid = e.data?.run_id;
       if (typeof rid !== "number") return;
+
+      // First: register a new advocate run when it starts so we can track
+      // its deltas afterwards. The bus emits run:started with both the
+      // advocate's run_id AND the parent's advocate_for_run_id.
+      if (e.topic === "run:started" && typeof e.data?.advocate_for_run_id === "number") {
+        const parentRunId = e.data.advocate_for_run_id;
+        setTurns((prev) => {
+          const parent = prev.find((t) => t.runId === parentRunId);
+          if (!parent) return prev;
+          advocateRunToTurnRef.current.set(rid, parent.id);
+          return prev.map((t) =>
+            t.id === parent.id
+              ? { ...t, advocate: { runId: rid, text: "", status: "streaming" as const } }
+              : t,
+          );
+        });
+        return;
+      }
+
+      // Second: route this event to either a primary turn OR an advocate.
+      const advocateParentTurnId = advocateRunToTurnRef.current.get(rid);
       setTurns((prev) => {
         let touched = false;
         const next = prev.map((t) => {
+          // -------- Advocate path --------
+          if (advocateParentTurnId && t.id === advocateParentTurnId && t.advocate) {
+            touched = true;
+            const adv = t.advocate;
+            if (e.topic === "run:message" && e.data?.kind === "text" && e.data?.delta) {
+              return {
+                ...t,
+                advocate: { ...adv, text: adv.text + e.data.delta, status: "streaming" as const },
+              };
+            }
+            if (e.topic === "run:completed") {
+              return { ...t, advocate: { ...adv, status: "completed" as const } };
+            }
+            if (e.topic === "run:failed") {
+              return { ...t, advocate: { ...adv, status: "failed" as const } };
+            }
+            if (e.topic === "run:cancelled") {
+              return { ...t, advocate: { ...adv, status: "cancelled" as const } };
+            }
+            return t;
+          }
+          // -------- Primary turn path --------
           if (t.runId !== rid) return t;
           touched = true;
           if (e.topic === "run:message" && e.data?.kind === "text" && e.data?.delta) {
@@ -118,10 +191,11 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
           }
           return t;
         });
-        if (touched && (e.topic === "run:completed" || e.topic === "run:failed")) {
+
+        // After primary completion: hydrate session + cost.
+        if (touched && (e.topic === "run:completed" || e.topic === "run:failed") && !advocateParentTurnId) {
           const liveId = liveTurnIdRef.current;
           if (liveId) {
-            // Hydrate session_id + cost asynchronously after the run is final.
             const target = next.find((x) => x.id === liveId);
             if (target?.runId) {
               fetchRun(target.runId)
@@ -133,7 +207,6 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
                             ...x,
                             sessionId: r.session_id ?? x.sessionId,
                             cost: r.cost_usd,
-                            // Prefer the persisted final_text if SSE missed any deltas.
                             assistant: x.assistant || r.final_text || "",
                           }
                         : x,
@@ -147,6 +220,29 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
             qc.invalidateQueries({ queryKey: ["agent", agentId] });
           }
         }
+
+        // After advocate completion: hydrate cost.
+        if (touched && advocateParentTurnId && (e.topic === "run:completed" || e.topic === "run:failed")) {
+          fetchRun(rid)
+            .then((r: RunDetail) => {
+              setTurns((p) =>
+                p.map((x) =>
+                  x.id === advocateParentTurnId && x.advocate
+                    ? {
+                        ...x,
+                        advocate: {
+                          ...x.advocate,
+                          cost: r.cost_usd,
+                          text: x.advocate.text || r.final_text || "",
+                        },
+                      }
+                    : x,
+                ),
+              );
+            })
+            .catch(() => {});
+        }
+
         return next;
       });
     },
@@ -219,7 +315,46 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
         )}
       </div>
 
-      <form onSubmit={submit} className="border-t border-[--color-border] p-3">
+      <form onSubmit={submit} className="border-t border-[--color-border] p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <div className="inline-flex items-center gap-1 surface px-1 py-1">
+            {TASK_TYPES.map((tt) => {
+              const Icon = tt.icon;
+              const active = taskType === tt.id;
+              return (
+                <button
+                  key={tt.id}
+                  type="button"
+                  onClick={() => setTaskType(tt.id)}
+                  disabled={!!liveTurn}
+                  title={tt.hint}
+                  className={`px-2 py-1 rounded-md inline-flex items-center gap-1 transition ${
+                    active
+                      ? "bg-[--color-accent-soft] text-[--color-accent-strong] font-medium"
+                      : "text-[--color-fg-muted] hover:text-[--color-fg]"
+                  }`}
+                >
+                  <Icon size={11} /> {tt.label}
+                </button>
+              );
+            })}
+          </div>
+          <label
+            className={`inline-flex items-center gap-1.5 cursor-pointer transition ${
+              seekAdvocate ? "text-[--color-accent-strong]" : "text-[--color-fg-muted] hover:text-[--color-fg]"
+            }`}
+            title="Después de la respuesta, dispara un segundo run con Opus que la cuestiona."
+          >
+            <input
+              type="checkbox"
+              checked={seekAdvocate}
+              onChange={(e) => setSeekAdvocate(e.target.checked)}
+              disabled={!!liveTurn}
+              className="accent-[--color-accent-strong]"
+            />
+            <Scale size={11} /> Pedir abogado del diablo
+          </label>
+        </div>
         <div className="flex items-end gap-2">
           <Textarea
             value={draft}
@@ -244,12 +379,11 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
           </Button>
         </div>
         {lastSessionId ? (
-          <p className="text-[10.5px] text-[--color-fg-subtle] mt-1.5">
-            Cada mensaje continúa la sesión anterior — el agente recuerda el contexto.
-            Reiniciá para empezar de cero.
+          <p className="text-[10.5px] text-[--color-fg-subtle]">
+            Cada mensaje continúa la sesión — el agente recuerda. Reiniciá para empezar de cero.
           </p>
         ) : (
-          <p className="text-[10.5px] text-[--color-fg-subtle] mt-1.5">
+          <p className="text-[10.5px] text-[--color-fg-subtle]">
             El primer mensaje crea una sesión nueva.
           </p>
         )}
@@ -283,6 +417,11 @@ function TurnView({ turn }: { turn: Turn }) {
         <div className="flex-1 min-w-0">
           <p className="text-[10px] text-[--color-fg-subtle] uppercase tracking-wider mb-1">
             vos
+            {turn.taskType && (
+              <span className="ml-2 text-[--color-fg-muted]">
+                · {TASK_TYPES.find((t) => t.id === turn.taskType)?.label.toLowerCase()}
+              </span>
+            )}
           </p>
           <pre className="text-[13.5px] whitespace-pre-wrap font-sans text-[--color-fg] leading-relaxed">
             {turn.user}
@@ -333,6 +472,44 @@ function TurnView({ turn }: { turn: Turn }) {
           )}
         </div>
       </div>
+
+      {turn.advocate && (
+        <div className="flex items-start gap-3 pl-7 border-l-2 border-[--color-warn]/40 ml-3">
+          <div className="w-7 h-7 rounded-full grid place-items-center bg-[--color-warn]/15 border border-[--color-warn]/40 shrink-0">
+            <Scale size={13} className="text-[--color-warn]" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] text-[--color-warn] uppercase tracking-wider font-medium">
+                abogado del diablo (opus)
+                {turn.advocate.status === "streaming" && " · streaming"}
+                {turn.advocate.status === "completed" && " · ok"}
+                {turn.advocate.status === "failed" && " · failed"}
+              </p>
+              {turn.advocate.runId && (
+                <Link
+                  href={`/runs/${turn.advocate.runId}`}
+                  className="text-[10px] text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  run #{turn.advocate.runId} <ExternalLink size={9} />
+                  {turn.advocate.cost !== undefined && (
+                    <span className="font-mono ml-1">${turn.advocate.cost.toFixed(4)}</span>
+                  )}
+                </Link>
+              )}
+            </div>
+            {turn.advocate.text ? (
+              <MarkdownView>{turn.advocate.text}</MarkdownView>
+            ) : (
+              <p className="text-[12.5px] text-[--color-fg-subtle]">
+                <span className="inline-block w-2 h-3.5 bg-[--color-warn] align-middle animate-[pulse-soft_1s_ease-in-out_infinite]" />
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

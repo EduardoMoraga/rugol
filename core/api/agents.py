@@ -45,6 +45,17 @@ class AgentDTO(BaseModel):
 class RunNowBody(BaseModel):
     prompt: str
     session_id: str | None = None
+    # Capa 4 — System 1 vs System 2 explicit. Overrides the agent's default
+    # model choice based on the *type of thinking* the user expects:
+    # - "fast"   → haiku   (heuristic, low-stakes, classification)
+    # - "think"  → agent's own model (the default)
+    # - "deep"   → opus    (deliberate, high-stakes, reasoning under uncertainty)
+    task_type: str | None = None  # "fast" | "think" | "deep" | None
+    # Capa 4 — devil's advocate. After the run completes, fire a second
+    # synthetic run that critiques the first one. The critique becomes a
+    # separate Run row with source="devils-advocate" so the user can promote
+    # findings to project lessons.
+    seek_devils_advocate: bool = False
 
 
 class AgentSpec(BaseModel):
@@ -143,6 +154,12 @@ async def get_agent(agent_id: int) -> AgentDTO:
         return _to_dto(a, p)
 
 
+_TASK_TYPE_TO_MODEL = {
+    "fast": "claude-haiku-4-5-20251001",
+    "deep": "claude-opus-4-7",
+}
+
+
 @router.post("/{agent_id}/run", status_code=202)
 async def run_now(agent_id: int, body: RunNowBody) -> dict:
     async with async_session_factory() as session:
@@ -151,11 +168,14 @@ async def run_now(agent_id: int, body: RunNowBody) -> dict:
             raise HTTPException(status_code=404, detail="agent not found")
         agent_name = a.name
 
+    model_override = _TASK_TYPE_TO_MODEL.get((body.task_type or "").lower())
     run_id = await get_orchestrator().enqueue(RunRequest(
         agent_name=agent_name,
         prompt=body.prompt,
         source="dashboard",
         session_id=body.session_id,
+        model_override=model_override,
+        seek_devils_advocate=body.seek_devils_advocate,
     ))
     return {"run_id": run_id, "status": "queued"}
 

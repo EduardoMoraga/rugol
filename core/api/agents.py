@@ -7,11 +7,12 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
+from sqlalchemy.orm import selectinload
 
 from core import runtime_state
 from core.bus import bus
 from core.db import async_session_factory
-from core.db.models import Agent, Run
+from core.db.models import Agent, Project, Run
 from core.registry.service import upsert_agent_file
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
@@ -33,6 +34,11 @@ class AgentDTO(BaseModel):
     description: str
     status: str
     last_run_at: str | None = None
+    project_id: int | None = None
+    project_slug: str | None = None
+    project_name: str | None = None
+    project_color: str | None = None
+    project_icon: str | None = None
 
 
 class RunNowBody(BaseModel):
@@ -45,17 +51,17 @@ class AgentSpec(BaseModel):
     model: str
     description: str = ""
     body: str
+    project_slug: str | None = None  # ADR-005
 
     def to_markdown(self) -> str:
         # Build deterministic, valid YAML frontmatter.
         esc = lambda s: s.replace("\\", "\\\\").replace('"', '\\"')
-        frontmatter = (
-            "---\n"
-            f'name: {self.name}\n'
-            f'model: {self.model}\n'
-            f'description: "{esc(self.description.strip())}"\n'
-            "---\n\n"
-        )
+        lines = ["---", f"name: {self.name}", f"model: {self.model}"]
+        if self.project_slug:
+            lines.append(f"project: {self.project_slug.strip().lower()}")
+        lines.append(f'description: "{esc(self.description.strip())}"')
+        lines.append("---")
+        frontmatter = "\n".join(lines) + "\n\n"
         body = self.body.strip() + "\n"
         return frontmatter + body
 
@@ -75,34 +81,59 @@ def _validate_spec(spec: AgentSpec) -> None:
         raise HTTPException(status_code=400, detail="Body cannot be empty.")
 
 
+def _to_dto(a: Agent, project: Project | None) -> AgentDTO:
+    return AgentDTO(
+        id=a.id,
+        name=a.name,
+        model=a.model,
+        description=a.description,
+        status=a.status,
+        last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
+        project_id=a.project_id,
+        project_slug=project.slug if project else None,
+        project_name=project.name if project else None,
+        project_color=project.color if project else None,
+        project_icon=project.icon if project else None,
+    )
+
+
+async def _load_with_project(session, agent_id: int) -> tuple[Agent, Project | None] | None:
+    a = (await session.execute(
+        select(Agent).where(Agent.id == agent_id).options(selectinload(Agent.project))
+    )).scalar_one_or_none()
+    if a is None:
+        return None
+    return a, a.project
+
+
 @router.get("", response_model=list[AgentDTO])
-async def list_agents() -> list[AgentDTO]:
+async def list_agents(project: str | None = None) -> list[AgentDTO]:
+    """List agents. If `project=<slug-or-id>` filter, only that project's team."""
     async with async_session_factory() as session:
-        rows = (await session.execute(select(Agent).order_by(Agent.name))).scalars().all()
-        return [
-            AgentDTO(
-                id=a.id,
-                name=a.name,
-                model=a.model,
-                description=a.description,
-                status=a.status,
-                last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
-            )
-            for a in rows
-        ]
+        stmt = select(Agent).options(selectinload(Agent.project)).order_by(Agent.name)
+        if project:
+            try:
+                pid = int(project)
+                stmt = stmt.where(Agent.project_id == pid)
+            except ValueError:
+                proj = (await session.execute(
+                    select(Project).where(Project.slug == project.lower())
+                )).scalar_one_or_none()
+                if proj is None:
+                    return []
+                stmt = stmt.where(Agent.project_id == proj.id)
+        rows = (await session.execute(stmt)).scalars().all()
+        return [_to_dto(a, a.project) for a in rows]
 
 
 @router.get("/{agent_id}", response_model=AgentDTO)
 async def get_agent(agent_id: int) -> AgentDTO:
     async with async_session_factory() as session:
-        a = await session.get(Agent, agent_id)
-        if a is None:
+        loaded = await _load_with_project(session, agent_id)
+        if loaded is None:
             raise HTTPException(status_code=404, detail="agent not found")
-        return AgentDTO(
-            id=a.id, name=a.name, model=a.model, description=a.description,
-            status=a.status,
-            last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
-        )
+        a, p = loaded
+        return _to_dto(a, p)
 
 
 @router.post("/{agent_id}/run", status_code=202)
@@ -140,23 +171,23 @@ async def create_agent(body: AgentSpec) -> AgentDTO:
     await upsert_agent_file(target)
 
     async with async_session_factory() as session:
-        a = (await session.execute(select(Agent).where(Agent.name == body.name))).scalar_one_or_none()
+        a = (await session.execute(
+            select(Agent).where(Agent.name == body.name).options(selectinload(Agent.project))
+        )).scalar_one_or_none()
         if a is None:
             raise HTTPException(status_code=500, detail="Agent registered but not visible yet.")
         await bus.publish("agent:registered", {"name": a.name, "via": "dashboard"})
-        return AgentDTO(
-            id=a.id, name=a.name, model=a.model, description=a.description,
-            status=a.status, last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
-        )
+        return _to_dto(a, a.project)
 
 
 @router.get("/{agent_id}/source")
 async def get_agent_source(agent_id: int) -> dict:
     """Return the editable spec for the agent (frontmatter fields + body)."""
     async with async_session_factory() as session:
-        a = await session.get(Agent, agent_id)
-        if a is None:
+        loaded = await _load_with_project(session, agent_id)
+        if loaded is None:
             raise HTTPException(status_code=404, detail="agent not found")
+        a, p = loaded
         return {
             "id": a.id,
             "name": a.name,
@@ -164,6 +195,8 @@ async def get_agent_source(agent_id: int) -> dict:
             "description": a.description,
             "body": a.body,
             "source_path": a.source_path,
+            "project_slug": p.slug if p else None,
+            "project_name": p.name if p else None,
         }
 
 
@@ -187,11 +220,41 @@ async def update_agent(agent_id: int, body: AgentSpec) -> AgentDTO:
     await upsert_agent_file(path)
 
     async with async_session_factory() as session:
+        loaded = await _load_with_project(session, agent_id)
+        a, p = loaded  # type: ignore[misc]
+        return _to_dto(a, p)
+
+
+@router.post("/{agent_id}/move", response_model=AgentDTO)
+async def move_agent(agent_id: int, body: dict) -> AgentDTO:
+    """Reassign an agent to a different project (rewrites the .md frontmatter)."""
+    target_slug = str(body.get("project_slug") or "").strip().lower() or "workspace"
+    async with async_session_factory() as session:
         a = await session.get(Agent, agent_id)
-        return AgentDTO(
-            id=a.id, name=a.name, model=a.model, description=a.description,
-            status=a.status, last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,
+        if a is None:
+            raise HTTPException(status_code=404, detail="agent not found")
+        proj = (await session.execute(
+            select(Project).where(Project.slug == target_slug)
+        )).scalar_one_or_none()
+        if proj is None:
+            raise HTTPException(status_code=404, detail=f"project not found: {target_slug}")
+        path = Path(a.source_path)
+        spec = AgentSpec(
+            name=a.name,
+            model=a.model,
+            description=a.description,
+            body=a.body,
+            project_slug=target_slug,
         )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(spec.to_markdown(), encoding="utf-8")
+    await upsert_agent_file(path)
+
+    async with async_session_factory() as session:
+        loaded = await _load_with_project(session, agent_id)
+        a, p = loaded  # type: ignore[misc]
+        return _to_dto(a, p)
 
 
 @router.get("/{agent_id}/runs")

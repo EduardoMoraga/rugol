@@ -28,7 +28,7 @@ const CRON_PRESETS = [
 export default function SchedulesPage() {
   const qc = useQueryClient();
   const schedules = useQuery({ queryKey: ["schedules"], queryFn: fetchSchedules, refetchInterval: 5000 });
-  const agents = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const agents = useQuery({ queryKey: ["agents"], queryFn: () => fetchAgents() });
 
   const agentById = useMemo(() => {
     const m = new Map<number, Agent>();

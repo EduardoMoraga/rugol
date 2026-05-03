@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Plus,
   RefreshCw,
+  Briefcase,
 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -22,6 +23,7 @@ import {
   type DeployResult,
   type Proposal,
   type ProposalAgent,
+  type ProposalProject,
   type ProposalSchedule,
   type ProposalSkill,
   type ProposalTriple,
@@ -31,6 +33,7 @@ import { Card, PageHeader } from "@/components/ui/card";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
+import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
 
 type Stage = "idea" | "review" | "deploying" | "done";
 
@@ -326,6 +329,24 @@ function ReviewStage({
       </Card>
 
       <Section
+        icon={<Briefcase size={14} />}
+        title="Project"
+        description="Every team belongs to a project. The mission anchors decisions for every agent in the team."
+      >
+        <ProjectEditor
+          project={proposal.project ?? {
+            name: "",
+            slug: "",
+            description: "",
+            mission: "",
+            color: "#7280a8",
+            icon: "briefcase",
+          }}
+          onChange={(next) => update("project", next)}
+        />
+      </Section>
+
+      <Section
         icon={<Bot size={14} />}
         title={`Agents (${proposal.agents.length})`}
         description="Each agent gets its own .md file in your AGENTS_DIR. Edit anything inline."
@@ -480,6 +501,99 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+const PALETTE = [
+  "#7280a8", "#5b8def", "#7c5cff", "#c44d8c",
+  "#e26f3f", "#f5b942", "#3aaf85", "#2c9aaf",
+];
+
+function slugify(name: string) {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 80);
+}
+
+function ProjectEditor({
+  project,
+  onChange,
+}: {
+  project: ProposalProject;
+  onChange: (p: ProposalProject) => void;
+}) {
+  const Icon = projectIcon(project.icon);
+  const tone = project.color || "#7280a8";
+  return (
+    <Card className="space-y-3">
+      <header className="flex items-start gap-3">
+        <div
+          className="w-12 h-12 rounded-xl grid place-items-center shrink-0"
+          style={{
+            background: `${tone}22`,
+            color: tone,
+            border: `1px solid ${tone}55`,
+          }}
+        >
+          <Icon size={20} />
+        </div>
+        <div className="flex-1 min-w-0 space-y-2">
+          <Input
+            value={project.name}
+            onChange={(e) => {
+              const name = e.target.value;
+              const auto = slugify(name);
+              onChange({
+                ...project,
+                name,
+                slug: !project.slug || project.slug === slugify(project.name) ? auto : project.slug,
+              });
+            }}
+            placeholder="Marca personal"
+            className="text-base"
+          />
+          <Input
+            value={project.slug || ""}
+            onChange={(e) => onChange({ ...project, slug: e.target.value.toLowerCase() })}
+            placeholder="slug-url-safe"
+            className="font-mono text-xs"
+          />
+        </div>
+      </header>
+      <Input
+        value={project.description || ""}
+        onChange={(e) => onChange({ ...project, description: e.target.value })}
+        placeholder="Una sola línea para la tarjeta del proyecto"
+      />
+      <Textarea
+        value={project.mission || ""}
+        onChange={(e) => onChange({ ...project, mission: e.target.value })}
+        rows={4}
+        placeholder="Misión: el porqué que el equipo lee antes de cada run"
+      />
+      <div className="grid grid-cols-2 gap-3">
+        <Select
+          value={project.icon || "briefcase"}
+          onChange={(e) => onChange({ ...project, icon: e.target.value })}
+        >
+          {PROJECT_ICONS.map((i) => (
+            <option key={i} value={i}>{i}</option>
+          ))}
+        </Select>
+        <div className="flex flex-wrap gap-1.5">
+          {PALETTE.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange({ ...project, color: c })}
+              className={`w-7 h-7 rounded-md border-2 transition ${
+                project.color === c ? "border-[--color-fg]" : "border-transparent hover:border-[--color-border]"
+              }`}
+              style={{ background: c }}
+              aria-label={c}
+            />
+          ))}
+        </div>
+      </div>
+    </Card>
   );
 }
 

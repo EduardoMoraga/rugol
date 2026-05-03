@@ -24,7 +24,7 @@ const TABS = [
 export default function ImprovementsPage() {
   const qc = useQueryClient();
 
-  const agents = useQuery({ queryKey: ["agents"], queryFn: fetchAgents });
+  const agents = useQuery({ queryKey: ["agents"], queryFn: () => fetchAgents() });
   const agentById = useMemo(() => {
     const m = new Map<number, Agent>();
     (agents.data ?? []).forEach((a) => m.set(a.id, a));

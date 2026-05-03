@@ -24,6 +24,32 @@ def _now() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
+class Project(Base):
+    """A project groups a team of agents around a shared mission.
+
+    The unit of mental account in Rogologo is the project, not the agent
+    (see ADR-005). Each project carries its own mission text, its own
+    visual identity (color + lucide icon name), and over time its own
+    memory and bias-list (Capa 3).
+    """
+
+    __tablename__ = "projects"
+    __table_args__ = (UniqueConstraint("slug", name="uq_projects_slug"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(80), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str] = mapped_column(Text, default="")
+    mission: Mapped[str] = mapped_column(Text, default="")
+    color: Mapped[str] = mapped_column(String(16), default="#7280a8")
+    icon: Mapped[str] = mapped_column(String(32), default="briefcase")
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active|archived
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    agents: Mapped[list["Agent"]] = relationship(back_populates="project")
+
+
 class Agent(Base):
     __tablename__ = "agents"
     __table_args__ = (UniqueConstraint("name", name="uq_agents_name"),)
@@ -36,10 +62,14 @@ class Agent(Base):
     source_path: Mapped[str] = mapped_column(String(512))
     body_hash: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(16), default="idle")  # idle|running|error|offline
+    project_id: Mapped[int | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), default=None, index=True,
+    )
     last_run_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
+    project: Mapped["Project | None"] = relationship(back_populates="agents")
     runs: Mapped[list["Run"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
     schedules: Mapped[list["Schedule"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
 

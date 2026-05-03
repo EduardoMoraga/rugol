@@ -43,7 +43,7 @@ export function AntFarmCanvas() {
 
   const agents = useQuery({
     queryKey: ["agents-farm"],
-    queryFn: fetchAgents,
+    queryFn: () => fetchAgents(),
     refetchInterval: 4000,
   });
 

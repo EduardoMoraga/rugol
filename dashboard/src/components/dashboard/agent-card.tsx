@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { type Agent } from "@/lib/api";
 import { StatusBadge } from "./status-badge";
+import { ProjectBadge } from "@/components/projects/project-badge";
 
 export function AgentCard({ agent }: { agent: Agent }) {
   return (
@@ -20,6 +21,17 @@ export function AgentCard({ agent }: { agent: Agent }) {
         </div>
         <StatusBadge status={agent.status} />
       </header>
+
+      {agent.project_slug && (
+        <div className="mb-3">
+          <ProjectBadge
+            slug={agent.project_slug}
+            name={agent.project_name}
+            color={agent.project_color}
+            icon={agent.project_icon}
+          />
+        </div>
+      )}
 
       {agent.description && (
         <p className="text-sm text-[--color-fg-muted] line-clamp-2 leading-relaxed">

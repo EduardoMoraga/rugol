@@ -16,6 +16,7 @@ class ParsedAgent:
     body: str
     body_hash: str
     source_path: str
+    project_slug: str | None = None  # ADR-005; None → loader assigns to Workspace
 
 
 @dataclass
@@ -32,12 +33,19 @@ def _hash(text: str) -> str:
 
 
 def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> ParsedAgent:
-    """Parse an agent markdown file. Frontmatter must include `name`."""
+    """Parse an agent markdown file. Frontmatter must include `name`.
+
+    Optional `project:` (ADR-005) attaches the agent to a project by slug.
+    Unknown slugs are not auto-created; the upsert layer falls back to
+    Workspace and logs a warning.
+    """
     post = frontmatter.load(path)
     meta = post.metadata
     name = str(meta.get("name") or path.stem).strip()
     model = str(meta.get("model") or default_model).strip()
     description = str(meta.get("description") or "").strip()
+    raw_project = meta.get("project")
+    project_slug = str(raw_project).strip().lower() if raw_project else None
     body = post.content
     return ParsedAgent(
         name=name,
@@ -46,6 +54,7 @@ def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> Par
         body=body,
         body_hash=_hash(body),
         source_path=str(path.resolve()),
+        project_slug=project_slug,
     )
 
 

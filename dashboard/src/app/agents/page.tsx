@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 export default function AgentsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["agents"],
-    queryFn: fetchAgents,
+    queryFn: () => fetchAgents(),
     refetchInterval: 5000,
   });
 

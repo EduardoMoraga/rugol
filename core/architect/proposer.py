@@ -19,7 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Tight prompt — long inputs + long output + Sonnet = slow. The schema is
 # kept small; design rules are bullet-form. Bodies capped at 150-300 words.
-META_PROMPT = """You are the Rogologo Architect. Given a one-line outcome from a developer, design the smallest coherent agentic system that delivers it on Rogologo (a local Claude Code agent control plane).
+META_PROMPT = """You are the Rogologo Architect. Given a one-line outcome from a non-technical user, design the smallest coherent agentic system that delivers it on Rogologo (a local Claude Code agent control plane).
+
+The unit of mental account in Rogologo is the PROJECT — a department with a mission and a small team of agents. Always frame your proposal as a project first, then the agents that staff it.
 
 IDEA: {idea}
 
@@ -35,6 +37,13 @@ Rules for string values inside the JSON:
 
 Schema (illustrative; replace every value, drop optional sections you don't use):
 
+  "project": object describing the department this team belongs to:
+      "name": short human title in the user's language ("Marca personal", "Hija aprende biología")
+      "slug": lowercase, dashes only, 3-40 chars (url-safe; auto-derive from name if unsure)
+      "description": one sentence shown on the project card
+      "mission": 2-4 sentences the team reads before every run — the WHY behind this department
+      "color": hex color that fits the vibe (#7280a8 default if unsure)
+      "icon": one lucide icon name from {briefcase, sparkles, heart, rocket, brain, gamepad, users, palette, target, leaf, book-open, headphones}
   "summary": "2-3 sentences on what you propose and why this shape."
   "rationale": "One paragraph: trade-offs taken, what you deliberately did NOT include, what cannot work yet."
   "agents": array of objects with these fields:
@@ -47,12 +56,12 @@ Schema (illustrative; replace every value, drop optional sections you don't use)
   "ontology_seeds": array of objects with "src", "predicate", "dst". Empty if none.
 
 Design rules:
-- Team size: 1-3 agents typical, 5 max. Each agent has a sharp, non-overlapping role.
+- Team size: 1-3 agents typical, 5 max. Each agent has a sharp, non-overlapping role inside the project.
 - Models: Sonnet by default. Opus only for real strategic reasoning. Haiku for triage / classification / formatting.
 - Skills only when 2+ agents share the capability OR it is a discrete reusable thing worth naming.
 - Schedules and ontology_seeds are optional. Do not invent them to look thorough.
 - Be honest in `rationale` about what cannot work yet (missing integrations, etc).
-- Keep agent bodies concise. Quality over length.
+- The mission MUST be specific to this project (avoid generic "deliver value" phrasing).
 
 Return the JSON now. No greeting, no commentary, just the object."""
 
@@ -87,9 +96,26 @@ class ProposalTriple:
 
 
 @dataclass
+class ProposalProject:
+    """Project block in an Architect proposal (ADR-005).
+
+    `slug` is auto-derived if blank; `mission` is what the team reads at every
+    run as anchor against noise. The deployer creates the project if its slug
+    does not exist yet, otherwise reuses it.
+    """
+    name: str
+    slug: str = ""
+    description: str = ""
+    mission: str = ""
+    color: str = "#7280a8"
+    icon: str = "briefcase"
+
+
+@dataclass
 class Proposal:
     summary: str
     rationale: str
+    project: ProposalProject | None = None
     agents: list[ProposalAgent] = field(default_factory=list)
     skills: list[ProposalSkill] = field(default_factory=list)
     schedules: list[ProposalSchedule] = field(default_factory=list)
@@ -100,6 +126,7 @@ class Proposal:
         return {
             "summary": self.summary,
             "rationale": self.rationale,
+            "project": self.project.__dict__ if self.project else None,
             "agents": [a.__dict__ for a in self.agents],
             "skills": [s.__dict__ for s in self.skills],
             "schedules": [s.__dict__ for s in self.schedules],
@@ -108,9 +135,14 @@ class Proposal:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "Proposal":
+        proj_raw = d.get("project")
+        project = None
+        if isinstance(proj_raw, dict) and proj_raw.get("name"):
+            project = ProposalProject(**_pick(proj_raw, ProposalProject))
         return cls(
             summary=str(d.get("summary", "")),
             rationale=str(d.get("rationale", "")),
+            project=project,
             agents=[ProposalAgent(**_pick(a, ProposalAgent)) for a in d.get("agents", []) or []],
             skills=[ProposalSkill(**_pick(s, ProposalSkill)) for s in d.get("skills", []) or []],
             schedules=[ProposalSchedule(**_pick(s, ProposalSchedule)) for s in d.get("schedules", []) or []],

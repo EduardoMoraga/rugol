@@ -9,13 +9,23 @@ Two-step flow:
 Both steps are server-side. The frontend ships the proposal JSON between
 them so the user can edit before deploying.
 """
-from .proposer import META_PROMPT, Proposal, ProposalAgent, ProposalSchedule, ProposalSkill, ProposalTriple, propose
+from .proposer import (
+    META_PROMPT,
+    Proposal,
+    ProposalAgent,
+    ProposalProject,
+    ProposalSchedule,
+    ProposalSkill,
+    ProposalTriple,
+    propose,
+)
 from .deployer import DeployResult, deploy
 
 __all__ = [
     "META_PROMPT",
     "Proposal",
     "ProposalAgent",
+    "ProposalProject",
     "ProposalSchedule",
     "ProposalSkill",
     "ProposalTriple",

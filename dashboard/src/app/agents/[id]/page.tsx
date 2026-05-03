@@ -19,14 +19,17 @@ import {
   fetchAgentSource,
   fetchOntologyEdges,
   fetchOntologyNodes,
+  fetchProjects,
+  moveAgent,
   runAgentNow,
 } from "@/lib/api";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/input";
+import { Textarea, Select } from "@/components/ui/input";
 import { Card, CardSection, PageHeader, Stat } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
+import { ProjectBadge } from "@/components/projects/project-badge";
 
 export default function AgentDetail() {
   const params = useParams<{ id: string }>();
@@ -83,13 +86,27 @@ export default function AgentDetail() {
         title={a.name}
         description={a.description || "No description provided."}
         actions={
-          <Link href={`/agents/${agentId}/edit`}>
-            <Button variant="secondary" size="sm">
-              <Pencil size={13} /> Edit spec
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <ProjectMover agent={a} />
+            <Link href={`/agents/${agentId}/edit`}>
+              <Button variant="secondary" size="sm">
+                <Pencil size={13} /> Edit spec
+              </Button>
+            </Link>
+          </div>
         }
       />
+      {a.project_slug && (
+        <div className="-mt-3">
+          <ProjectBadge
+            slug={a.project_slug}
+            name={a.project_name}
+            color={a.project_color}
+            icon={a.project_icon}
+            size="md"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat label="Status" value={a.status} accent={a.status === "running"} />
@@ -277,6 +294,39 @@ function MemoryPane({ agentName }: { agentName: string }) {
         </p>
       </Card>
     </div>
+  );
+}
+
+function ProjectMover({ agent }: { agent: any }) {
+  const qc = useQueryClient();
+  const projects = useQuery({ queryKey: ["projects"], queryFn: () => fetchProjects(false) });
+  const move = useMutation({
+    mutationFn: (slug: string) => moveAgent(agent.id, slug),
+    onSuccess: () => {
+      toast({ tone: "success", title: "Agente reasignado" });
+      qc.invalidateQueries({ queryKey: ["agent", agent.id] });
+      qc.invalidateQueries({ queryKey: ["agents"] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo mover", body: e.message }),
+  });
+  return (
+    <Select
+      value={agent.project_slug ?? "workspace"}
+      onChange={(e) => {
+        if (e.target.value !== agent.project_slug) move.mutate(e.target.value);
+      }}
+      className="text-xs h-8 py-0"
+      disabled={move.isPending || projects.isLoading}
+      title="Mover a otro proyecto"
+    >
+      {(projects.data ?? []).map((p) => (
+        <option key={p.slug} value={p.slug}>
+          {p.name}
+        </option>
+      ))}
+    </Select>
   );
 }
 

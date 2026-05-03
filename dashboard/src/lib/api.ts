@@ -1,5 +1,62 @@
 // Typed API client. All requests go through Next.js rewrites → FastAPI core.
 
+export interface Project {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  mission: string;
+  color: string;
+  icon: string;
+  status: "active" | "archived";
+  agent_count: number;
+  runs_24h: number;
+  cost_24h: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectCreate {
+  name: string;
+  slug?: string;
+  description?: string;
+  mission?: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface ProjectUpdate {
+  name?: string;
+  description?: string;
+  mission?: string;
+  color?: string;
+  icon?: string;
+  status?: "active" | "archived";
+}
+
+export interface ProjectAgent {
+  id: number;
+  name: string;
+  model: string;
+  description: string;
+  status: string;
+  last_run_at: string | null;
+}
+
+export interface ProjectRun {
+  id: number;
+  agent_id: number;
+  agent_name: string;
+  source: string;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+  prompt: string;
+}
+
 export interface Agent {
   id: number;
   name: string;
@@ -7,6 +64,11 @@ export interface Agent {
   description: string;
   status: "idle" | "running" | "error" | "offline";
   last_run_at: string | null;
+  project_id: number | null;
+  project_slug: string | null;
+  project_name: string | null;
+  project_color: string | null;
+  project_icon: string | null;
 }
 
 export interface RunSummary {
@@ -86,9 +148,37 @@ async function post<T>(path: string, body?: unknown): Promise<T> {
   return r.json();
 }
 
-export const fetchAgents = () => get<Agent[]>("/api/agents");
+export const fetchAgents = (project?: string) =>
+  get<Agent[]>(project ? `/api/agents?project=${encodeURIComponent(project)}` : "/api/agents");
 export const fetchAgent = (id: number) => get<Agent>(`/api/agents/${id}`);
 export const fetchAgentRuns = (id: number) => get<RunSummary[]>(`/api/agents/${id}/runs`);
+export const moveAgent = (id: number, project_slug: string) =>
+  post<Agent>(`/api/agents/${id}/move`, { project_slug });
+
+// --- Projects (ADR-005) ---
+export const fetchProjects = (includeArchived = false) =>
+  get<Project[]>(`/api/projects${includeArchived ? "?include_archived=true" : ""}`);
+export const fetchProject = (idOrSlug: string | number) =>
+  get<Project>(`/api/projects/${idOrSlug}`);
+export const fetchProjectAgents = (idOrSlug: string | number) =>
+  get<ProjectAgent[]>(`/api/projects/${idOrSlug}/agents`);
+export const fetchProjectRuns = (idOrSlug: string | number, limit = 30) =>
+  get<ProjectRun[]>(`/api/projects/${idOrSlug}/runs?limit=${limit}`);
+export const createProject = (body: ProjectCreate) =>
+  post<Project>("/api/projects", body);
+export const updateProject = async (idOrSlug: string | number, body: ProjectUpdate): Promise<Project> => {
+  const r = await fetch(`/api/projects/${idOrSlug}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
+};
+export const deleteProject = async (idOrSlug: string | number): Promise<void> => {
+  const r = await fetch(`/api/projects/${idOrSlug}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(await readError(r));
+};
 export const fetchRecentRuns = () => get<RunSummary[]>("/api/runs?limit=20");
 export const fetchRun = (id: number) => get<RunDetail>(`/api/runs/${id}`);
 export const cancelRun = (id: number) => post<{ cancelled: boolean }>(`/api/runs/${id}/cancel`);
@@ -119,11 +209,14 @@ export interface AgentSpec {
   model: string;
   description: string;
   body: string;
+  project_slug?: string;
 }
 
-export interface AgentSource extends AgentSpec {
+export interface AgentSource extends Omit<AgentSpec, "project_slug"> {
   id: number;
   source_path: string;
+  project_slug: string | null;
+  project_name: string | null;
 }
 
 export const createAgent = (spec: AgentSpec) => post<Agent>("/api/agents", spec);
@@ -202,6 +295,14 @@ export const updateSkillSpec = async (id: number, spec: SkillSpec): Promise<Skil
 };
 
 // --- Architect ---
+export interface ProposalProject {
+  name: string;
+  slug?: string;
+  description?: string;
+  mission?: string;
+  color?: string;
+  icon?: string;
+}
 export interface ProposalAgent {
   name: string;
   model: string;
@@ -226,12 +327,16 @@ export interface ProposalTriple {
 export interface Proposal {
   summary: string;
   rationale: string;
+  project: ProposalProject | null;
   agents: ProposalAgent[];
   skills: ProposalSkill[];
   schedules: ProposalSchedule[];
   ontology_seeds: ProposalTriple[];
 }
 export interface DeployResult {
+  project_slug: string | null;
+  project_id: number | null;
+  project_created: boolean;
   agents_created: string[];
   agents_skipped: { name: string; reason: string }[];
   skills_created: string[];

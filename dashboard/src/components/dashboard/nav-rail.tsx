@@ -13,15 +13,17 @@ import {
   ChevronRight,
   Sparkles,
   Wrench,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const items = [
-  { href: "/", label: "Operations", icon: LayoutDashboard },
+  { href: "/projects", label: "Proyectos", icon: Briefcase, accent: true },
   { href: "/architect", label: "Architect", icon: Sparkles, primary: true },
-  { href: "/agents", label: "Agents", icon: Users },
+  { href: "/agents", label: "Agentes", icon: Users },
   { href: "/skills", label: "Skills", icon: Wrench },
   { href: "/schedules", label: "Schedules", icon: CalendarClock },
+  { href: "/operations", label: "Operations", icon: LayoutDashboard },
   { href: "/ant-farm", label: "Ant farm", icon: Hexagon },
   { href: "/ontology", label: "Ontology", icon: Network },
   { href: "/improvements", label: "Improvements", icon: GitBranch },
@@ -47,8 +49,8 @@ export function NavRail() {
       </Link>
 
       <div className="space-y-0.5 flex-1">
-        {items.map(({ href, label, icon: Icon, primary }) => {
-          const active = href === "/" ? path === "/" : path.startsWith(href);
+        {items.map(({ href, label, icon: Icon, primary, accent }) => {
+          const active = path === href || path.startsWith(`${href}/`);
           return (
             <Link
               key={href}
@@ -59,7 +61,9 @@ export function NavRail() {
                   ? "bg-[--color-bg-elev-2] text-[--color-fg] border-[--color-border]"
                   : primary
                     ? "border-[--color-accent]/30 bg-[--color-accent-soft] text-[--color-accent-strong] hover:bg-[--color-accent]/20"
-                    : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-[--color-bg-elev]/50 border-transparent",
+                    : accent
+                      ? "text-[--color-fg] hover:bg-[--color-bg-elev]/50 border-transparent font-medium"
+                      : "text-[--color-fg-muted] hover:text-[--color-fg] hover:bg-[--color-bg-elev]/50 border-transparent",
               )}
             >
               <span className="flex items-center gap-3">

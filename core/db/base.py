@@ -43,6 +43,8 @@ async def init_db() -> None:
         # should switch to Alembic before this gets long.
         nullable_additions: list[tuple[str, str, str]] = [
             ("runs", "final_text", "TEXT"),
+            # ADR-005: agents now belong to a project (nullable; backfilled below).
+            ("agents", "project_id", "INTEGER REFERENCES projects(id) ON DELETE SET NULL"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:
@@ -52,3 +54,43 @@ async def init_db() -> None:
             cols = await conn.run_sync(_existing, table)
             if column not in cols:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+
+    # ADR-005 backfill: ensure a Workspace project exists and that every
+    # orphan agent belongs to it. Idempotent — safe to run on every boot.
+    await _ensure_workspace_project()
+
+
+async def _ensure_workspace_project() -> None:
+    """Create the catch-all Workspace project and adopt orphan agents.
+
+    Runs after table creation and column-add migrations. Idempotent: a
+    second invocation is a no-op when there are no orphans and Workspace
+    already exists.
+    """
+    from sqlalchemy import select, update
+    from core.db.models import Agent, Project
+
+    async with async_session_factory() as session:
+        ws = (await session.execute(
+            select(Project).where(Project.slug == "workspace")
+        )).scalar_one_or_none()
+        if ws is None:
+            ws = Project(
+                slug="workspace",
+                name="Workspace",
+                description="Catch-all for agents that don't belong to a named project yet.",
+                mission=(
+                    "This is the default home for any agent in your Rogologo install. "
+                    "When you create real projects (Personal Assistant, Marca personal, etc.) "
+                    "you can move agents into them — Workspace is just where things land "
+                    "before you decide."
+                ),
+                color="#7280a8",
+                icon="briefcase",
+            )
+            session.add(ws)
+            await session.flush()
+        await session.execute(
+            update(Agent).where(Agent.project_id.is_(None)).values(project_id=ws.id)
+        )
+        await session.commit()

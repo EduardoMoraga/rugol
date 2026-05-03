@@ -14,7 +14,7 @@ function StatCard({ label, value, hint }: { label: string; value: string | numbe
 }
 
 export function OverviewGrid() {
-  const agents = useQuery({ queryKey: ["agents"], queryFn: fetchAgents, refetchInterval: 5000 });
+  const agents = useQuery({ queryKey: ["agents"], queryFn: () => fetchAgents(), refetchInterval: 5000 });
   const runs = useQuery({ queryKey: ["recent-runs"], queryFn: fetchRecentRuns, refetchInterval: 5000 });
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, refetchInterval: 5000 });
 

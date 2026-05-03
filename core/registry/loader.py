@@ -17,6 +17,7 @@ class ParsedAgent:
     body_hash: str
     source_path: str
     project_slug: str | None = None  # ADR-005; None → loader assigns to Workspace
+    tools: list[str] | None = None    # Capa 5; None or [] → full preset
 
 
 @dataclass
@@ -46,6 +47,15 @@ def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> Par
     description = str(meta.get("description") or "").strip()
     raw_project = meta.get("project")
     project_slug = str(raw_project).strip().lower() if raw_project else None
+    raw_tools = meta.get("tools")
+    tools: list[str] | None = None
+    if isinstance(raw_tools, list):
+        tools = [str(t).strip() for t in raw_tools if str(t).strip()]
+        if not tools:
+            tools = None
+    elif isinstance(raw_tools, str) and raw_tools.strip():
+        # Tolerate `tools: Read, Grep, Bash` written as a CSV string.
+        tools = [t.strip() for t in raw_tools.split(",") if t.strip()]
     body = post.content
     return ParsedAgent(
         name=name,
@@ -55,6 +65,7 @@ def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> Par
         body_hash=_hash(body),
         source_path=str(path.resolve()),
         project_slug=project_slug,
+        tools=tools,
     )
 
 

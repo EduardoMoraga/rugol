@@ -99,10 +99,22 @@ def _skill_md(name: str, description: str, body: str) -> str:
     )
 
 
-async def deploy(proposal: Proposal) -> DeployResult:
+async def deploy(
+    proposal: Proposal,
+    target_agents_dir = None,
+    target_skills_dir = None,
+) -> DeployResult:
+    """Materialize the proposal: write .md files, register schedules, seed
+    the ontology, ensure the project exists.
+
+    `target_agents_dir` and `target_skills_dir` (Path or None) override the
+    global install location for *this* deploy only. Useful when the user
+    wants a project's files to live in a specific folder without touching
+    the global settings.
+    """
     res = DeployResult()
-    agents_dir = runtime_state.agents_dir()
-    skills_dir = runtime_state.skills_dir()
+    agents_dir = target_agents_dir or runtime_state.agents_dir()
+    skills_dir = target_skills_dir or runtime_state.skills_dir()
     agents_dir.mkdir(parents=True, exist_ok=True)
     skills_dir.mkdir(parents=True, exist_ok=True)
 

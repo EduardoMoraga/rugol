@@ -54,17 +54,22 @@ async def upsert_agent_file(path: Path) -> None:
             row = Agent(
                 name=parsed.name, model=parsed.model, description=parsed.description,
                 body=parsed.body, source_path=parsed.source_path, body_hash=parsed.body_hash,
-                status="idle", project_id=project_id,
+                status="idle", project_id=project_id, tools=parsed.tools,
             )
             session.add(row)
             await session.commit()
             await bus.publish("agent:registered", {"name": parsed.name})
-        elif existing.body_hash != parsed.body_hash or existing.project_id != project_id:
+        elif (
+            existing.body_hash != parsed.body_hash
+            or existing.project_id != project_id
+            or existing.tools != parsed.tools
+        ):
             existing.model = parsed.model
             existing.description = parsed.description
             existing.body = parsed.body
             existing.body_hash = parsed.body_hash
             existing.source_path = parsed.source_path
+            existing.tools = parsed.tools
             if project_id is not None:
                 existing.project_id = project_id
             await session.commit()

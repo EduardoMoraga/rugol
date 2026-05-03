@@ -39,6 +39,7 @@ class AgentDTO(BaseModel):
     project_name: str | None = None
     project_color: str | None = None
     project_icon: str | None = None
+    tools: list[str] | None = None  # Capa 5; None/[] → preset
 
 
 class RunNowBody(BaseModel):
@@ -51,7 +52,8 @@ class AgentSpec(BaseModel):
     model: str
     description: str = ""
     body: str
-    project_slug: str | None = None  # ADR-005
+    project_slug: str | None = None        # ADR-005
+    tools: list[str] | None = None         # Capa 5
 
     def to_markdown(self) -> str:
         # Build deterministic, valid YAML frontmatter.
@@ -59,6 +61,10 @@ class AgentSpec(BaseModel):
         lines = ["---", f"name: {self.name}", f"model: {self.model}"]
         if self.project_slug:
             lines.append(f"project: {self.project_slug.strip().lower()}")
+        if self.tools:
+            tool_csv = ", ".join(t.strip() for t in self.tools if t.strip())
+            if tool_csv:
+                lines.append(f"tools: [{tool_csv}]")
         lines.append(f'description: "{esc(self.description.strip())}"')
         lines.append("---")
         frontmatter = "\n".join(lines) + "\n\n"
@@ -94,6 +100,7 @@ def _to_dto(a: Agent, project: Project | None) -> AgentDTO:
         project_name=project.name if project else None,
         project_color=project.color if project else None,
         project_icon=project.icon if project else None,
+        tools=list(a.tools) if a.tools else None,
     )
 
 
@@ -197,6 +204,7 @@ async def get_agent_source(agent_id: int) -> dict:
             "source_path": a.source_path,
             "project_slug": p.slug if p else None,
             "project_name": p.name if p else None,
+            "tools": list(a.tools) if a.tools else None,
         }
 
 
@@ -245,6 +253,7 @@ async def move_agent(agent_id: int, body: dict) -> AgentDTO:
             description=a.description,
             body=a.body,
             project_slug=target_slug,
+            tools=list(a.tools) if a.tools else None,
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)

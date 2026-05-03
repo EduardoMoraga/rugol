@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,6 +13,7 @@ import {
   ListTree,
 } from "lucide-react";
 import {
+  AVAILABLE_TOOLS,
   fetchAgent,
   fetchAgentRuns,
   fetchAgentSource,
@@ -19,6 +21,8 @@ import {
   fetchOntologyNodes,
   fetchProjects,
   moveAgent,
+  updateAgent,
+  type AgentSource,
 } from "@/lib/api";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
@@ -172,7 +176,7 @@ export default function AgentDetail() {
         </TabsContent>
 
         <TabsContent value="tools" className="mt-5">
-          <ToolsPane />
+          <ToolsPane agentId={agentId} />
         </TabsContent>
       </Tabs>
     </div>
@@ -287,39 +291,132 @@ function ProjectMover({ agent }: { agent: any }) {
   );
 }
 
-function ToolsPane() {
-  const tools = [
-    { name: "Read", body: "Read any file under the workspace." },
-    { name: "Write", body: "Create new files or overwrite existing ones." },
-    { name: "Edit", body: "Make targeted edits to a file." },
-    { name: "Glob", body: "Find files by pattern (e.g. **/*.tsx)." },
-    { name: "Grep", body: "Search file contents with ripgrep." },
-    { name: "Bash", body: "Run shell commands inside the workspace." },
-    { name: "WebFetch", body: "Pull content from a public URL." },
-    { name: "TaskCreate", body: "Plan multi-step work as tracked tasks." },
-  ];
+function ToolsPane({ agentId }: { agentId: number }) {
+  const qc = useQueryClient();
+  const source = useQuery({
+    queryKey: ["agent-source", agentId],
+    queryFn: () => fetchAgentSource(agentId),
+  });
+  const initial = source.data?.tools ?? null;
+  const [draft, setDraft] = useState<string[] | null>(null);
+  // Sync draft when the source loads or refetches.
+  useEffect(() => {
+    setDraft(initial ? [...initial] : null);
+  }, [initial?.join(",")]);
+
+  const save = useMutation({
+    mutationFn: (tools: string[] | null) => {
+      if (!source.data) throw new Error("source not loaded");
+      const s = source.data as AgentSource;
+      return updateAgent(agentId, {
+        name: s.name,
+        model: s.model,
+        description: s.description,
+        body: s.body,
+        project_slug: s.project_slug ?? undefined,
+        tools,
+      });
+    },
+    onSuccess: () => {
+      toast({ tone: "success", title: "Tools actualizadas" });
+      qc.invalidateQueries({ queryKey: ["agent-source", agentId] });
+      qc.invalidateQueries({ queryKey: ["agent", agentId] });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+  });
+
+  if (source.isLoading) {
+    return <p className="text-sm text-[--color-fg-muted]">Cargando spec…</p>;
+  }
+  const isWhitelisted = draft !== null;
+
+  function toggle(name: string) {
+    if (draft === null) {
+      // turning off "use full preset" → start with the existing preset list
+      setDraft([name]);
+      return;
+    }
+    if (draft.includes(name)) {
+      const next = draft.filter((t) => t !== name);
+      setDraft(next.length === 0 ? null : next);
+    } else {
+      setDraft([...draft, name]);
+    }
+  }
+
+  function reset() {
+    setDraft(null);
+  }
+
+  function persist() {
+    save.mutate(draft);
+  }
+
   return (
-    <Card className="space-y-3">
-      <header>
-        <h2 className="text-sm font-semibold tracking-tight">Available tools</h2>
-        <p className="text-xs text-[--color-fg-muted] mt-1">
-          Inherited from Claude Code via{" "}
-          <code className="font-mono text-[--color-accent-strong]">claude-agent-sdk</code> with the
-          <code className="font-mono ml-1">claude_code</code> preset. Per-agent tool whitelisting
-          is on the roadmap.
-        </p>
+    <Card className="space-y-4">
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Tools del agente</h2>
+          <p className="text-xs text-[--color-fg-muted] mt-1 max-w-xl">
+            Decidí qué herramientas built-in puede usar este agente. Sin selección, hereda
+            el preset completo de Claude Code (todas las tools). Restringilo cuando quieras
+            un agente solo-lectura, un revisor sin Bash, o un investigador con WebFetch.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isWhitelisted && (
+            <Button variant="ghost" size="sm" onClick={reset} disabled={save.isPending}>
+              Volver al preset
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={persist}
+            disabled={save.isPending || (draft?.join(",") === (initial?.join(",") ?? null))}
+          >
+            {save.isPending ? "Guardando…" : "Guardar"}
+          </Button>
+        </div>
       </header>
+      {!isWhitelisted && (
+        <div className="text-xs text-[--color-fg-muted] surface px-3 py-2 inline-flex items-center gap-2">
+          <Wrench size={12} className="text-[--color-accent-strong]" />
+          Modo preset completo: tildá una tool abajo para activar el whitelist.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {tools.map((t) => (
-          <div key={t.name} className="flex items-start gap-3 px-3 py-2 rounded-md border border-[--color-border]">
-            <Wrench size={12} className="mt-1 text-[--color-fg-subtle]" />
-            <div className="text-xs">
-              <p className="font-mono text-[--color-fg]">{t.name}</p>
-              <p className="text-[--color-fg-muted] mt-0.5">{t.body}</p>
-            </div>
-          </div>
-        ))}
+        {AVAILABLE_TOOLS.map((t) => {
+          const checked = isWhitelisted ? draft!.includes(t.name) : true;
+          return (
+            <label
+              key={t.name}
+              className={`flex items-start gap-3 px-3 py-2 rounded-md border cursor-pointer transition ${
+                isWhitelisted && !checked
+                  ? "border-[--color-border] bg-transparent opacity-50"
+                  : "border-[--color-border]"
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => toggle(t.name)}
+                className="mt-0.5 accent-[--color-accent-strong]"
+              />
+              <div className="text-xs">
+                <p className="font-mono text-[--color-fg]">{t.name}</p>
+                <p className="text-[--color-fg-muted] mt-0.5">{t.description}</p>
+              </div>
+            </label>
+          );
+        })}
       </div>
+      <p className="text-[11px] text-[--color-fg-subtle]">
+        El cambio se persiste reescribiendo el frontmatter del{" "}
+        <code className="font-mono">.md</code>: <code className="font-mono">tools: [Read, Grep, …]</code>.
+        MCP tools custom se manejan en una capa siguiente.
+      </p>
     </Card>
   );
 }

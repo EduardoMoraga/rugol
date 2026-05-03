@@ -65,6 +65,10 @@ class Agent(Base):
     project_id: Mapped[int | None] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"), default=None, index=True,
     )
+    # Capa 5: per-agent tool whitelist. None or empty list → use the full
+    # claude_code preset (all built-in tools). When set, the runner passes
+    # the list to ClaudeAgentOptions.tools and the model sees only those.
+    tools: Mapped[list[str] | None] = mapped_column("tools_json", JSON, default=None)
     last_run_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

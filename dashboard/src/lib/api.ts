@@ -69,6 +69,7 @@ export interface Agent {
   project_name: string | null;
   project_color: string | null;
   project_icon: string | null;
+  tools: string[] | null;
 }
 
 export interface RunSummary {
@@ -210,6 +211,7 @@ export interface AgentSpec {
   description: string;
   body: string;
   project_slug?: string;
+  tools?: string[] | null;
 }
 
 export interface AgentSource extends Omit<AgentSpec, "project_slug"> {
@@ -218,6 +220,22 @@ export interface AgentSource extends Omit<AgentSpec, "project_slug"> {
   project_slug: string | null;
   project_name: string | null;
 }
+
+export const AVAILABLE_TOOLS: { name: string; description: string }[] = [
+  { name: "Read", description: "Read files from the workspace." },
+  { name: "Write", description: "Create new files." },
+  { name: "Edit", description: "Targeted edits to existing files." },
+  { name: "Glob", description: "Find files by pattern (e.g. **/*.tsx)." },
+  { name: "Grep", description: "Search file contents with ripgrep." },
+  { name: "Bash", description: "Run shell commands inside the workspace." },
+  { name: "WebFetch", description: "Pull content from a public URL." },
+  { name: "WebSearch", description: "Search the web." },
+  { name: "Task", description: "Spawn a subagent for a focused task." },
+  { name: "TaskCreate", description: "Plan multi-step work as tracked tasks." },
+  { name: "TaskUpdate", description: "Update a task's state." },
+  { name: "TaskList", description: "Read the active task list." },
+  { name: "NotebookEdit", description: "Edit Jupyter notebook cells." },
+];
 
 export const createAgent = (spec: AgentSpec) => post<Agent>("/api/agents", spec);
 export const fetchAgentSource = (id: number) => get<AgentSource>(`/api/agents/${id}/source`);
@@ -348,8 +366,18 @@ export interface DeployResult {
 
 export const proposeArchitecture = (idea: string, constraints = "") =>
   post<Proposal>("/api/architect/propose", { idea, constraints });
-export const deployProposal = (proposal: Proposal) =>
-  post<DeployResult>("/api/architect/deploy", { proposal });
+export const deployProposal = (
+  proposal: Proposal,
+  target_agents_dir?: string,
+  target_skills_dir?: string,
+) =>
+  post<DeployResult>("/api/architect/deploy", {
+    proposal,
+    target_agents_dir: target_agents_dir || null,
+    target_skills_dir: target_skills_dir || null,
+  });
+export const fetchInstallDirs = () =>
+  get<{ agents_dir: string; skills_dir: string }>("/api/architect/install-dirs");
 
 export const fetchSettings = () => get<PublicSettings>("/api/settings");
 export const fetchSettingsStatus = () => get<SettingsStatus>("/api/settings/status");

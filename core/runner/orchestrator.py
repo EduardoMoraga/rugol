@@ -69,11 +69,19 @@ class RuntimeOrchestrator:
             "source": req.source,
         })
 
-        task = asyncio.create_task(self._execute(run_id, req, model=agent.model))
+        task = asyncio.create_task(
+            self._execute(run_id, req, model=agent.model, tools=agent.tools)
+        )
         self._active[run_id] = task
         return run_id
 
-    async def _execute(self, run_id: int, req: RunRequest, model: str) -> None:
+    async def _execute(
+        self,
+        run_id: int,
+        req: RunRequest,
+        model: str,
+        tools: list[str] | None = None,
+    ) -> None:
         async with self._sem:
             try:
                 result = await run_agent(
@@ -83,6 +91,7 @@ class RuntimeOrchestrator:
                     model=model,
                     session_id=req.session_id,
                     run_id=run_id,
+                    tools=tools,
                 )
                 await self._mark_completed(run_id, result)
             except asyncio.CancelledError:

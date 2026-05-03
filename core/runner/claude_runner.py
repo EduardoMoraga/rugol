@@ -55,8 +55,13 @@ async def run_agent(
     model: str,
     session_id: str | None = None,
     run_id: int | None = None,
+    tools: list[str] | None = None,
 ) -> RunResult:
-    """Invoke claude-agent-sdk and stream events while collecting the result."""
+    """Invoke claude-agent-sdk and stream events while collecting the result.
+
+    `tools`: optional whitelist of built-in tool names. None or empty list
+    means "use the full claude_code preset" (Capa 5).
+    """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
     except ImportError as e:
@@ -64,7 +69,7 @@ async def run_agent(
             "claude-agent-sdk is not installed. Install it with `pip install claude-agent-sdk`."
         ) from e
 
-    options = ClaudeAgentOptions(
+    options_kwargs: dict = dict(
         cwd=str(workspace_dir),
         model=model,
         permission_mode="bypassPermissions",
@@ -73,6 +78,9 @@ async def run_agent(
         setting_sources=["user", "project", "local"],
         env=_build_env(),
     )
+    if tools:
+        options_kwargs["tools"] = list(tools)
+    options = ClaudeAgentOptions(**options_kwargs)
 
     parts: list[str] = []
     new_sid = session_id

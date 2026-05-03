@@ -45,6 +45,8 @@ async def init_db() -> None:
             ("runs", "final_text", "TEXT"),
             # ADR-005: agents now belong to a project (nullable; backfilled below).
             ("agents", "project_id", "INTEGER REFERENCES projects(id) ON DELETE SET NULL"),
+            # Capa 5: per-agent tool whitelist (JSON array, nullable = preset).
+            ("agents", "tools_json", "TEXT"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

@@ -16,9 +16,10 @@ import {
   RefreshCw,
   Briefcase,
 } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   deployProposal,
+  fetchInstallDirs,
   proposeArchitecture,
   type DeployResult,
   type Proposal,
@@ -75,8 +76,20 @@ export default function ArchitectPage() {
     },
   });
 
+  const [installAgentsDir, setInstallAgentsDir] = useState("");
+  const [installSkillsDir, setInstallSkillsDir] = useState("");
+  const installDirs = useQuery({
+    queryKey: ["install-dirs"],
+    queryFn: fetchInstallDirs,
+  });
+
   const deployMut = useMutation({
-    mutationFn: (p: Proposal) => deployProposal(p),
+    mutationFn: (p: Proposal) =>
+      deployProposal(
+        p,
+        installAgentsDir.trim() || undefined,
+        installSkillsDir.trim() || undefined,
+      ),
     onSuccess: (r) => {
       setDeployResult(r);
       setStage("done");
@@ -155,6 +168,12 @@ export default function ArchitectPage() {
             deployMut.mutate(proposal);
           }}
           deploying={deployMut.isPending}
+          installAgentsDir={installAgentsDir}
+          installSkillsDir={installSkillsDir}
+          defaultAgentsDir={installDirs.data?.agents_dir ?? ""}
+          defaultSkillsDir={installDirs.data?.skills_dir ?? ""}
+          onInstallAgentsDirChange={setInstallAgentsDir}
+          onInstallSkillsDirChange={setInstallSkillsDir}
         />
       )}
 
@@ -284,11 +303,23 @@ function ReviewStage({
   setProposal,
   onDeploy,
   deploying,
+  installAgentsDir,
+  installSkillsDir,
+  defaultAgentsDir,
+  defaultSkillsDir,
+  onInstallAgentsDirChange,
+  onInstallSkillsDirChange,
 }: {
   proposal: Proposal;
   setProposal: (p: Proposal) => void;
   onDeploy: () => void;
   deploying: boolean;
+  installAgentsDir: string;
+  installSkillsDir: string;
+  defaultAgentsDir: string;
+  defaultSkillsDir: string;
+  onInstallAgentsDirChange: (s: string) => void;
+  onInstallSkillsDirChange: (s: string) => void;
 }) {
   function update<K extends keyof Proposal>(key: K, value: Proposal[K]) {
     setProposal({ ...proposal, [key]: value });
@@ -455,6 +486,43 @@ function ReviewStage({
           </div>
         </Section>
       )}
+
+      <Section
+        icon={<Wrench size={14} />}
+        title="Dónde se instala"
+        description="Por defecto los .md aterrizan en las carpetas globales (Settings). Sobrescribí solo para esta deploy."
+      >
+        <Card className="space-y-3">
+          <div className="space-y-1.5">
+            <FieldLabel hint={defaultAgentsDir ? `default: ${defaultAgentsDir}` : "cargando default…"}>
+              Carpeta de agentes
+            </FieldLabel>
+            <Input
+              value={installAgentsDir}
+              onChange={(e) => onInstallAgentsDirChange(e.target.value)}
+              placeholder={defaultAgentsDir || "C:\\Moragent\\04-LAB\\rogologo\\agents-templates"}
+              className="font-mono text-[12px]"
+              spellCheck={false}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel hint={defaultSkillsDir ? `default: ${defaultSkillsDir}` : "cargando default…"}>
+              Carpeta de skills
+            </FieldLabel>
+            <Input
+              value={installSkillsDir}
+              onChange={(e) => onInstallSkillsDirChange(e.target.value)}
+              placeholder={defaultSkillsDir || "C:\\Moragent\\04-LAB\\rogologo\\skills-templates"}
+              className="font-mono text-[12px]"
+              spellCheck={false}
+            />
+          </div>
+          <p className="text-[11px] text-[--color-fg-subtle]">
+            Path absoluto. Se crea si no existe. Si dejás vacío usa el default.
+            Para cambiar el default global andá a Settings.
+          </p>
+        </Card>
+      </Section>
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-[--color-fg-muted]">

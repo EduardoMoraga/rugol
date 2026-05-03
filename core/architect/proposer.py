@@ -268,9 +268,10 @@ async def propose(*, idea: str, constraints: str = "", workspace_dir=None) -> Pr
             "preset": "claude_code",
             "append": "You are the Rogologo Architect. Output only the JSON object specified. Do not call tools, do not write files.",
         },
-        # Without these the bundled CLI cannot resolve subscription credentials
-        # and the subprocess hangs silently.
-        setting_sources=["user", "project", "local"],
+        # Solo "user" — necesitamos las credenciales de subscripción
+        # autenticadas en la máquina, pero NO queremos que el Architect
+        # vea el CLAUDE.md del repo (lo confundiría sobre el contexto).
+        setting_sources=["user"],
         env=env,
     )
 

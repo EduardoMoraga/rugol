@@ -83,13 +83,21 @@ async def run_agent(
     if project_context:
         system_append = f"{SYSTEM_PROMPT_APPEND}\n\n{project_context}"
 
+    # `setting_sources=["user"]` — solo necesitamos el "user" setting source
+    # para que la SDK use las credenciales de la subscripción Claude Pro/Max
+    # autenticada en la máquina (~/.claude/). NO incluimos "project" ni
+    # "local" porque eso haría que el agente lea el CLAUDE.md del repo de
+    # Rogologo y termine respondiendo como si fuera un dev del repo, en vez
+    # de hablar como el agente que el usuario invocó. Bug encontrado al
+    # probar un game-designer recién clonado: respondía sobre "Sprint 2 de
+    # Rogologo" en vez de sobre juegos educativos.
     options_kwargs: dict = dict(
         cwd=str(workspace_dir),
         model=model,
         permission_mode="bypassPermissions",
         system_prompt={"type": "preset", "preset": "claude_code", "append": system_append},
         resume=session_id,
-        setting_sources=["user", "project", "local"],
+        setting_sources=["user"],
         env=_build_env(),
     )
     if tools:

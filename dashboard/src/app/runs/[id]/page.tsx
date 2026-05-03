@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardSection, PageHeader, Stat } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
+import { MarkdownView } from "@/components/ui/markdown";
 
 interface ToolCall { ts: number; tool: string; }
 
@@ -131,13 +132,19 @@ export default function RunDetail() {
         </div>
         <div
           ref={tailRef}
-          className="surface p-5 whitespace-pre-wrap font-mono text-[13px] leading-relaxed max-h-[480px] overflow-y-auto"
+          className="surface p-5 max-h-[640px] overflow-y-auto"
         >
-          {display || (
-            <span className="text-[--color-fg-subtle]">(waiting for output…)</span>
-          )}
-          {isLive && display && (
-            <span className="inline-block w-2 h-4 bg-[--color-accent-strong] align-middle animate-[pulse-soft_1s_ease-in-out_infinite] ml-0.5" />
+          {display ? (
+            <>
+              <MarkdownView>{display}</MarkdownView>
+              {isLive && (
+                <span className="inline-block w-2 h-4 bg-[--color-accent-strong] align-middle animate-[pulse-soft_1s_ease-in-out_infinite] ml-0.5" />
+              )}
+            </>
+          ) : (
+            <span className="text-[--color-fg-subtle] text-sm">
+              (esperando salida…)
+            </span>
           )}
         </div>
       </CardSection>

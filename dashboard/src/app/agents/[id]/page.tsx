@@ -1,11 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Play,
   Pencil,
   FileCode2,
   Wrench,
@@ -21,21 +19,19 @@ import {
   fetchOntologyNodes,
   fetchProjects,
   moveAgent,
-  runAgentNow,
 } from "@/lib/api";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
-import { Textarea, Select } from "@/components/ui/input";
+import { Select } from "@/components/ui/input";
 import { Card, CardSection, PageHeader, Stat } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/toast";
 import { ProjectBadge } from "@/components/projects/project-badge";
+import { AgentChat } from "@/components/agents/agent-chat";
 
 export default function AgentDetail() {
   const params = useParams<{ id: string }>();
   const agentId = Number(params.id);
-  const router = useRouter();
-  const qc = useQueryClient();
 
   const agent = useQuery({
     queryKey: ["agent", agentId],
@@ -49,25 +45,6 @@ export default function AgentDetail() {
     refetchInterval: 5000,
     enabled: !Number.isNaN(agentId),
   });
-
-  const [prompt, setPrompt] = useState("");
-  const run = useMutation({
-    mutationFn: (p: string) => runAgentNow(agentId, p),
-    onSuccess: ({ run_id }) => {
-      qc.invalidateQueries({ queryKey: ["agent-runs", agentId] });
-      qc.invalidateQueries({ queryKey: ["agent", agentId] });
-      setPrompt("");
-      toast({ tone: "success", title: `Run #${run_id} queued` });
-      router.push(`/runs/${run_id}`);
-    },
-    onError: (e: Error) => toast({ tone: "error", title: "Failed to queue run", body: e.message }),
-  });
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!prompt.trim()) return;
-    run.mutate(prompt.trim());
-  }
 
   if (agent.isLoading) return <div className="p-8 text-sm text-[--color-fg-muted]">Loading…</div>;
   if (!agent.data) return <div className="p-8 text-sm text-[--color-fg-muted]">Agent not found.</div>;
@@ -140,32 +117,12 @@ export default function AgentDetail() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-5 space-y-6">
-          <Card>
-            <form onSubmit={onSubmit} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold tracking-tight">Run now</h2>
-                <span className="text-xs text-[--color-fg-muted] font-mono">
-                  {a.model}
-                </span>
-              </div>
-              <Textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={3}
-                placeholder={`Ask ${a.name} to do something specific…`}
-              />
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-[--color-fg-muted]">
-                  {a.status === "running"
-                    ? "This agent is busy — your run will queue."
-                    : "You'll be redirected to the live run view."}
-                </span>
-                <Button type="submit" variant="primary" disabled={run.isPending || !prompt.trim()}>
-                  <Play size={13} /> {run.isPending ? "Queueing…" : "Run"}
-                </Button>
-              </div>
-            </form>
-          </Card>
+          <AgentChat
+            agentId={agentId}
+            agentName={a.name}
+            modelLabel={a.model}
+            agentBusy={a.status === "running"}
+          />
 
           <CardSection>
             <div className="flex items-baseline justify-between">

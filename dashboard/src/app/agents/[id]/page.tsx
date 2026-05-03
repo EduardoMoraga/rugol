@@ -126,6 +126,7 @@ export default function AgentDetail() {
             agentName={a.name}
             modelLabel={a.model}
             agentBusy={a.status === "running"}
+            projectSlug={a.project_slug}
           />
 
           <CardSection>

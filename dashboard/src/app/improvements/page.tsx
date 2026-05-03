@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookmarkPlus } from "lucide-react";
 import {
+  addProjectLesson,
   approveImprovement,
   fetchAgents,
   fetchImprovements,
@@ -13,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, PageHeader } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DiffView } from "@/components/improvements/diff-view";
+import { ProjectBadge } from "@/components/projects/project-badge";
 import { toast } from "@/components/ui/toast";
 
 const TABS = [
@@ -59,6 +62,46 @@ export default function ImprovementsPage() {
     </div>
   );
 }
+
+function PromoteRationaleButton({
+  projectSlug,
+  text,
+}: {
+  projectSlug: string;
+  text: string;
+}) {
+  const [done, setDone] = useState(false);
+  const promote = useMutation({
+    mutationFn: () =>
+      addProjectLesson(projectSlug, { text: text.slice(0, 480), kind: "lesson" }),
+    onSuccess: () => {
+      setDone(true);
+      toast({
+        tone: "success",
+        title: "Guardada como lección",
+        body: "Todos los agentes del proyecto la van a leer antes de cada run.",
+      });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+  });
+  return (
+    <button
+      type="button"
+      onClick={() => promote.mutate()}
+      disabled={promote.isPending || done}
+      className={`text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-md border transition ${
+        done
+          ? "border-[--color-success]/40 text-[--color-success] cursor-default"
+          : "border-[--color-border] text-[--color-fg-muted] hover:text-[--color-accent-strong] hover:border-[--color-accent]/40"
+      }`}
+    >
+      <BookmarkPlus size={11} />
+      {done ? "Guardada en el proyecto" : promote.isPending ? "Guardando…" : "Promover rationale a lección del proyecto"}
+    </button>
+  );
+}
+
 
 function Panel({
   status,
@@ -110,12 +153,28 @@ function Panel({
         return (
           <Card key={imp.id} className="space-y-4">
             <header className="flex items-start justify-between gap-3">
-              <div className="min-w-0 space-y-1">
-                <p className="text-[11px] font-mono text-[--color-fg-subtle]">
-                  #{imp.id} · {agent ? agent.name : `agent ${imp.agent_id}`} ·{" "}
-                  {new Date(imp.created_at).toLocaleString()}
-                </p>
+              <div className="min-w-0 space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[11px] font-mono text-[--color-fg-subtle]">
+                    #{imp.id} · {agent ? agent.name : `agent ${imp.agent_id}`} ·{" "}
+                    {new Date(imp.created_at).toLocaleString()}
+                  </p>
+                  {agent?.project_slug && (
+                    <ProjectBadge
+                      slug={agent.project_slug}
+                      name={agent.project_name}
+                      color={agent.project_color}
+                      icon={agent.project_icon}
+                    />
+                  )}
+                </div>
                 <p className="text-sm">{imp.rationale}</p>
+                {agent?.project_slug && imp.rationale && (
+                  <PromoteRationaleButton
+                    projectSlug={agent.project_slug}
+                    text={imp.rationale}
+                  />
+                )}
               </div>
               {status === "proposed" && (
                 <div className="flex gap-2 shrink-0">

@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale } from "lucide-react";
-import { cancelRun, fetchRun, runAgentNow, type RunDetail, type RunNowOptions } from "@/lib/api";
+import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale, BookmarkPlus } from "lucide-react";
+import { addProjectLesson, cancelRun, fetchRun, runAgentNow, type RunDetail, type RunNowOptions } from "@/lib/api";
 import { useStream } from "@/lib/use-stream";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -47,6 +47,9 @@ interface Props {
   agentName: string;
   modelLabel: string;
   agentBusy: boolean;
+  /** Capa 7: when set, the chat exposes a "Promote to lesson" button that
+   * appends bubble text to this project's living lesson list. */
+  projectSlug: string | null;
 }
 
 /**
@@ -57,7 +60,7 @@ interface Props {
  * Live output streams in via the SSE bus filtered by run_id, and lands
  * persisted as `final_text` on the run row when the LLM finishes.
  */
-export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) {
+export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSlug }: Props) {
   const qc = useQueryClient();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
@@ -311,7 +314,7 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy }: Props) 
         {turns.length === 0 ? (
           <EmptyChat agentName={agentName} />
         ) : (
-          turns.map((t) => <TurnView key={t.id} turn={t} />)
+          turns.map((t) => <TurnView key={t.id} turn={t} projectSlug={projectSlug} />)
         )}
       </div>
 
@@ -407,7 +410,54 @@ function EmptyChat({ agentName }: { agentName: string }) {
   );
 }
 
-function TurnView({ turn }: { turn: Turn }) {
+function PromoteToLessonButton({
+  projectSlug,
+  text,
+  defaultKind = "lesson",
+  label = "Promover a lección",
+}: {
+  projectSlug: string | null;
+  text: string;
+  defaultKind?: "lesson" | "bias" | "fact";
+  label?: string;
+}) {
+  const [done, setDone] = useState(false);
+  const promote = useMutation({
+    mutationFn: () =>
+      addProjectLesson(projectSlug as string, {
+        text: text.slice(0, 480),
+        kind: defaultKind,
+      }),
+    onSuccess: () => {
+      setDone(true);
+      toast({
+        tone: "success",
+        title: "Guardada como lección del proyecto",
+        body: "Todos los agentes del equipo van a leerla antes de cada run.",
+      });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+  });
+  if (!projectSlug || !text.trim()) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => promote.mutate()}
+      disabled={promote.isPending || done}
+      title="Agregar al banco de lecciones del proyecto"
+      className={`text-[10px] inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition ${
+        done
+          ? "text-[--color-success] cursor-default"
+          : "text-[--color-fg-muted] hover:text-[--color-accent-strong] hover:bg-[--color-bg-elev]"
+      }`}
+    >
+      <BookmarkPlus size={10} /> {done ? "guardada" : promote.isPending ? "…" : label}
+    </button>
+  );
+}
+
+function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | null }) {
   return (
     <div className="space-y-3">
       <div className="flex items-start gap-3">
@@ -447,19 +497,28 @@ function TurnView({ turn }: { turn: Turn }) {
                 <span className="text-[--color-warn]"> · cancelled</span>
               )}
             </p>
-            {turn.runId && (
-              <Link
-                href={`/runs/${turn.runId}`}
-                className="text-[10px] text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                run #{turn.runId} <ExternalLink size={9} />
-                {turn.cost !== undefined && (
-                  <span className="font-mono ml-1">${turn.cost.toFixed(4)}</span>
-                )}
-              </Link>
-            )}
+            <div className="flex items-center gap-1">
+              {turn.status === "completed" && turn.assistant && (
+                <PromoteToLessonButton
+                  projectSlug={projectSlug}
+                  text={turn.assistant}
+                  defaultKind="lesson"
+                />
+              )}
+              {turn.runId && (
+                <Link
+                  href={`/runs/${turn.runId}`}
+                  className="text-[10px] text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  run #{turn.runId} <ExternalLink size={9} />
+                  {turn.cost !== undefined && (
+                    <span className="font-mono ml-1">${turn.cost.toFixed(4)}</span>
+                  )}
+                </Link>
+              )}
+            </div>
           </div>
           {turn.assistant ? (
             <MarkdownView>{turn.assistant}</MarkdownView>
@@ -486,19 +545,29 @@ function TurnView({ turn }: { turn: Turn }) {
                 {turn.advocate.status === "completed" && " · ok"}
                 {turn.advocate.status === "failed" && " · failed"}
               </p>
-              {turn.advocate.runId && (
-                <Link
-                  href={`/runs/${turn.advocate.runId}`}
-                  className="text-[10px] text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  run #{turn.advocate.runId} <ExternalLink size={9} />
-                  {turn.advocate.cost !== undefined && (
-                    <span className="font-mono ml-1">${turn.advocate.cost.toFixed(4)}</span>
-                  )}
-                </Link>
-              )}
+              <div className="flex items-center gap-1">
+                {turn.advocate.status === "completed" && turn.advocate.text && (
+                  <PromoteToLessonButton
+                    projectSlug={projectSlug}
+                    text={turn.advocate.text}
+                    defaultKind="bias"
+                    label="Promover crítica a lección"
+                  />
+                )}
+                {turn.advocate.runId && (
+                  <Link
+                    href={`/runs/${turn.advocate.runId}`}
+                    className="text-[10px] text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    run #{turn.advocate.runId} <ExternalLink size={9} />
+                    {turn.advocate.cost !== undefined && (
+                      <span className="font-mono ml-1">${turn.advocate.cost.toFixed(4)}</span>
+                    )}
+                  </Link>
+                )}
+              </div>
             </div>
             {turn.advocate.text ? (
               <MarkdownView>{turn.advocate.text}</MarkdownView>

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core import __version__
 from core.adapters.slack import SlackAdapter
 from core.adapters.telegram import TelegramAdapter
-from core.api import agents, architect, channels, health, improvements, ontology, projects, runs, schedules, settings as settings_api, skills, stream, templates
+from core.api import admin, agents, architect, channels, health, improvements, ontology, projects, runs, schedules, settings as settings_api, skills, stream, templates
 from core.config import get_settings
 from core.db import init_db
 from core.registry.service import build_watcher, initial_scan
@@ -44,11 +44,20 @@ async def lifespan(app: FastAPI):
     scheduler = get_scheduler()
     scheduler.start()
 
-    # 4. Adapters
+    # 4. Adapters — NEVER fatal: if a chat platform is misconfigured or
+    # unreachable, the rest of Rogologo must keep working. We caught a
+    # production bug where a Telegram getMe timeout brought the entire
+    # backend down.
     telegram = TelegramAdapter()
     slack = SlackAdapter()
-    await telegram.start()
-    await slack.start()
+    try:
+        await telegram.start()
+    except Exception:
+        logger.exception("telegram adapter failed to start — continuing without it")
+    try:
+        await slack.start()
+    except Exception:
+        logger.exception("slack adapter failed to start — continuing without it")
 
     app.state.watcher = watcher
     app.state.scheduler = scheduler
@@ -94,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(architect.router, prefix="/api")
     app.include_router(skills.router, prefix="/api")
     app.include_router(stream.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
 
     return app
 

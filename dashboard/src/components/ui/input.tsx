@@ -26,8 +26,21 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(
   function Select({ className, children, ...props }, ref) {
+    // The native <option> dropdown popup ignores the parent <select>'s
+    // CSS background in Chromium on Windows when the OS theme is light —
+    // it ends up white-on-white and unreadable. The arbitrary selector
+    // below forces the option list dark so the text is always visible
+    // regardless of OS theme.
     return (
-      <select ref={ref} className={cn(baseInput, "h-9 px-3", className)} {...props}>
+      <select
+        ref={ref}
+        className={cn(
+          baseInput,
+          "h-9 px-3 [&>option]:bg-[--color-bg-elev] [&>option]:text-[--color-fg]",
+          className,
+        )}
+        {...props}
+      >
         {children}
       </select>
     );

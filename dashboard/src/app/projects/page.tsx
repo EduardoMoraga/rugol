@@ -270,27 +270,42 @@ function NewProjectDialog() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <FieldLabel>Color</FieldLabel>
-              <div className="flex flex-wrap gap-1.5">
-                {PALETTE.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setBody({ ...body, color: c })}
-                    className={`w-7 h-7 rounded-md border-2 transition ${
-                      body.color === c
-                        ? "border-[--color-fg]"
-                        : "border-transparent hover:border-[--color-border]"
-                    }`}
-                    style={{ background: c }}
-                    aria-label={c}
-                  />
-                ))}
+              <FieldLabel hint={`elegido: ${body.color}`}>Color</FieldLabel>
+              <div className="flex flex-wrap gap-2">
+                {PALETTE.map((c) => {
+                  const selected = body.color === c;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setBody({ ...body, color: c })}
+                      className={`w-9 h-9 rounded-md transition relative ${
+                        selected
+                          ? "ring-2 ring-offset-2 ring-offset-[--color-bg-elev] ring-[--color-fg]"
+                          : "ring-1 ring-[--color-border] hover:ring-[--color-fg-muted]"
+                      }`}
+                      style={{ background: c }}
+                      aria-label={c}
+                      aria-pressed={selected}
+                    >
+                      {selected && (
+                        <span className="absolute inset-0 grid place-items-center text-white text-sm font-bold drop-shadow">
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
+          {create.isError && (
+            <p className="text-xs text-[--color-error] bg-[--color-error]/10 border border-[--color-error]/30 rounded-md px-3 py-2">
+              {(create.error as Error).message}
+            </p>
+          )}
           <div className="flex items-center justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={create.isPending}>
               Cancelar
             </Button>
             <Button type="submit" variant="primary" disabled={create.isPending || !body.name.trim()}>

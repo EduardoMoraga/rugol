@@ -50,6 +50,11 @@ interface Props {
   /** Capa 7: when set, the chat exposes a "Promote to lesson" button that
    * appends bubble text to this project's living lesson list. */
   projectSlug: string | null;
+  /** Used in the context banner so the user can see what the agent has been
+   * told before each run — the project's mission and lesson count. */
+  projectName?: string | null;
+  projectMission?: string | null;
+  projectLessonCount?: number;
 }
 
 /**
@@ -60,7 +65,16 @@ interface Props {
  * Live output streams in via the SSE bus filtered by run_id, and lands
  * persisted as `final_text` on the run row when the LLM finishes.
  */
-export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSlug }: Props) {
+export function AgentChat({
+  agentId,
+  agentName,
+  modelLabel,
+  agentBusy,
+  projectSlug,
+  projectName,
+  projectMission,
+  projectLessonCount = 0,
+}: Props) {
   const qc = useQueryClient();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
@@ -255,6 +269,99 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSl
     tailRef.current?.scrollTo({ top: tailRef.current.scrollHeight, behavior: "smooth" });
   }, [turns]);
 
+  // Polling safety net (Capa 14): if a turn or its advocate is still in
+  // "queued" / "streaming" state, every 4s we hit /api/runs/{id}. If the
+  // backend reports completed/failed/cancelled, we hydrate locally — this
+  // covers SSE disconnects (e.g. backend restart) where the run finishes
+  // but the completion event never reaches us. Without this, the UI can
+  // sit at "streaming" forever even though the run finished minutes ago.
+  useEffect(() => {
+    const inflight = turns.filter(
+      (t) => t.runId && (t.status === "queued" || t.status === "streaming"),
+    );
+    const inflightAdvocates = turns.filter(
+      (t) => t.advocate?.runId && (t.advocate.status === "queued" || t.advocate.status === "streaming"),
+    );
+    if (inflight.length === 0 && inflightAdvocates.length === 0) return;
+
+    let cancelled = false;
+    const interval = window.setInterval(async () => {
+      // Re-read latest turns inside the interval via setTurns(prev → prev).
+      // (prev gives us the freshest state without re-running the effect.)
+      let snapshot: Turn[] = [];
+      setTurns((prev) => {
+        snapshot = prev;
+        return prev;
+      });
+
+      for (const t of snapshot) {
+        if (cancelled) return;
+        // Primary turn check.
+        if (t.runId && (t.status === "queued" || t.status === "streaming")) {
+          try {
+            const r = await fetchRun(t.runId);
+            if (cancelled) return;
+            if (r.status === "completed" || r.status === "failed" || r.status === "cancelled") {
+              setTurns((prev) =>
+                prev.map((x) =>
+                  x.id === t.id
+                    ? {
+                        ...x,
+                        status: r.status as Turn["status"],
+                        sessionId: r.session_id ?? x.sessionId,
+                        cost: r.cost_usd,
+                        // Prefer persisted final_text over (possibly empty) live deltas.
+                        assistant: r.final_text || x.assistant || "",
+                      }
+                    : x,
+                ),
+              );
+              if (liveTurnIdRef.current === t.id) liveTurnIdRef.current = null;
+              qc.invalidateQueries({ queryKey: ["agent-runs", agentId] });
+            }
+          } catch {
+            // Network blip; next tick retries.
+          }
+        }
+        // Advocate turn check.
+        if (
+          t.advocate?.runId &&
+          (t.advocate.status === "queued" || t.advocate.status === "streaming")
+        ) {
+          try {
+            const r = await fetchRun(t.advocate.runId);
+            if (cancelled) return;
+            if (r.status === "completed" || r.status === "failed" || r.status === "cancelled") {
+              setTurns((prev) =>
+                prev.map((x) =>
+                  x.id === t.id && x.advocate
+                    ? {
+                        ...x,
+                        advocate: {
+                          ...x.advocate,
+                          status: r.status as Turn["status"],
+                          cost: r.cost_usd,
+                          text: r.final_text || x.advocate.text || "",
+                        },
+                      }
+                    : x,
+                ),
+              );
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turns.map((t) => `${t.runId}:${t.status}:${t.advocate?.runId}:${t.advocate?.status}`).join("|")]);
+
   function submit(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
@@ -312,7 +419,12 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSl
 
       <div ref={tailRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
         {turns.length === 0 ? (
-          <EmptyChat agentName={agentName} />
+          <EmptyChat
+            agentName={agentName}
+            projectName={projectName}
+            projectMission={projectMission}
+            projectLessonCount={projectLessonCount}
+          />
         ) : (
           turns.map((t) => <TurnView key={t.id} turn={t} projectSlug={projectSlug} />)
         )}
@@ -395,16 +507,49 @@ export function AgentChat({ agentId, agentName, modelLabel, agentBusy, projectSl
   );
 }
 
-function EmptyChat({ agentName }: { agentName: string }) {
+function EmptyChat({
+  agentName,
+  projectName,
+  projectMission,
+  projectLessonCount = 0,
+}: {
+  agentName: string;
+  projectName?: string | null;
+  projectMission?: string | null;
+  projectLessonCount?: number;
+}) {
   return (
-    <div className="text-center text-sm text-[--color-fg-muted] py-12 space-y-2">
+    <div className="text-center text-sm text-[--color-fg-muted] py-8 space-y-4">
       <Bot size={28} className="mx-auto text-[--color-fg-subtle]" />
       <p>
         Empieza la conversación con <span className="text-[--color-fg]">{agentName}</span>.
       </p>
-      <p className="text-[12px] text-[--color-fg-subtle] max-w-md mx-auto">
+      {(projectMission || projectLessonCount > 0) && (
+        <div className="surface text-left max-w-lg mx-auto px-4 py-3 space-y-2">
+          <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium">
+            Lo que el agente sabe antes de cada respuesta
+          </p>
+          {projectMission && (
+            <div>
+              <p className="text-[10px] text-[--color-fg-subtle] uppercase tracking-wider">
+                Misión {projectName ? `· ${projectName}` : ""}
+              </p>
+              <p className="text-[12.5px] text-[--color-fg] leading-relaxed mt-0.5">
+                {projectMission}
+              </p>
+            </div>
+          )}
+          {projectLessonCount > 0 && (
+            <p className="text-[11px] text-[--color-fg-muted]">
+              + {projectLessonCount} lección{projectLessonCount === 1 ? "" : "es"} viva
+              {projectLessonCount === 1 ? "" : "s"} del proyecto que el agente lee antes de responder.
+            </p>
+          )}
+        </div>
+      )}
+      <p className="text-[11.5px] text-[--color-fg-subtle] max-w-md mx-auto">
         Cada turno se ejecuta como un run real — verás tokens, costo y podrás
-        abrir cualquier respuesta en su página de detalle para inspeccionarla.
+        abrir cualquier respuesta en su página de detalle.
       </p>
     </div>
   );

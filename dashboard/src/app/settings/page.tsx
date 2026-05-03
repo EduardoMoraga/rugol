@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2 } from "lucide-react";
+import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createChannelBinding,
@@ -10,6 +10,7 @@ import {
   fetchChannelBindings,
   fetchSettings,
   fetchSettingsStatus,
+  resetInstall,
   updateSettings,
   type SettingsUpdate,
 } from "@/lib/api";
@@ -54,9 +55,58 @@ export default function SettingsPage() {
           <ChannelsSection />
           <RegistrySection settings={settings.data} status={status.data.watcher} qc={qc} />
           <ModelSection settings={settings.data} qc={qc} />
+          <DangerZone />
         </>
       )}
     </div>
+  );
+}
+
+
+function DangerZone() {
+  const reset = useMutation({
+    mutationFn: () => resetInstall(),
+    onSuccess: (data) => {
+      toast({
+        tone: "success",
+        title: "Instalación reseteada",
+        body: `${data.deleted.length} archivos borrados. Reinicia el backend para arrancar limpio.`,
+      });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo resetear", body: e.message }),
+  });
+
+  function handleReset() {
+    const phrase = "BORRAR TODO";
+    const typed = window.prompt(
+      `Esto borra TODA la base de datos, los tokens guardados y todos los agentes generados. ` +
+        `Las skills internas de Rogologo y los templates curados se conservan.\n\n` +
+        `Para confirmar, escribe exactamente: ${phrase}`,
+    );
+    if (typed === phrase) {
+      reset.mutate();
+    } else if (typed !== null) {
+      toast({ tone: "info", title: "Confirmación incorrecta — nada borrado." });
+    }
+  }
+
+  return (
+    <Card className="border-[--color-error]/40">
+      <SectionHeader
+        icon={<AlertTriangle size={14} />}
+        title="Zona peligrosa"
+        body={
+          "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro " +
+          "PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) " +
+          "para que se recreen las tablas vacías. El proyecto Workspace y los 5 templates curados " +
+          "siguen disponibles."
+        }
+      />
+      <Button variant="danger" onClick={handleReset} disabled={reset.isPending}>
+        <Trash2 size={13} /> {reset.isPending ? "Reseteando…" : "Restablecer instalación"}
+      </Button>
+    </Card>
   );
 }
 

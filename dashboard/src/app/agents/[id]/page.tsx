@@ -20,6 +20,7 @@ import {
   fetchAgentSource,
   fetchOntologyEdges,
   fetchOntologyNodes,
+  fetchProject,
   fetchProjects,
   moveAgent,
   updateAgent,
@@ -49,6 +50,12 @@ export default function AgentDetail() {
     queryFn: () => fetchAgentRuns(agentId),
     refetchInterval: 5000,
     enabled: !Number.isNaN(agentId),
+  });
+  const projectSlug = agent.data?.project_slug ?? null;
+  const project = useQuery({
+    queryKey: ["project", projectSlug],
+    queryFn: () => fetchProject(projectSlug as string),
+    enabled: !!projectSlug,
   });
 
   if (agent.isLoading) return <div className="p-8 text-sm text-[--color-fg-muted]">Loading…</div>;
@@ -132,6 +139,9 @@ export default function AgentDetail() {
             modelLabel={a.model}
             agentBusy={a.status === "running"}
             projectSlug={a.project_slug}
+            projectName={project.data?.name ?? a.project_name}
+            projectMission={project.data?.mission ?? null}
+            projectLessonCount={project.data?.lessons.length ?? 0}
           />
 
           <CardSection>

@@ -178,6 +178,12 @@ export const fetchAgentRuns = (id: number) => get<RunSummary[]>(`/api/agents/${i
 export const moveAgent = (id: number, project_slug: string) =>
   post<Agent>(`/api/agents/${id}/move`, { project_slug });
 
+// --- Admin (peligrosos) ---
+export const resetInstall = () =>
+  post<{ deleted: string[]; skipped: { path: string; reason: string }[]; next_step: string }>(
+    "/api/admin/reset?confirm=YES_RESET_EVERYTHING",
+  );
+
 // --- Channel bindings (Capa 13) ---
 export interface ChannelBinding {
   id: number;

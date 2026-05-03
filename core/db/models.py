@@ -197,3 +197,29 @@ class Channel(Base):
     team_name: Mapped[str | None] = mapped_column(String(128), default=None)
     bound_agent_ids: Mapped[list[int] | None] = mapped_column(JSON, default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ChannelBinding(Base):
+    """Maps an external channel (Telegram chat, Slack channel) to one agent.
+
+    When a message arrives on Telegram chat 12345 or Slack channel C0ABC, the
+    adapter looks up the binding by (type, external_id) and dispatches to the
+    bound agent. Without a binding, the message is rejected with help text —
+    we never silently default to a wrong agent (that was Capa 8.5 fix:
+    `default_agent="default"` used to crash on every message because no such
+    agent exists).
+
+    UNIQUE on (channel_type, external_id) — one binding per channel.
+    """
+
+    __tablename__ = "channel_bindings"
+    __table_args__ = (
+        UniqueConstraint("channel_type", "external_id", name="uq_channel_bindings_chan"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    channel_type: Mapped[str] = mapped_column(String(16))  # telegram|slack
+    external_id: Mapped[str] = mapped_column(String(128), index=True)
+    agent_id: Mapped[int] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
+    label: Mapped[str | None] = mapped_column(String(128), default=None)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)

@@ -32,13 +32,13 @@ Each Monday at 9 AM you:
 ## This week's insight
 <one paragraph>
 
-## Variant A ÃÂ¢ÃÂÃÂ short (ÃÂ¢ÃÂÃÂ¤ 80 words)
+## Variant A ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ short (ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ¤ 80 words)
 <post>
 
-## Variant B ÃÂ¢ÃÂÃÂ medium (ÃÂ¢ÃÂÃÂ¤ 200 words)
+## Variant B ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ medium (ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ¤ 200 words)
 <post>
 
-## Variant C ÃÂ¢ÃÂÃÂ long (ÃÂ¢ÃÂÃÂ¤ 600 words, with a thread-style break)
+## Variant C ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ long (ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ¤ 600 words, with a thread-style break)
 <post>
 
 ## Rationale

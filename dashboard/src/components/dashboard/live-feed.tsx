@@ -22,7 +22,7 @@ export function LiveFeed() {
       ) : (
         <ul className="space-y-2 overflow-y-auto flex-1 text-sm">
           {events.map((e, i) => (
-            <li key={i} className="flex items-start gap-2 font-mono text-xs">
+            <li key={`${e.ts}-${e.topic}-${i}`} className="flex items-start gap-2 font-mono text-xs">
               <span className="text-[--color-fg-muted] shrink-0">
                 {new Date(e.ts * 1000).toLocaleTimeString()}
               </span>

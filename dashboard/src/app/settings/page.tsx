@@ -1,14 +1,19 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw } from "lucide-react";
+import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  createChannelBinding,
+  deleteChannelBinding,
+  fetchAgents,
+  fetchChannelBindings,
   fetchSettings,
   fetchSettingsStatus,
   updateSettings,
   type SettingsUpdate,
 } from "@/lib/api";
+import { ProjectBadge } from "@/components/projects/project-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardSection, PageHeader } from "@/components/ui/card";
 import { FieldLabel, Input, Select } from "@/components/ui/input";
@@ -46,6 +51,7 @@ export default function SettingsPage() {
         <>
           <TelegramSection settings={settings.data} status={status.data.telegram} qc={qc} />
           <SlackSection settings={settings.data} status={status.data.slack} qc={qc} />
+          <ChannelsSection />
           <RegistrySection settings={settings.data} status={status.data.watcher} qc={qc} />
           <ModelSection settings={settings.data} qc={qc} />
         </>
@@ -306,6 +312,171 @@ function RegistrySection({ settings, status, qc }: SectionProps<any, any>) {
     </Card>
   );
 }
+
+function ChannelsSection() {
+  const qc = useQueryClient();
+  const bindings = useQuery({
+    queryKey: ["channel-bindings"],
+    queryFn: () => fetchChannelBindings(),
+  });
+  const agents = useQuery({ queryKey: ["agents"], queryFn: () => fetchAgents() });
+
+  const [type, setType] = useState<"telegram" | "slack">("telegram");
+  const [externalId, setExternalId] = useState("");
+  const [agentId, setAgentId] = useState<number | null>(null);
+  const [label, setLabel] = useState("");
+
+  const create = useMutation({
+    mutationFn: () =>
+      createChannelBinding({
+        channel_type: type,
+        external_id: externalId.trim(),
+        agent_id: agentId as number,
+        label: label.trim() || null,
+      }),
+    onSuccess: () => {
+      toast({ tone: "success", title: "Channel binding guardado" });
+      qc.invalidateQueries({ queryKey: ["channel-bindings"] });
+      setExternalId("");
+      setLabel("");
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo bindear", body: e.message }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: number) => deleteChannelBinding(id),
+    onSuccess: () => {
+      toast({ tone: "info", title: "Binding borrado" });
+      qc.invalidateQueries({ queryKey: ["channel-bindings"] });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo borrar", body: e.message }),
+  });
+
+  return (
+    <Card>
+      <SectionHeader
+        icon={<Plug size={14} />}
+        title="Channel bindings"
+        body="Cada chat de Telegram / canal de Slack se asocia a un agente. Sin binding, el bot responde con un mensaje de ayuda en vez de despachar al agente equivocado."
+        status={
+          <Badge tone="idle">{bindings.data?.length ?? 0} bindings</Badge>
+        }
+      />
+
+      {/* Existing bindings */}
+      {bindings.data && bindings.data.length > 0 && (
+        <ul className="space-y-1.5 mb-4">
+          {bindings.data.map((b) => (
+            <li
+              key={b.id}
+              className="surface px-3 py-2 flex items-center justify-between text-sm gap-3"
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Badge tone={b.channel_type === "telegram" ? "running" : "accent"}>
+                  {b.channel_type}
+                </Badge>
+                <span className="font-mono text-xs text-[--color-fg-muted] truncate">
+                  {b.external_id}
+                </span>
+                {b.label && (
+                  <span className="text-xs text-[--color-fg-subtle] truncate">
+                    {b.label}
+                  </span>
+                )}
+                <span className="text-xs text-[--color-fg-subtle] mx-1">→</span>
+                <span className="text-sm text-[--color-fg]">{b.agent_name}</span>
+                {b.project_slug && (
+                  <ProjectBadge
+                    slug={b.project_slug}
+                    name={b.project_name}
+                    color={null}
+                    icon={null}
+                    asLink={false}
+                  />
+                )}
+              </div>
+              <button
+                onClick={() => remove.mutate(b.id)}
+                disabled={remove.isPending}
+                className="text-[--color-fg-subtle] hover:text-[--color-error] transition shrink-0"
+                title="Borrar binding"
+              >
+                <Trash2 size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Add new binding */}
+      <div className="space-y-3">
+        <p className="text-[10.5px] uppercase tracking-widest text-[--color-fg-muted] font-medium">
+          Nuevo binding
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="space-y-1.5">
+            <FieldLabel>Canal</FieldLabel>
+            <Select value={type} onChange={(e) => setType(e.target.value as "telegram" | "slack")}>
+              <option value="telegram">Telegram</option>
+              <option value="slack">Slack</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel hint={type === "telegram" ? "chat_id (mandá /whoami al bot)" : "channel id (e.g. C0ABC123)"}>
+              External ID
+            </FieldLabel>
+            <Input
+              value={externalId}
+              onChange={(e) => setExternalId(e.target.value)}
+              placeholder={type === "telegram" ? "123456789" : "C0ABC123"}
+              className="font-mono"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel>Agente</FieldLabel>
+            <Select
+              value={agentId ?? ""}
+              onChange={(e) => setAgentId(e.target.value ? parseInt(e.target.value, 10) : null)}
+            >
+              <option value="">— elegir —</option>
+              {(agents.data ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.project_name ? ` · ${a.project_name}` : ""}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel hint="opcional · ej. 'Edu DM' o '#sales'">Label</FieldLabel>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="Edu DM"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="primary"
+            onClick={() => create.mutate()}
+            disabled={create.isPending || !externalId.trim() || !agentId}
+          >
+            <Plug size={13} /> Bindear
+          </Button>
+        </div>
+        <p className="text-[10.5px] text-[--color-fg-subtle]">
+          Tip Telegram: el usuario manda <code className="font-mono">/whoami</code> al bot
+          y le devuelve su <code className="font-mono">chat_id</code>. También funciona{" "}
+          <code className="font-mono">/bind &lt;agente&gt;</code> directo desde el chat.
+        </p>
+      </div>
+    </Card>
+  );
+}
+
 
 function ModelSection({ settings, qc }: { settings: any; qc: ReturnType<typeof useQueryClient> }) {
   const [model, setModel] = useState(settings.default_model || "");

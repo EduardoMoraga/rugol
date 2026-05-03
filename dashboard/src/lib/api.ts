@@ -178,6 +178,35 @@ export const fetchAgentRuns = (id: number) => get<RunSummary[]>(`/api/agents/${i
 export const moveAgent = (id: number, project_slug: string) =>
   post<Agent>(`/api/agents/${id}/move`, { project_slug });
 
+// --- Channel bindings (Capa 13) ---
+export interface ChannelBinding {
+  id: number;
+  channel_type: "telegram" | "slack";
+  external_id: string;
+  agent_id: number;
+  agent_name: string;
+  project_slug: string | null;
+  project_name: string | null;
+  label: string | null;
+  created_at: string;
+}
+export interface ChannelBindingCreate {
+  channel_type: "telegram" | "slack";
+  external_id: string;
+  agent_id: number;
+  label?: string | null;
+}
+export const fetchChannelBindings = (channel_type?: "telegram" | "slack") =>
+  get<ChannelBinding[]>(
+    channel_type ? `/api/channels?channel_type=${channel_type}` : "/api/channels",
+  );
+export const createChannelBinding = (body: ChannelBindingCreate) =>
+  post<ChannelBinding>("/api/channels", body);
+export const deleteChannelBinding = async (id: number): Promise<void> => {
+  const r = await fetch(`/api/channels/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(await readError(r));
+};
+
 // --- Templates (Capa 6) ---
 export interface TemplateCard {
   id: string;

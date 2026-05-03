@@ -251,7 +251,7 @@ function MemoryPane({ agentName }: { agentName: string }) {
         ) : (
           <ul className="text-xs font-mono space-y-1 text-[--color-fg-muted]">
             {triples.map((t, i) => (
-              <li key={i} className="flex items-center gap-2">
+              <li key={`${t.src}-${t.predicate}-${t.dst}-${i}`} className="flex items-center gap-2">
                 <span className="text-[--color-fg]">{t.src}</span>
                 <span className="text-[--color-accent-strong]">{t.predicate}</span>
                 <span className="text-[--color-fg]">{t.dst}</span>

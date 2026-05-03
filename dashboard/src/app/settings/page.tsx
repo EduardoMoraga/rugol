@@ -307,7 +307,7 @@ function RegistrySection({ settings, status, qc }: SectionProps<any, any>) {
   );
 }
 
-function ModelSection({ settings, qc }: SectionProps<any, any>) {
+function ModelSection({ settings, qc }: { settings: any; qc: ReturnType<typeof useQueryClient> }) {
   const [model, setModel] = useState(settings.default_model || "");
   const update = useUpdate(qc, "Default model");
 

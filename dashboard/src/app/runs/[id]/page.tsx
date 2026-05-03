@@ -64,16 +64,17 @@ export default function RunDetail() {
     tailRef.current?.scrollTo({ top: tailRef.current.scrollHeight });
   }, [liveText]);
 
-  if (run.isLoading) return <div className="p-8 text-sm text-[--color-fg-muted]">Loading run…</div>;
-  if (!run.data) return <div className="p-8 text-sm text-[--color-fg-muted]">Run not found.</div>;
-
   const r = run.data;
-  const isLive = r.status === "running" && terminal === null;
-  const finalText = r.final_text || "";
+  const isLive = r?.status === "running" && terminal === null;
+  const finalText = r?.final_text || "";
   const display = useMemo(
     () => (isLive ? liveText : finalText || liveText),
     [isLive, liveText, finalText],
   );
+
+  if (run.isLoading) return <div className="p-8 text-sm text-[--color-fg-muted]">Loading run…</div>;
+  if (!r) return <div className="p-8 text-sm text-[--color-fg-muted]">Run not found.</div>;
+
   const totalTokens = r.input_tokens + r.output_tokens;
   const elapsed = r.ended_at
     ? (new Date(r.ended_at).getTime() - new Date(r.started_at).getTime()) / 1000

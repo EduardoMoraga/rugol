@@ -22,11 +22,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { FieldLabel, Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { projectIcon } from "./project-badge";
-
-const AUDIENCE_LABEL = {
-  casual: "Día a día",
-  pro: "Profesional",
-} as const;
+import { useI18n } from "@/lib/i18n";
 
 /**
  * Renders the curated template catalog as a horizontal-feeling grid above
@@ -34,6 +30,7 @@ const AUDIENCE_LABEL = {
  * the team and lets the user clone it (with optional slug override).
  */
 export function TemplateCatalog({ open = true }: { open?: boolean }) {
+  const { t } = useI18n();
   const templates = useQuery({
     queryKey: ["templates"],
     queryFn: fetchTemplates,
@@ -42,7 +39,7 @@ export function TemplateCatalog({ open = true }: { open?: boolean }) {
 
   if (!open) return null;
   if (templates.isLoading) {
-    return <p className="text-sm text-[--color-fg-muted]">Cargando templates…</p>;
+    return <p className="text-sm text-[--color-fg-muted]">{t("common.loading")}</p>;
   }
   if (!templates.data || templates.data.length === 0) return null;
 
@@ -52,18 +49,16 @@ export function TemplateCatalog({ open = true }: { open?: boolean }) {
         <div>
           <h2 className="text-sm font-semibold tracking-tight inline-flex items-center gap-2">
             <Sparkles size={13} className="text-[--color-accent-strong]" />
-            Empezar desde un template
+            {t("templates.title")}
           </h2>
           <p className="text-xs text-[--color-fg-muted] mt-0.5 max-w-2xl">
-            Cinco proyectos listos para clonar — desde la mamá que arma juegos
-            para su hija hasta el founder que cuida su pipeline. Hacé click,
-            personalizá lo que quieras, deployá.
+            {t("templates.description")}
           </p>
         </div>
       </header>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {templates.data.map((t) => (
-          <TemplatePreview key={t.id} template={t} />
+        {templates.data.map((tpl) => (
+          <TemplatePreview key={tpl.id} template={tpl} />
         ))}
       </div>
     </section>
@@ -71,8 +66,14 @@ export function TemplateCatalog({ open = true }: { open?: boolean }) {
 }
 
 function TemplatePreview({ template }: { template: TemplateCard }) {
+  const { t } = useI18n();
   const Icon = projectIcon(template.project?.icon);
   const tone = template.project?.color || "#7280a8";
+  const audienceLabel = template.audience === "casual"
+    ? t("templates.audienceCasual")
+    : t("templates.audiencePro");
+  const agentsWord = template.agent_count === 1 ? t("templates.agent") : t("templates.agents");
+  const schedulesWord = template.schedule_count === 1 ? t("templates.schedule") : t("templates.schedules");
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -97,7 +98,7 @@ function TemplatePreview({ template }: { template: TemplateCard }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] uppercase tracking-widest text-[--color-fg-subtle]">
-                {AUDIENCE_LABEL[template.audience]}
+                {audienceLabel}
               </p>
               <h3 className="text-sm font-semibold tracking-tight truncate">
                 {template.title}
@@ -109,15 +110,15 @@ function TemplatePreview({ template }: { template: TemplateCard }) {
           </p>
           <footer className="flex items-center justify-between text-[10.5px] text-[--color-fg-subtle] font-mono pt-1 border-t border-[--color-border]/60">
             <span className="inline-flex items-center gap-1.5">
-              <Users size={10} /> {template.agent_count} agente{template.agent_count === 1 ? "" : "s"}
+              <Users size={10} /> {template.agent_count} {agentsWord}
             </span>
             {template.schedule_count > 0 && (
               <span className="inline-flex items-center gap-1.5">
-                <Clock size={10} /> {template.schedule_count} schedule{template.schedule_count === 1 ? "" : "s"}
+                <Clock size={10} /> {template.schedule_count} {schedulesWord}
               </span>
             )}
             <span className="inline-flex items-center gap-0.5 group-hover:text-[--color-accent-strong] transition-colors">
-              Ver <ChevronRight size={10} />
+              {t("templates.see")} <ChevronRight size={10} />
             </span>
           </footer>
         </button>

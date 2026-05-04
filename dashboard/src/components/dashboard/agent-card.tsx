@@ -5,8 +5,10 @@ import { ChevronRight } from "lucide-react";
 import { type Agent } from "@/lib/api";
 import { StatusBadge } from "./status-badge";
 import { ProjectBadge } from "@/components/projects/project-badge";
+import { useI18n } from "@/lib/i18n";
 
 export function AgentCard({ agent }: { agent: Agent }) {
+  const { t } = useI18n();
   return (
     <Link
       href={`/agents/${agent.id}`}
@@ -46,11 +48,11 @@ export function AgentCard({ agent }: { agent: Agent }) {
       <footer className="flex items-center justify-between mt-4 pt-4 border-t border-[--color-border]">
         <span className="text-[11px] text-[--color-fg-subtle]">
           {agent.last_run_at
-            ? `last run ${new Date(agent.last_run_at).toLocaleString()}`
-            : "never run"}
+            ? `${t("agentCard.lastRun")} ${new Date(agent.last_run_at).toLocaleString()}`
+            : t("agentCard.neverRun")}
         </span>
         <span className="text-[11px] text-[--color-fg-muted] group-hover:text-[--color-accent-strong] inline-flex items-center gap-0.5 transition-colors">
-          Open <ChevronRight size={11} />
+          {t("agentCard.open")} <ChevronRight size={11} />
         </span>
       </footer>
     </Link>

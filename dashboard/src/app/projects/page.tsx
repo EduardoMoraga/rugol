@@ -24,6 +24,7 @@ import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
 import { TemplateCatalog } from "@/components/projects/template-catalog";
 import { OnboardingHero } from "@/components/projects/onboarding-hero";
+import { useI18n } from "@/lib/i18n";
 
 const PALETTE = [
   "#7280a8", "#5b8def", "#7c5cff", "#c44d8c",
@@ -31,6 +32,7 @@ const PALETTE = [
 ];
 
 export default function ProjectsHome() {
+  const { t } = useI18n();
   const projects = useQuery({
     queryKey: ["projects"],
     queryFn: () => fetchProjects(false),
@@ -54,13 +56,13 @@ export default function ProjectsHome() {
 
       {!isFirstUse && (
         <PageHeader
-          title="Proyectos"
-          description="Cada proyecto es un departamento con misión propia y un equipo de agentes que trabaja en él. Tú eres el CEO; ellos ejecutan."
+          title={t("projects.title")}
+          description={t("projects.description")}
           actions={
             <div className="flex items-center gap-2">
               <Link href="/architect">
                 <Button variant="primary">
-                  <Sparkles size={14} /> Diseñar con Architect
+                  <Sparkles size={14} /> {t("projects.designWithArchitect")}
                 </Button>
               </Link>
               <NewProjectDialog />
@@ -71,15 +73,15 @@ export default function ProjectsHome() {
 
       {!isFirstUse && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label="Proyectos activos" value={totalProjects} />
-          <Stat label="Agentes en plantilla" value={totalAgents} />
-          <Stat label="Runs · 24h" value={totalRuns24h} />
-          <Stat label="Costo · 24h" value={`$${totalCost24h.toFixed(3)}`} />
+          <Stat label={t("projects.activeStat")} value={totalProjects} />
+          <Stat label={t("projects.agentsStat")} value={totalAgents} />
+          <Stat label={t("projects.runs24h")} value={totalRuns24h} />
+          <Stat label={t("projects.cost24h")} value={`$${totalCost24h.toFixed(3)}`} />
         </div>
       )}
 
       {projects.isLoading && (
-        <p className="text-sm text-[--color-fg-muted]">Cargando proyectos…</p>
+        <p className="text-sm text-[--color-fg-muted]">{t("projects.loading")}</p>
       )}
 
       <div id="template-catalog">
@@ -90,7 +92,7 @@ export default function ProjectsHome() {
 
       {projects.data && projects.data.length > 0 && !isFirstUse && (
         <h2 className="text-sm font-semibold tracking-tight pt-2">
-          Tus proyectos
+          {t("projects.yourProjects")}
         </h2>
       )}
 
@@ -156,22 +158,20 @@ export default function ProjectsHome() {
 }
 
 function EmptyState() {
+  const { t } = useI18n();
   return (
     <Card className="text-center py-16 space-y-4">
       <Briefcase size={36} className="mx-auto text-[--color-fg-subtle]" />
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">
-          Todavía no tienes proyectos
-        </h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t("projects.empty")}</h2>
         <p className="text-sm text-[--color-fg-muted] mt-1 max-w-md mx-auto">
-          Empieza describiendo una idea — Architect propone el equipo, las skills
-          y los rituales — o crea un proyecto manualmente.
+          {t("projects.emptyDescription")}
         </p>
       </div>
       <div className="flex items-center justify-center gap-2 pt-2">
         <Link href="/architect">
           <Button variant="primary">
-            <Sparkles size={14} /> Diseñar con Architect
+            <Sparkles size={14} /> {t("projects.designWithArchitect")}
           </Button>
         </Link>
         <NewProjectDialog />
@@ -181,6 +181,7 @@ function EmptyState() {
 }
 
 function NewProjectDialog() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState<ProjectCreate>({
@@ -193,7 +194,7 @@ function NewProjectDialog() {
   const create = useMutation({
     mutationFn: (b: ProjectCreate) => createProject(b),
     onSuccess: (p) => {
-      toast({ tone: "success", title: `Proyecto creado: ${p.name}` });
+      toast({ tone: "success", title: `${t("newProject.create")}: ${p.name}` });
       qc.invalidateQueries({ queryKey: ["projects"] });
       setOpen(false);
       setBody({
@@ -205,7 +206,7 @@ function NewProjectDialog() {
       });
     },
     onError: (e: Error) =>
-      toast({ tone: "error", title: "No se pudo crear el proyecto", body: e.message }),
+      toast({ tone: "error", title: t("newProject.create"), body: e.message }),
   });
 
   function submit(e: React.FormEvent) {
@@ -218,48 +219,48 @@ function NewProjectDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary">
-          <Plus size={14} /> Nuevo proyecto
+          <Plus size={14} /> {t("projects.newProject")}
         </Button>
       </DialogTrigger>
       <DialogContent
-        title="Nuevo proyecto"
-        description="Define una misión clara — los agentes la van a leer antes de cada run para mantenerse anclados."
+        title={t("newProject.title")}
+        description={t("newProject.description")}
       >
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <FieldLabel>Nombre</FieldLabel>
+            <FieldLabel>{t("newProject.name")}</FieldLabel>
             <Input
               value={body.name}
               onChange={(e) => setBody({ ...body, name: e.target.value })}
-              placeholder="Marca personal"
+              placeholder={t("newProject.namePlaceholder")}
               required
               autoFocus
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel hint="una sola línea para la tarjeta">
-              Descripción corta
+            <FieldLabel hint={t("newProject.shortDescriptionHint")}>
+              {t("newProject.shortDescription")}
             </FieldLabel>
             <Input
               value={body.description}
               onChange={(e) => setBody({ ...body, description: e.target.value })}
-              placeholder="Equipo que cuida mi voz pública en LinkedIn y X."
+              placeholder={t("newProject.shortDescriptionPlaceholder")}
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel hint="el porqué que el equipo lee antes de cada tarea">
-              Misión
+            <FieldLabel hint={t("newProject.missionHint")}>
+              {t("newProject.mission")}
             </FieldLabel>
             <Textarea
               value={body.mission}
               onChange={(e) => setBody({ ...body, mission: e.target.value })}
               rows={4}
-              placeholder="Construir credibilidad técnica honesta. Publicar 3 piezas por semana centradas en lo que aprendí en producción. Nunca hype."
+              placeholder={t("newProject.missionPlaceholder")}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <FieldLabel>Ícono</FieldLabel>
+              <FieldLabel>{t("newProject.icon")}</FieldLabel>
               <Select
                 value={body.icon}
                 onChange={(e) => setBody({ ...body, icon: e.target.value })}
@@ -270,7 +271,9 @@ function NewProjectDialog() {
               </Select>
             </div>
             <div className="space-y-1.5">
-              <FieldLabel hint={`elegido: ${body.color}`}>Color</FieldLabel>
+              <FieldLabel hint={`${t("newProject.colorChosen")}: ${body.color}`}>
+                {t("newProject.color")}
+              </FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {PALETTE.map((c) => {
                   const selected = body.color === c;
@@ -306,10 +309,10 @@ function NewProjectDialog() {
           )}
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={create.isPending}>
-              Cancelar
+              {t("newProject.cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={create.isPending || !body.name.trim()}>
-              {create.isPending ? "Creando…" : "Crear proyecto"}
+              {create.isPending ? t("newProject.creating") : t("newProject.create")}
             </Button>
           </div>
         </form>

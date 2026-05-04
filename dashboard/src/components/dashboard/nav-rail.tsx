@@ -14,24 +14,35 @@ import {
   Sparkles,
   Wrench,
   Briefcase,
+  Languages,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useI18n } from "@/lib/i18n";
 
-const items = [
-  { href: "/projects", label: "Proyectos", icon: Briefcase, accent: true },
-  { href: "/architect", label: "Architect", icon: Sparkles, primary: true },
-  { href: "/agents", label: "Agentes", icon: Users },
-  { href: "/skills", label: "Skills", icon: Wrench },
-  { href: "/schedules", label: "Schedules", icon: CalendarClock },
-  { href: "/operations", label: "Operations", icon: LayoutDashboard },
-  { href: "/ant-farm", label: "Ant farm", icon: Hexagon },
-  { href: "/ontology", label: "Ontology", icon: Network },
-  { href: "/improvements", label: "Improvements", icon: GitBranch },
-  { href: "/settings", label: "Settings", icon: Settings },
+type NavItem = {
+  href: string;
+  labelKey: string;
+  icon: typeof Briefcase;
+  primary?: boolean;
+  accent?: boolean;
+};
+
+const items: NavItem[] = [
+  { href: "/projects", labelKey: "nav.projects", icon: Briefcase, accent: true },
+  { href: "/architect", labelKey: "nav.architect", icon: Sparkles, primary: true },
+  { href: "/agents", labelKey: "nav.agents", icon: Users },
+  { href: "/skills", labelKey: "nav.skills", icon: Wrench },
+  { href: "/schedules", labelKey: "nav.schedules", icon: CalendarClock },
+  { href: "/operations", labelKey: "nav.operations", icon: LayoutDashboard },
+  { href: "/ant-farm", labelKey: "nav.antFarm", icon: Hexagon },
+  { href: "/ontology", labelKey: "nav.ontology", icon: Network },
+  { href: "/improvements", labelKey: "nav.improvements", icon: GitBranch },
+  { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
 export function NavRail() {
   const path = usePathname();
+  const { t, locale, setLocale } = useI18n();
   return (
     <nav className="w-60 shrink-0 border-r border-[--color-border] flex flex-col p-3 bg-gradient-to-b from-[--color-bg-elev] to-[--color-bg]">
       <Link href="/" className="px-3 py-3 mb-2 group block">
@@ -49,7 +60,7 @@ export function NavRail() {
       </Link>
 
       <div className="space-y-0.5 flex-1">
-        {items.map(({ href, label, icon: Icon, primary, accent }) => {
+        {items.map(({ href, labelKey, icon: Icon, primary, accent }) => {
           const active = path === href || path.startsWith(`${href}/`);
           return (
             <Link
@@ -72,7 +83,7 @@ export function NavRail() {
                   aria-hidden
                   className={active ? "text-[--color-accent-strong]" : primary ? "text-[--color-accent-strong]" : ""}
                 />
-                {label}
+                {t(labelKey)}
               </span>
               {active && <ChevronRight size={12} className="text-[--color-fg-muted]" />}
             </Link>
@@ -80,7 +91,34 @@ export function NavRail() {
         })}
       </div>
 
-      <div className="mt-2 px-3 py-2 text-[10px] text-[--color-fg-subtle]">
+      {/* Language toggle (Capa 15). Persiste en localStorage; hot-swap. */}
+      <div className="mt-2 mb-1">
+        <div
+          className="flex items-center gap-1 px-1 py-1 surface text-[11px] font-medium"
+          role="group"
+          aria-label="Language"
+        >
+          <Languages size={12} className="ml-1.5 mr-0.5 text-[--color-fg-muted]" />
+          {(["es", "en"] as const).map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => setLocale(l)}
+              className={cn(
+                "px-2 py-1 rounded-md uppercase tracking-wider transition flex-1",
+                locale === l
+                  ? "bg-[--color-accent-soft] text-[--color-accent-strong]"
+                  : "text-[--color-fg-muted] hover:text-[--color-fg]",
+              )}
+              aria-pressed={locale === l}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="px-3 py-2 text-[10px] text-[--color-fg-subtle]">
         Local · {process.env.NEXT_PUBLIC_API_URL ?? "127.0.0.1:8000"}
       </div>
     </nav>

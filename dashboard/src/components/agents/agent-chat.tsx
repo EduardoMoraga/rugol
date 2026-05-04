@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale, BookmarkPlus } from "lucide-react";
 import { addProjectLesson, cancelRun, fetchRun, runAgentNow, type RunDetail, type RunNowOptions } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import { useStream } from "@/lib/use-stream";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -36,10 +37,10 @@ interface Turn {
 
 type TaskType = "fast" | "think" | "deep";
 
-const TASK_TYPES: { id: TaskType; label: string; hint: string; icon: typeof Zap }[] = [
-  { id: "fast", label: "Heurística", hint: "respuesta rápida (haiku)", icon: Zap },
-  { id: "think", label: "Pensar", hint: "modelo del agente", icon: Brain },
-  { id: "deep", label: "Deliberar", hint: "razonamiento profundo (opus)", icon: Scale },
+const TASK_TYPES: { id: TaskType; labelKey: string; hintKey: string; icon: typeof Zap }[] = [
+  { id: "fast", labelKey: "chat.fast", hintKey: "chat.fastHint", icon: Zap },
+  { id: "think", labelKey: "chat.think", hintKey: "chat.thinkHint", icon: Brain },
+  { id: "deep", labelKey: "chat.deep", hintKey: "chat.deepHint", icon: Scale },
 ];
 
 interface Props {
@@ -75,6 +76,7 @@ export function AgentChat({
   projectMission,
   projectLessonCount = 0,
 }: Props) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
@@ -121,7 +123,7 @@ export function AgentChat({
       return { localId: local.id, runId: res.run_id };
     },
     onError: (e: Error) => {
-      toast({ tone: "error", title: "No se pudo enviar", body: e.message });
+      toast({ tone: "error", title: t("common.error"), body: e.message });
       const id = liveTurnIdRef.current;
       if (id) {
         setTurns((t) =>
@@ -371,7 +373,7 @@ export function AgentChat({
   }
 
   function reset() {
-    if (turns.length > 0 && !confirm("Esto reinicia la conversación (pierde el contexto local). ¿Seguir?")) return;
+    if (turns.length > 0 && !confirm(t("chat.restart") + " — " + t("chat.firstMessage"))) return;
     setTurns([]);
     liveTurnIdRef.current = null;
   }
@@ -384,17 +386,17 @@ export function AgentChat({
       <header className="px-5 py-3 border-b border-[--color-border] flex items-center justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium tracking-tight">
-            Chat con {agentName}
+            {t("chat.title")} {agentName}
             {lastSessionId && (
               <span className="ml-2 text-[10px] font-mono text-[--color-fg-subtle]">
-                · sesión {lastSessionId.slice(0, 8)}
+                · {t("chat.session")} {lastSessionId.slice(0, 8)}
               </span>
             )}
           </p>
           <p className="text-[11px] text-[--color-fg-muted]">
             {modelLabel}
             {agentBusy && !liveTurn && (
-              <span className="ml-2 text-[--color-warn]">· el agente está ocupado en otra fuente</span>
+              <span className="ml-2 text-[--color-warn]">· {t("chat.busy")}</span>
             )}
           </p>
         </div>
@@ -406,12 +408,12 @@ export function AgentChat({
               onClick={() => cancel.mutate(liveTurn.runId!)}
               disabled={cancel.isPending}
             >
-              <Square size={11} /> Cancelar
+              <Square size={11} /> {t("chat.cancel")}
             </Button>
           )}
           {turns.length > 0 && (
             <Button variant="ghost" size="sm" onClick={reset} disabled={!!liveTurn}>
-              <RotateCcw size={11} /> Reiniciar
+              <RotateCcw size={11} /> {t("chat.restart")}
             </Button>
           )}
         </div>
@@ -442,14 +444,14 @@ export function AgentChat({
                   type="button"
                   onClick={() => setTaskType(tt.id)}
                   disabled={!!liveTurn}
-                  title={tt.hint}
+                  title={t(tt.hintKey)}
                   className={`px-2 py-1 rounded-md inline-flex items-center gap-1 transition ${
                     active
                       ? "bg-[--color-accent-soft] text-[--color-accent-strong] font-medium"
                       : "text-[--color-fg-muted] hover:text-[--color-fg]"
                   }`}
                 >
-                  <Icon size={11} /> {tt.label}
+                  <Icon size={11} /> {t(tt.labelKey)}
                 </button>
               );
             })}
@@ -458,7 +460,7 @@ export function AgentChat({
             className={`inline-flex items-center gap-1.5 cursor-pointer transition ${
               seekAdvocate ? "text-[--color-accent-strong]" : "text-[--color-fg-muted] hover:text-[--color-fg]"
             }`}
-            title="Después de la respuesta, dispara un segundo run con Opus que la cuestiona."
+            title={t("chat.devilsAdvocateHint")}
           >
             <input
               type="checkbox"
@@ -467,7 +469,7 @@ export function AgentChat({
               disabled={!!liveTurn}
               className="accent-[--color-accent-strong]"
             />
-            <Scale size={11} /> Pedir abogado del diablo
+            <Scale size={11} /> {t("chat.devilsAdvocate")}
           </label>
         </div>
         <div className="flex items-end gap-2">
@@ -483,8 +485,8 @@ export function AgentChat({
             rows={2}
             placeholder={
               liveTurn
-                ? "El agente está respondiendo… espera a que termine"
-                : `Pídele algo a ${agentName}… (Ctrl+Enter para enviar)`
+                ? t("chat.placeholderBusy")
+                : `${t("chat.placeholder")} ${agentName}… ${t("chat.placeholderHint")}`
             }
             disabled={!!liveTurn}
             className="resize-none"
@@ -494,13 +496,9 @@ export function AgentChat({
           </Button>
         </div>
         {lastSessionId ? (
-          <p className="text-[10.5px] text-[--color-fg-subtle]">
-            Cada mensaje continúa la sesión — el agente recuerda. Reinicia para empezar de cero.
-          </p>
+          <p className="text-[10.5px] text-[--color-fg-subtle]">{t("chat.sessionContinues")}</p>
         ) : (
-          <p className="text-[10.5px] text-[--color-fg-subtle]">
-            El primer mensaje crea una sesión nueva.
-          </p>
+          <p className="text-[10.5px] text-[--color-fg-subtle]">{t("chat.firstMessage")}</p>
         )}
       </form>
     </div>
@@ -518,21 +516,22 @@ function EmptyChat({
   projectMission?: string | null;
   projectLessonCount?: number;
 }) {
+  const { t } = useI18n();
   return (
     <div className="text-center text-sm text-[--color-fg-muted] py-8 space-y-4">
       <Bot size={28} className="mx-auto text-[--color-fg-subtle]" />
       <p>
-        Empieza la conversación con <span className="text-[--color-fg]">{agentName}</span>.
+        {t("chat.empty")} <span className="text-[--color-fg]">{agentName}</span>.
       </p>
       {(projectMission || projectLessonCount > 0) && (
         <div className="surface text-left max-w-lg mx-auto px-4 py-3 space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium">
-            Lo que el agente sabe antes de cada respuesta
+            {t("chat.knownContext")}
           </p>
           {projectMission && (
             <div>
               <p className="text-[10px] text-[--color-fg-subtle] uppercase tracking-wider">
-                Misión {projectName ? `· ${projectName}` : ""}
+                {t("chat.mission")} {projectName ? `· ${projectName}` : ""}
               </p>
               <p className="text-[12.5px] text-[--color-fg] leading-relaxed mt-0.5">
                 {projectMission}
@@ -541,15 +540,14 @@ function EmptyChat({
           )}
           {projectLessonCount > 0 && (
             <p className="text-[11px] text-[--color-fg-muted]">
-              + {projectLessonCount} lección{projectLessonCount === 1 ? "" : "es"} viva
-              {projectLessonCount === 1 ? "" : "s"} del proyecto que el agente lee antes de responder.
+              + {projectLessonCount}{" "}
+              {projectLessonCount === 1 ? t("chat.lesson") : t("chat.lessons")}
             </p>
           )}
         </div>
       )}
       <p className="text-[11.5px] text-[--color-fg-subtle] max-w-md mx-auto">
-        Cada turno se ejecuta como un run real — verás tokens, costo y podrás
-        abrir cualquier respuesta en su página de detalle.
+        {t("chat.eachTurn")}
       </p>
     </div>
   );
@@ -603,6 +601,8 @@ function PromoteToLessonButton({
 }
 
 function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | null }) {
+  const { t } = useI18n();
+  const tt = TASK_TYPES.find((x) => x.id === turn.taskType);
   return (
     <div className="space-y-3">
       <div className="flex items-start gap-3">
@@ -611,10 +611,10 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10px] text-[--color-fg-subtle] uppercase tracking-wider mb-1">
-            tú
-            {turn.taskType && (
+            {t("chat.you")}
+            {tt && (
               <span className="ml-2 text-[--color-fg-muted]">
-                · {TASK_TYPES.find((t) => t.id === turn.taskType)?.label.toLowerCase()}
+                · {t(tt.labelKey).toLowerCase()}
               </span>
             )}
           </p>
@@ -631,15 +631,15 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <p className="text-[10px] text-[--color-fg-subtle] uppercase tracking-wider">
-              agente
-              {turn.status === "queued" && " · queued"}
-              {turn.status === "streaming" && " · streaming"}
-              {turn.status === "completed" && " · ok"}
+              {t("chat.agent")}
+              {turn.status === "queued" && ` · ${t("chat.queued")}`}
+              {turn.status === "streaming" && ` · ${t("chat.streaming")}`}
+              {turn.status === "completed" && ` · ${t("chat.ok")}`}
               {turn.status === "failed" && (
-                <span className="text-[--color-error]"> · failed</span>
+                <span className="text-[--color-error]"> · {t("chat.failed")}</span>
               )}
               {turn.status === "cancelled" && (
-                <span className="text-[--color-warn]"> · cancelled</span>
+                <span className="text-[--color-warn]"> · {t("chat.cancelled")}</span>
               )}
             </p>
             <div className="flex items-center gap-1">
@@ -668,7 +668,7 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
           {turn.assistant ? (
             <MarkdownView>{turn.assistant}</MarkdownView>
           ) : turn.status === "queued" ? (
-            <p className="text-[12.5px] text-[--color-fg-subtle]">esperando…</p>
+            <p className="text-[12.5px] text-[--color-fg-subtle]">{t("chat.waiting")}</p>
           ) : (
             <p className="text-[12.5px] text-[--color-fg-subtle]">
               <span className="inline-block w-2 h-3.5 bg-[--color-accent-strong] align-middle animate-[pulse-soft_1s_ease-in-out_infinite]" />
@@ -685,10 +685,10 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-1">
               <p className="text-[10px] text-[--color-warn] uppercase tracking-wider font-medium">
-                abogado del diablo (opus)
-                {turn.advocate.status === "streaming" && " · streaming"}
-                {turn.advocate.status === "completed" && " · ok"}
-                {turn.advocate.status === "failed" && " · failed"}
+                {t("chat.advocate")}
+                {turn.advocate.status === "streaming" && ` · ${t("chat.streaming")}`}
+                {turn.advocate.status === "completed" && ` · ${t("chat.ok")}`}
+                {turn.advocate.status === "failed" && ` · ${t("chat.failed")}`}
               </p>
               <div className="flex items-center gap-1">
                 {turn.advocate.status === "completed" && turn.advocate.text && (

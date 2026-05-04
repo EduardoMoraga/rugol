@@ -87,26 +87,28 @@ export default function AgentsPage() {
         <div className="surface p-10 text-center space-y-4">
           <Sparkles size={28} className="mx-auto text-[--color-accent-strong]" />
           <div>
-            <h2 className="text-lg font-semibold">No agents yet</h2>
+            <h2 className="text-lg font-semibold">Aún no hay agentes</h2>
             <p className="text-sm text-[--color-fg-muted] mt-1 max-w-md mx-auto">
-              The fastest path: describe your idea, let Architect propose a team, review,
-              deploy. Or drop a markdown file into your agents folder if you already know
-              what you want.
+              Los agentes viven dentro de un proyecto. La forma más rápida:
+              ir a Proyectos y clonar uno de los 5 templates curados — el equipo
+              de agentes se arma solo. O describe tu idea con Architect.
             </p>
           </div>
           <div className="flex items-center justify-center gap-2">
-            <Link href="/architect">
+            <Link href="/projects">
               <Button variant="primary">
-                <Wand2 size={13} /> Start with Architect
+                <Sparkles size={13} /> Ver templates
+              </Button>
+            </Link>
+            <Link href="/architect">
+              <Button variant="secondary">
+                <Wand2 size={13} /> Diseñar con Architect
               </Button>
             </Link>
             <Link href="/agents/new">
-              <Button variant="secondary">
-                <Plus size={13} /> Add one manually
+              <Button variant="ghost">
+                <Plus size={13} /> Crear manual
               </Button>
-            </Link>
-            <Link href="/settings">
-              <Button variant="ghost">Configure agents folder</Button>
             </Link>
           </div>
         </div>
@@ -114,7 +116,7 @@ export default function AgentsPage() {
 
       {data && data.length > 0 && filtered.length === 0 && (
         <div className="surface p-8 text-center text-sm text-[--color-fg-muted]">
-          Nothing matches your search.
+          Sin coincidencias para tu búsqueda.
         </div>
       )}
 

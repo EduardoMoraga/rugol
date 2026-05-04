@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Stat } from "@/components/ui/card";
 import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { StatusBadge } from "@/components/dashboard/status-badge";
+import { useI18n } from "@/lib/i18n";
 
 export default function OperationsPage() {
+  const { t } = useI18n();
   const agents = useQuery({ queryKey: ["agents"], queryFn: () => fetchAgents(), refetchInterval: 5000 });
   const runs = useQuery({ queryKey: ["recent-runs"], queryFn: fetchRecentRuns, refetchInterval: 5000 });
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, refetchInterval: 5000 });
@@ -31,7 +33,7 @@ export default function OperationsPage() {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[--color-border] pb-6">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
+            <h1 className="text-3xl font-semibold tracking-tight">{t("operations.title")}</h1>
             <span
               className={`pill ${
                 health.data?.status === "ok" ? "pill-running" : "pill-error"
@@ -40,25 +42,22 @@ export default function OperationsPage() {
               {health.data ? `core ${health.data.status} · v${health.data.version}` : "connecting…"}
             </span>
           </div>
-          <p className="text-sm text-[--color-fg-muted]">
-            Live status across every registered agent. Drop a markdown file in your agents folder, paste a
-            Telegram token, and you're operating.
-          </p>
+          <p className="text-sm text-[--color-fg-muted]">{t("operations.description")}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/architect">
             <Button variant="primary">
-              <Sparkles size={14} /> Design with Architect
+              <Sparkles size={14} /> {t("projects.designWithArchitect")}
             </Button>
           </Link>
           <Link href="/agents/new">
             <Button variant="secondary">
-              <Plus size={14} /> New agent
+              <Plus size={14} /> {t("operations.newAgent")}
             </Button>
           </Link>
           <Link href="/settings">
             <Button variant="ghost">
-              <Settings size={14} /> Settings
+              <Settings size={14} /> {t("operations.settings")}
             </Button>
           </Link>
         </div>
@@ -66,36 +65,35 @@ export default function OperationsPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Stat
-          label="Agents"
+          label={t("operations.statAgents")}
           value={totalAgents}
-          hint={activeAgents ? `${activeAgents} running` : "all idle"}
+          hint={activeAgents ? `${activeAgents} ${t("operations.running")}` : t("operations.allIdle")}
           accent={activeAgents > 0}
         />
-        <Stat label="Runs · 24h" value={last24h.length} />
+        <Stat label={t("operations.statRuns24h")} value={last24h.length} />
         <Stat
-          label="Tokens · 24h"
+          label={t("operations.statTokens24h")}
           value={tokens24h >= 1000 ? `${(tokens24h / 1000).toFixed(1)}k` : tokens24h}
         />
-        <Stat label="Cost · 24h" value={`$${cost24h.toFixed(3)}`} />
+        <Stat label={t("operations.statCost24h")} value={`$${cost24h.toFixed(3)}`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 space-y-6">
           <div>
             <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-sm font-semibold tracking-tight">Live runs</h2>
+              <h2 className="text-sm font-semibold tracking-tight">{t("operations.liveRuns")}</h2>
               <Link href="/agents" className="text-xs text-[--color-fg-muted] hover:text-[--color-fg]">
-                All agents →
+                {t("operations.allAgents")}
               </Link>
             </div>
             {liveRuns.length === 0 ? (
               <div className="surface p-8 text-center space-y-3">
                 <Zap size={24} className="mx-auto text-[--color-fg-subtle]" />
                 <div>
-                  <p className="text-sm font-medium">Nothing running right now</p>
+                  <p className="text-sm font-medium">{t("operations.nothingRunning")}</p>
                   <p className="text-xs text-[--color-fg-muted] mt-1">
-                    Click <span className="text-[--color-accent-strong]">Run</span> on any agent or wait
-                    for a schedule to fire.
+                    {t("operations.nothingRunningHint")}
                   </p>
                 </div>
               </div>
@@ -123,9 +121,9 @@ export default function OperationsPage() {
 
           <div>
             <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-sm font-semibold tracking-tight">Agents</h2>
+              <h2 className="text-sm font-semibold tracking-tight">{t("operations.agentsHeader")}</h2>
               <Link href="/agents" className="text-xs text-[--color-fg-muted] hover:text-[--color-fg]">
-                Manage →
+                {t("operations.manage")}
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

@@ -166,7 +166,7 @@ emotional landing screen with five ready-to-clone templates. Click one
 
 ---
 
-## What's already inside
+## What's already inside · `v0.5.0-alpha`
 
 Rogologo was built in layers, each shipped as a working, tested commit.
 The current version includes:
@@ -180,12 +180,17 @@ The current version includes:
 | **5** | Per-agent tool whitelist + Architect dir picker |
 | **6** | 5 curated project templates, one-click clone, auto-rename for duplicates |
 | **7** | "Promote to lesson" everywhere — chat, advocate critiques, self-improvements |
+| **8** | Per-agent MCP servers (stdio/sse/http) — connect Asana, Notion, Slack per agent |
 | **9** | Ant farm with project clusters (visualization) |
 | **10** | Emotional first-time onboarding |
 | **11** | Extended health check + DEVELOPMENT.md |
+| **13** | Telegram + Slack adapters with channel bindings + reply-on-completion |
+| **14** | Reset to clean state (script + admin endpoint + Settings button) — install on a new PC in minutes |
+| **15** | EN/ES toggle in the nav rail (persisted in localStorage) |
 
-Technical detail: see [DEVELOPMENT.md](DEVELOPMENT.md) and the ADRs in
-[`docs/adrs/`](docs/adrs/).
+Full history in [CHANGELOG.md](CHANGELOG.md). Technical detail in
+[DEVELOPMENT.md](DEVELOPMENT.md) and the ADRs at [`docs/adrs/`](docs/adrs/).
+To install on a fresh PC see [docs/install-on-new-pc.md](docs/install-on-new-pc.md).
 
 ---
 

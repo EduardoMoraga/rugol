@@ -35,6 +35,7 @@ import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
+import { useI18n } from "@/lib/i18n";
 
 type Stage = "idea" | "review" | "deploying" | "done";
 
@@ -51,6 +52,7 @@ const EXAMPLE_IDEAS = [
 ];
 
 export default function ArchitectPage() {
+  const { t } = useI18n();
   const [stage, setStage] = useState<Stage>("idea");
   const [idea, setIdea] = useState("");
   const [constraints, setConstraints] = useState("");
@@ -119,12 +121,12 @@ export default function ArchitectPage() {
   return (
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       <PageHeader
-        title="Architect"
-        description="Describe the outcome you want. Rogologo proposes a small team of agents, the skills they share, the schedules that drive them, and the ontology seeds that connect them. Review every piece, edit what you want, and deploy."
+        title={t("architect.title")}
+        description={t("architect.description")}
         actions={
           stage !== "idea" ? (
             <Button variant="ghost" size="sm" onClick={reset}>
-              <RefreshCw size={13} /> Start over
+              <RefreshCw size={13} /> {t("architect.startOver")}
             </Button>
           ) : null
         }

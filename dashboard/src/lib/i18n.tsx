@@ -156,6 +156,50 @@ const ES: Dict = {
   "chat.cancelled": "cancelled",
   "chat.waiting": "esperando…",
 
+  // ---- Operations dashboard ----
+  "operations.title": "Operations",
+  "operations.description":
+    "Estado en vivo de todos los agentes registrados. Coloca un .md en tu carpeta de agentes, pega un token de Telegram, y ya estás operando.",
+  "operations.newAgent": "Nuevo agente",
+  "operations.settings": "Settings",
+  "operations.statAgents": "Agentes",
+  "operations.statRuns24h": "Runs · 24h",
+  "operations.statTokens24h": "Tokens · 24h",
+  "operations.statCost24h": "Costo · 24h",
+  "operations.liveRuns": "Runs en vivo",
+  "operations.allAgents": "Todos los agentes →",
+  "operations.nothingRunning": "Nada corriendo ahora mismo",
+  "operations.nothingRunningHint":
+    "Click en Run en cualquier agente o espera a que un schedule dispare.",
+  "operations.agentsHeader": "Agentes",
+  "operations.manage": "Gestionar →",
+  "operations.allIdle": "todos en idle",
+  "operations.running": "corriendo",
+
+  // ---- Settings ----
+  "settings.title": "Settings",
+  "settings.description":
+    "Configura tokens y rutas desde acá. Los cambios reinician en caliente los adapters y el watcher — sin tocar el backend.",
+  "settings.refreshStatus": "Refrescar estado",
+  "settings.dangerZone": "Zona peligrosa",
+  "settings.dangerZoneDescription":
+    "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) para que se recreen las tablas vacías. El proyecto Workspace y los 5 templates curados siguen disponibles.",
+  "settings.resetButton": "Restablecer instalación",
+  "settings.resetting": "Reseteando…",
+
+  // ---- Architect ----
+  "architect.title": "Architect",
+  "architect.description":
+    "Describe el resultado que quieres. Rogologo propone un equipo pequeño de agentes, las skills que comparten, los schedules que los disparan y las semillas de ontología que los conectan. Revisa cada pieza, edita lo que quieras, y deploya.",
+  "architect.startOver": "Empezar de nuevo",
+  "architect.idea": "Tu idea",
+  "architect.ideaHint": "una o dos oraciones en lenguaje cotidiano",
+  "architect.constraints": "Restricciones",
+  "architect.constraintsHint": "opcional · cadencia, canales, qué NO incluir",
+  "architect.propose": "Proponer arquitectura",
+  "architect.designing": "Diseñando…",
+  "architect.deploy": "Deployar",
+
   // ---- Common ----
   "common.loading": "Cargando…",
   "common.error": "Error",
@@ -285,6 +329,50 @@ const EN: Dict = {
   "chat.failed": "failed",
   "chat.cancelled": "cancelled",
   "chat.waiting": "waiting…",
+
+  // ---- Operations dashboard ----
+  "operations.title": "Operations",
+  "operations.description":
+    "Live status across every registered agent. Drop a markdown file in your agents folder, paste a Telegram token, and you're operating.",
+  "operations.newAgent": "New agent",
+  "operations.settings": "Settings",
+  "operations.statAgents": "Agents",
+  "operations.statRuns24h": "Runs · 24h",
+  "operations.statTokens24h": "Tokens · 24h",
+  "operations.statCost24h": "Cost · 24h",
+  "operations.liveRuns": "Live runs",
+  "operations.allAgents": "All agents →",
+  "operations.nothingRunning": "Nothing running right now",
+  "operations.nothingRunningHint":
+    "Click Run on any agent or wait for a schedule to fire.",
+  "operations.agentsHeader": "Agents",
+  "operations.manage": "Manage →",
+  "operations.allIdle": "all idle",
+  "operations.running": "running",
+
+  // ---- Settings ----
+  "settings.title": "Settings",
+  "settings.description":
+    "Configure tokens and paths from here. Changes hot-restart the affected adapters and watcher — no backend bounce.",
+  "settings.refreshStatus": "Refresh status",
+  "settings.dangerZone": "Danger zone",
+  "settings.dangerZoneDescription":
+    "Reset the install to a fresh state — useful when moving the app to another PC or starting clean. After reset, restart the backend (uvicorn) so empty tables get recreated. Workspace and the 5 curated templates remain available.",
+  "settings.resetButton": "Reset install",
+  "settings.resetting": "Resetting…",
+
+  // ---- Architect ----
+  "architect.title": "Architect",
+  "architect.description":
+    "Describe the outcome you want. Rogologo proposes a small team of agents, the skills they share, the schedules that drive them, and the ontology seeds that connect them. Review every piece, edit anything you want, and deploy.",
+  "architect.startOver": "Start over",
+  "architect.idea": "Your idea",
+  "architect.ideaHint": "one or two sentences in plain language",
+  "architect.constraints": "Constraints",
+  "architect.constraintsHint": "optional · cadence, channels, what NOT to include",
+  "architect.propose": "Propose architecture",
+  "architect.designing": "Designing…",
+  "architect.deploy": "Deploy",
 
   // ---- Common ----
   "common.loading": "Loading…",

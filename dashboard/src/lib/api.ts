@@ -155,18 +155,38 @@ async function readError(r: Response): Promise<string> {
   return `${r.status} ${r.statusText}`;
 }
 
+// Friendly error wrapper: cuando el backend está caído (typical: usuario
+// recién instaló, olvidó arrancar uvicorn), `fetch` tira TypeError. Lo
+// convertimos en un mensaje accionable en vez de "Failed to fetch".
+function networkErrorMessage(): Error {
+  return new Error(
+    "No se puede conectar al backend de Rogologo en :8000. " +
+      "Revisa que `uvicorn core.main:app --port 8000` esté corriendo en otra terminal.",
+  );
+}
+
 async function get<T>(path: string): Promise<T> {
-  const r = await fetch(path, { cache: "no-store" });
+  let r: Response;
+  try {
+    r = await fetch(path, { cache: "no-store" });
+  } catch {
+    throw networkErrorMessage();
+  }
   if (!r.ok) throw new Error(await readError(r));
   return r.json();
 }
 
 async function post<T>(path: string, body?: unknown): Promise<T> {
-  const r = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  let r: Response;
+  try {
+    r = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw networkErrorMessage();
+  }
   if (!r.ok) throw new Error(await readError(r));
   return r.json();
 }

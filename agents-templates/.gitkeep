@@ -1,0 +1,19 @@
+# Carpeta default de agentes (AGENTS_DIR)
+
+Esta carpeta arranca vacía a propósito. Los agentes que vas a usar
+aterrizan acá cuando:
+
+1. Clonas un template desde `/projects` (los más comunes — Personal
+   Assistant, Hija aprende, Marca personal, Pipeline, Investigador).
+2. Diseñas con Architect en `/architect` (deploy automático).
+3. Creas uno manualmente en `/agents/new`.
+4. Pegas tu propio `.md` con frontmatter aquí (el watcher lo carga
+   en caliente).
+
+El catálogo de templates *no* vive como archivos `.md` aquí — vive en
+`core/templates/catalog.py` como código Python. Eso permite que un
+clone limpio del repo arranque con 0 agentes pero con los 5 templates
+disponibles para clonar con un click.
+
+Si quieres apuntar Rogologo a otra carpeta (p.ej. `C:\Moragent\.claude\agents`
+para reusar agentes de Claude Code), edítalo en Settings → Agents folder.

@@ -15,6 +15,7 @@ import {
   type SettingsUpdate,
 } from "@/lib/api";
 import { ProjectBadge } from "@/components/projects/project-badge";
+import { useI18n } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { Card, CardSection, PageHeader } from "@/components/ui/card";
 import { FieldLabel, Input, Select } from "@/components/ui/input";
@@ -22,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 
 export default function SettingsPage() {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const settings = useQuery({ queryKey: ["settings"], queryFn: fetchSettings });
   const status = useQuery({
@@ -33,20 +35,20 @@ export default function SettingsPage() {
   return (
     <div className="p-8 space-y-8 max-w-4xl mx-auto">
       <PageHeader
-        title="Settings"
-        description="Configure tokens and paths from here. Changes hot-restart the affected adapters and watcher — no need to relaunch the backend."
+        title={t("settings.title")}
+        description={t("settings.description")}
         actions={
           <Button
             variant="ghost"
             size="sm"
             onClick={() => qc.invalidateQueries({ queryKey: ["settings-status"] })}
           >
-            <RefreshCw size={13} /> Refresh status
+            <RefreshCw size={13} /> {t("settings.refreshStatus")}
           </Button>
         }
       />
 
-      {settings.isLoading && <p className="text-sm text-[--color-fg-muted]">Loading…</p>}
+      {settings.isLoading && <p className="text-sm text-[--color-fg-muted]">{t("common.loading")}</p>}
 
       {settings.data && status.data && (
         <>
@@ -64,30 +66,29 @@ export default function SettingsPage() {
 
 
 function DangerZone() {
+  const { t } = useI18n();
   const reset = useMutation({
     mutationFn: () => resetInstall(),
     onSuccess: (data) => {
       toast({
         tone: "success",
-        title: "Instalación reseteada",
-        body: `${data.deleted.length} archivos borrados. Reinicia el backend para arrancar limpio.`,
+        title: t("settings.resetButton"),
+        body: `${data.deleted.length} ${t("common.delete").toLowerCase()}.`,
       });
     },
     onError: (e: Error) =>
-      toast({ tone: "error", title: "No se pudo resetear", body: e.message }),
+      toast({ tone: "error", title: t("common.error"), body: e.message }),
   });
 
   function handleReset() {
     const phrase = "BORRAR TODO";
     const typed = window.prompt(
-      `Esto borra TODA la base de datos, los tokens guardados y todos los agentes generados. ` +
-        `Las skills internas de Rogologo y los templates curados se conservan.\n\n` +
-        `Para confirmar, escribe exactamente: ${phrase}`,
+      `${t("settings.dangerZoneDescription")}\n\nEscribe: ${phrase}`,
     );
     if (typed === phrase) {
       reset.mutate();
     } else if (typed !== null) {
-      toast({ tone: "info", title: "Confirmación incorrecta — nada borrado." });
+      toast({ tone: "info", title: "—" });
     }
   }
 
@@ -95,16 +96,11 @@ function DangerZone() {
     <Card className="border-[--color-error]/40">
       <SectionHeader
         icon={<AlertTriangle size={14} />}
-        title="Zona peligrosa"
-        body={
-          "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro " +
-          "PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) " +
-          "para que se recreen las tablas vacías. El proyecto Workspace y los 5 templates curados " +
-          "siguen disponibles."
-        }
+        title={t("settings.dangerZone")}
+        body={t("settings.dangerZoneDescription")}
       />
       <Button variant="danger" onClick={handleReset} disabled={reset.isPending}>
-        <Trash2 size={13} /> {reset.isPending ? "Reseteando…" : "Restablecer instalación"}
+        <Trash2 size={13} /> {reset.isPending ? t("settings.resetting") : t("settings.resetButton")}
       </Button>
     </Card>
   );

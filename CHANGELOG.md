@@ -3,6 +3,57 @@
 All notable changes to Rogologo are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0-alpha] — 2026-05-04
+
+**Primer release coherente, instalable y demostrable en una PC limpia.** Pasamos de "scaffold con dashboard" a "sistema operativo de agentes" con paradigma project-first, lecciones vivas, sistema 1/2 explícito, devil's advocate, y templates listos para clonar en un click.
+
+### 15 capas entregadas en este ciclo
+
+| Capa | Aporte |
+|---|---|
+| 1 | **Project-first model**. La unidad de cuenta es el proyecto, no el agente. Migración no destructiva, `/projects` como home, Architect siempre produce un proyecto con misión. ADR-005. |
+| 2 | **Chat multi-turn + markdown clickeable**. `session_id` encadena turnos (verificado: el agente recuerda "mauve" entre mensajes). Output con react-markdown + syntax highlight + links clickeables. |
+| 3 | **Lecciones vivas + auto self-improve**. Cada proyecto tiene un banco de `{kind, text}` que se inyecta al system prompt en cada run. Auto-trigger del reflector cuando un agente acumula fallos o hits N runs. |
+| 4 | **Sistema 1/2 + devil's advocate**. Selector heurística/pensar/deliberar rutea al modelo apropiado (haiku/agente/opus). Checkbox dispara crítica con opus en run secundario, anidada en la misma conversación. |
+| 5 | **Tools editables por agente + dir picker en Architect**. Whitelist de herramientas built-in vía frontmatter. Override de install dir por deploy. Verificado: el modelo reporta solo las tools whitelisteadas en runtime. |
+| 6 | **5 templates curados**. Asistente personal, Mi hija aprende jugando, Marca personal, Pipeline comercial, Investigador. Clone en un click con auto-rename para duplicados (agentes y schedules). |
+| 7 | **Promote-to-lesson**. Cierre del loop pedagógico: cualquier respuesta del agente o crítica del advocate se promueve a lección del proyecto con un click. |
+| 8 | **MCP servers por agente**. Configuración stdio/sse/http per-agent. UI para agregar/quitar. Conectar Asana, Notion, Slack al agente sin tocar el `.env` global. |
+| 9 | **Ant farm con clusters**. Visualización HTML5 Canvas que agrupa agentes por proyecto. Halo del color del proyecto, dot del color del status. |
+| 10 | **Onboarding emocional**. Hero de primer-uso con la cita "La vida es la sumatoria de proyectos. Tú eres el CEO; ellos ejecutan." Desaparece al primer proyecto real. |
+| 11 | **Health check extendido + DEVELOPMENT.md**. `/api/health/full` reporta schema y actividad 24h. Documentación interna para devs + workaround del bug Next 15+pnpm en Windows. |
+| 12 | **READMEs reescritos**. EN+ES desde cero, paradigma project-first como entrada, casos reales (incluyendo el de la hija), 5 templates listados con descripción concreta. |
+| 13 | **Channel bindings (Telegram/Slack)**. Tabla `channel_bindings`, comandos `/bind`, `/whoami`, `/agents` en bot. Reply-on-completion vía bus subscriber. Sin binding → mensaje de ayuda, nunca dispatch a agente equivocado. |
+| 14 | **Reset a estado limpio**. `scripts/reset.py` + `POST /api/admin/reset` + botón en Settings → Zona peligrosa. `docs/install-on-new-pc.md`. Backend ya no muere si Telegram timeout en arranque. |
+| 15 | **Toggle EN/ES**. Provider i18n minimalista (no next-intl) con localStorage. Toggle en nav rail. Pantallas core traducidas: nav, /projects, OnboardingHero, TemplateCatalog, NewProjectDialog, AgentCard, AgentChat. |
+
+### Fixes notables
+
+- **`setting_sources=["user"]`** en el SDK: los agentes ya no leen el `CLAUDE.md` del repo. Antes respondían "te ayudo con Rogologo Sprint 2" — ahora cada agente responde según su template y el proyecto en el que vive.
+- **Mojibake fix**: `scripts/fix_mojibake.py` repara doble-encoding UTF-8→Latin-1 en `.md` corruptos por tests con PowerShell.
+- **Polling fallback** en agent-chat: si la SSE se desconecta (ej. backend restart), un poll cada 4s al `/api/runs/{id}` hidrata el turno desde el `final_text` persistido.
+- **Backend resiliente al startup**: si Telegram/Slack falla, se loguea y el resto de la app sigue.
+- **Audit fixes**: cron validado con `CronTrigger.from_crontab` antes del DB insert; orden inverso en delete schedule; React keys compuestas en lists con SSE.
+- **React hooks order** en RunDetail (useMemo después de early returns), `<a>` dentro de `<a>` por ProjectBadge en AgentCard, `<option>` blanco-sobre-blanco en Chromium light theme.
+
+### Verificación end-to-end
+
+- 23/23 endpoints API → 200 con shapes correctas
+- 16/16 rutas UI → renderizan
+- Channel binding cycle (create/lookup/replace/delete) → limpio
+- Cron validation → bad cron 400, good cron 201
+- Run con `task_type=fast` sobre opus agent → ruteado a haiku ($0.13 vs $0.60)
+- Run con `seek_devils_advocate=true` → primary aplica lecciones del proyecto, advocate cuestiona específicamente
+
+### Stack final
+
+- **Backend**: Python 3.12, FastAPI, async SQLAlchemy, SQLite (Postgres opcional), APScheduler, claude-agent-sdk, python-telegram-bot, slack-bolt
+- **Frontend**: Next.js 15 + React 19 + Tailwind v4, react-query, react-markdown + remark-gfm + rehype-highlight, HTML5 Canvas
+- **i18n**: provider casero ES/EN con localStorage
+- **DB**: 5 tablas core (`projects`, `agents`, `runs`, `messages`, `schedules`) + 4 secundarias, todas con migración no destructiva idempotente
+
+---
+
 ## [Unreleased]
 
 ### Sprint 4 — Architect (the OpenClaw gap closer, 2026-05-02)

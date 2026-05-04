@@ -165,7 +165,7 @@ si querés → deployá. Tu equipo ya está funcionando.
 
 ---
 
-## Las capas que ya están adentro
+## Las capas que ya están adentro · `v0.5.0-alpha`
 
 Rogologo se construyó en capas, cada una entregada como commit funcional
 y testeado end-to-end. La versión actual incluye:
@@ -179,12 +179,17 @@ y testeado end-to-end. La versión actual incluye:
 | **5** | Tools editables por agente (whitelist) + dir picker en el Architect |
 | **6** | Catálogo de 5 templates curados, clone con un click, auto-rename para duplicados |
 | **7** | "Promover a lección" en cada respuesta y en cada self-improvement |
+| **8** | MCP servers por agente (stdio/sse/http) — conectar Asana, Notion, Slack por agente |
 | **9** | Ant farm con clusters por proyecto (visualización) |
 | **10** | Onboarding emocional para usuarios nuevos |
 | **11** | Health check extendido + DEVELOPMENT.md |
+| **13** | Adapters Telegram + Slack con channel bindings + reply-on-completion |
+| **14** | Reset a estado limpio (script + endpoint admin + botón en Settings) — instalar en otro PC en minutos |
+| **15** | Toggle EN/ES en el nav rail (persistido en localStorage) |
 
-Detalle técnico: ver [DEVELOPMENT.md](DEVELOPMENT.md) y los ADRs en
-[`docs/adrs/`](docs/adrs/).
+Historia completa en [CHANGELOG.md](CHANGELOG.md). Detalle técnico en
+[DEVELOPMENT.md](DEVELOPMENT.md) y los ADRs en [`docs/adrs/`](docs/adrs/).
+Para instalar en una PC fresca ver [docs/install-on-new-pc.md](docs/install-on-new-pc.md).
 
 ---
 

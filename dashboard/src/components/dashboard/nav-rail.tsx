@@ -53,7 +53,7 @@ export function NavRail() {
           <div>
             <div className="text-base font-semibold tracking-tight">Rogologo</div>
             <div className="text-[10px] text-[--color-fg-muted] uppercase tracking-widest">
-              v0.2 · alpha
+              v0.5 · alpha
             </div>
           </div>
         </div>

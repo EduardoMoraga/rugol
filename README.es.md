@@ -4,7 +4,7 @@
 
 **Tu sistema operativo de agentes IA, hecho para personas que piensan en proyectos, no en tecnología.**
 
-Una sala de control local donde tus equipos de agentes Claude trabajan por vos —
+Una sala de control local donde tus equipos de agentes Claude trabajan por tú —
 tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial.
 
 [Quickstart](#quickstart) · [Por qué Rogologo](#por-qué-rogologo) · [Casos reales](#casos-reales) · [Cómo funciona](#cómo-funciona) · [English](README.md)
@@ -13,13 +13,13 @@ tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial.
 
 ---
 
-> **"La vida es la sumatoria de proyectos. Vos sos el CEO; ellos ejecutan."**
+> **"La vida es la sumatoria de proyectos. Tú eres el CEO; ellos ejecutan."**
 
 Rogologo cambia el paradigma. No pensás "qué agente creo". Pensás
 **qué proyecto necesito**: tu asistente personal, tu marca, ayudar a
 tu hija a estudiar biología jugando, tu pipeline de ventas. Cada
 proyecto se arma con su propio equipo de agentes especialistas, su
-misión escrita y sus reglas vivas. Vos sos el CEO del proyecto;
+misión escrita y sus reglas vivas. Tú eres el CEO del proyecto;
 los agentes son el departamento.
 
 ---
@@ -43,7 +43,7 @@ cotidiana**.
 | Otras plataformas | Rogologo |
 |---|---|
 | Lista plana de agentes sueltos | Proyectos como departamentos con misión |
-| Vos decidís qué modelo usar (haiku/sonnet/opus) | Vos elegís el **tipo de tarea** (heurística / pensar / deliberar); el sistema rutea |
+| Tú decidís qué modelo usar (haiku/sonnet/opus) | Tú elegís el **tipo de tarea** (heurística / pensar / deliberar); el sistema rutea |
 | Agente que actúa solo | Opcional: abogado del diablo cuestiona antes de actuar |
 | Memoria por agente o ninguna | Lecciones vivas por proyecto que el equipo lee antes de cada tarea |
 | Templates técnicos | Templates emocionales: "asistente personal", "mi hija aprende jugando" |
@@ -53,7 +53,7 @@ cotidiana**.
 | Principio | Cómo aparece en Rogologo |
 |---|---|
 | **Sistema 1 vs Sistema 2** (Kahneman) | El usuario no piensa en modelos. Elige *Heurística* (haiku, rápido), *Pensar* (modelo del agente) o *Deliberar* (opus, decisiones caras de revertir). |
-| **Ruido** (Kahneman/Sunstein) | Antes de decisiones importantes, el "Abogado del diablo" (opus) cuestiona la respuesta primaria. Dos perspectivas, vos decidís. |
+| **Ruido** (Kahneman/Sunstein) | Antes de decisiones importantes, el "Abogado del diablo" (opus) cuestiona la respuesta primaria. Dos perspectivas, tú decidís. |
 | **Sesgos** | Cada proyecto mantiene una lista viva de *lecciones* (lessons / biases / facts). Cada agente del equipo las lee antes de cada run. Lo que aprendiste de la mala queda como anclaje permanente. |
 
 ---
@@ -76,7 +76,7 @@ nuevo en minutos.
 Tres agentes que cuidan la voz pública: brand-architect (Opus, decide qué
 es On-brand), content-editor (escribe los posts), market-analyst (mide qué
 resuena). Lecciones vivas como *"nunca usar 'leverage'"* o *"cero hype"*
-quedan inyectadas en cada run, así el equipo no se desvía aunque vos no
+quedan inyectadas en cada run, así el equipo no se desvía aunque tú no
 estés mirando.
 
 ### "Pipeline comercial"
@@ -93,7 +93,7 @@ El equipo invisible que cuida tu día.
 
 ### "Investigador de un tema"
 
-Cuando tenés que dominar algo nuevo en una semana: researcher recopila
+Cuando tienes que dominar algo nuevo en una semana: researcher recopila
 fuentes, explainer las traduce a analogías cotidianas, critic cuestiona
 el consenso. Te lleva de 0 a poder sostener una conversación informada.
 
@@ -161,7 +161,7 @@ pnpm dev
 
 Abrí `http://localhost:3000`. Si es la primera vez, vas a ver una
 pantalla emocional con cinco templates listos. Click en uno → personalizá
-si querés → deployá. Tu equipo ya está funcionando.
+si quieres → deployá. Tu equipo ya está funcionando.
 
 ---
 
@@ -207,7 +207,7 @@ Para instalar en una PC fresca ver [docs/install-on-new-pc.md](docs/install-on-n
 
 ## Para developers
 
-Si vas a contribuir o forkear, leé primero
+Si vas a contribuir o forkear, lee primero
 [**DEVELOPMENT.md**](DEVELOPMENT.md). Captura el stack, las reglas de
 migración, los bugs conocidos (con sus workarounds), la cheatsheet de
 arquitectura y un mapa de qué archivo toca qué capa.
@@ -232,7 +232,7 @@ nos dice qué template falta.
 
 ## Licencia
 
-MIT. Hacé lo que necesites.
+MIT. Haz lo que necesites.
 
 ---
 

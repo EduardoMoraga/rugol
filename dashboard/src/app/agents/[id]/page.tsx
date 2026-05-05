@@ -385,7 +385,7 @@ function McpPane({ agentId }: { agentId: number }) {
       {serverNames.length === 0 ? (
         <Card className="text-center py-8">
           <p className="text-sm text-[--color-fg-muted]">
-            Este agente todavía no tiene MCP servers extra. Agregá uno abajo.
+            Este agente todavía no tiene MCP servers extra. Agrega uno abajo.
           </p>
         </Card>
       ) : (

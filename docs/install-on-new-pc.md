@@ -24,7 +24,7 @@ cd C:\Rogologo
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r core/requirements.txt
-copy .env.example .env       # editar si querés API key en vez de subscription
+copy .env.example .env       # editar si quieres API key en vez de subscription
 uvicorn core.main:app --host 127.0.0.1 --port 8000
 
 # Frontend (otra terminal)
@@ -39,7 +39,7 @@ todo lo demás está vacío.
 
 ## Opción B — Copiar carpeta + reset
 
-Si no querés clonar y prefieres copiar la carpeta entera desde tu PC actual:
+Si no quieres clonar y prefieres copiar la carpeta entera desde tu PC actual:
 
 1. Copiá la carpeta `C:\Moragent\04-LAB\rogologo` a la PC nueva
 2. **EN LA PC NUEVA, antes de arrancar:**
@@ -60,7 +60,7 @@ Si no querés clonar y prefieres copiar la carpeta entera desde tu PC actual:
 1. Abrí `http://localhost:3000/settings`
 2. Bajá hasta **"Zona peligrosa"**
 3. Click en **"Restablecer instalación"**
-4. Escribí exactamente `BORRAR TODO` cuando te pregunte
+4. Escribe exactamente `BORRAR TODO` cuando te pregunte
 5. **Reiniciá el backend manualmente** (matar uvicorn y volver a levantarlo)
    — el reset borra los archivos pero el proceso ya cargado en memoria
    sigue. Al reiniciar, init_db recrea las tablas vacías.
@@ -90,7 +90,7 @@ Si en tu PC actual configuraste tokens de Telegram/Slack y quieres usarlos
 en la PC nueva sin recrearlos:
 
 1. Antes del reset, copiá `data/settings.json` aparte
-2. Después del reset y de arrancar limpio, pegá ese archivo de vuelta en
+2. Después del reset y de arrancar limpio, pega ese archivo de vuelta en
    `data/settings.json` y reiniciá el backend
 3. Los tokens vuelven, las DB queda vacía
 
@@ -101,6 +101,6 @@ en la PC nueva sin recrearlos:
 - **Crear proyecto falla con "slug ya existe"**: significa que el reset no
   corrió. Verifica con `python scripts/reset.py --dry-run` qué hay.
 - **Telegram/Slack adapters no arrancan**: el backend ya no es fatal en eso
-  desde Capa 14 — sigue funcionando sin chat ops. Mirá los logs (`uvicorn`
+  desde Capa 14 — sigue funcionando sin chat ops. Mira los logs (`uvicorn`
   stderr) para el motivo del timeout/error. Casi siempre es token inválido
   o red bloqueada.

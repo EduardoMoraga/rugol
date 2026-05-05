@@ -521,7 +521,7 @@ function ReviewStage({
           </div>
           <p className="text-[11px] text-[--color-fg-subtle]">
             Path absoluto. Se crea si no existe. Si dejás vacío usa el default.
-            Para cambiar el default global andá a Settings.
+            Para cambiar el default global ve a Settings.
           </p>
         </Card>
       </Section>

@@ -45,8 +45,24 @@ class SlackAdapter(Adapter):
         try:
             from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
             from slack_bolt.async_app import AsyncApp
-        except ImportError:
-            logger.warning("slack-bolt not installed, slack adapter inactive")
+        except ImportError as e:
+            # Distinguish 'slack-bolt missing' vs 'aiohttp/websockets missing' vs other.
+            # The previous one-size message ('slack-bolt not installed') misled users
+            # into reinstalling slack-bolt repeatedly when the real cause was a missing
+            # transitive dep. Surface the actual module name from the ImportError.
+            missing = getattr(e, "name", None) or str(e)
+            if missing and "slack_bolt" in str(missing):
+                hint = "install: pip install 'slack-bolt>=1.21'"
+            elif missing and "aiohttp" in str(missing):
+                hint = "AsyncSocketModeHandler needs aiohttp — install: pip install 'aiohttp>=3.10'"
+            elif missing and "websockets" in str(missing):
+                hint = "AsyncSocketModeHandler needs websockets — install: pip install websockets"
+            else:
+                hint = "check your venv has slack-bolt + aiohttp + websockets"
+            logger.warning(
+                "slack adapter inactive — failed to import %s. %s. Original error: %s",
+                missing, hint, e,
+            )
             return
 
         app = AsyncApp(

@@ -221,7 +221,7 @@ y guarda al final. Que Rogologo soporte lo mismo.
 
 | Comando | Qué hace |
 |---|---|
-| `/setup_mcp` | Inicia wizard conversacional. Bot pregunta qué MCP querés agregar (lista de presets), pide tokens uno por uno explicando dónde sacarlos, valida la conexión, y guarda. |
+| `/setup_mcp` | Inicia wizard conversacional. Bot pregunta qué MCP quieres agregar (lista de presets), pide tokens uno por uno explicando dónde sacarlos, valida la conexión, y guarda. |
 | `/setup_agent` | Wizard conversacional para crear un agente nuevo. Pregunta nombre, modelo, rol en una línea, qué MCPs usa, schedule opcional. |
 | `/list_mcps` | Lista los MCPs configurados por agente. |
 | `/test_mcp <agente> <mcp>` | Dispara una invocación de prueba al MCP y devuelve resultado. |

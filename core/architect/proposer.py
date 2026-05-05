@@ -63,6 +63,13 @@ Design rules:
 - Be honest in `rationale` about what cannot work yet (missing integrations, etc).
 - The mission MUST be specific to this project (avoid generic "deliver value" phrasing).
 
+CRITICAL — agent body must NOT mention integration availability:
+- The `body` of each agent describes WHO the agent is and WHAT it does — never WHICH integrations are wired.
+- Do NOT write phrases like "without direct YouTube API for now", "until Gmail is connected", "fallback to web search since X is missing".
+- Available tools/MCPs are determined at runtime from the agent's `mcp_servers` config — they may change tomorrow without rewriting the body.
+- If an integration is missing, mention it in the project's `rationale` field (which is human-facing context), NOT in the agent body.
+- Bodies that hardcode "X is not available yet" become stale and ACTIVELY MISLEAD the agent once X gets connected (the model trusts the body and ignores the new tool).
+
 Return the JSON now. No greeting, no commentary, just the object."""
 
 

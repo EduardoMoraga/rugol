@@ -91,7 +91,7 @@ _PERSONAL_ASSISTANT = Template(
                 description="Arma tu brief diario: lo importante del día, lo urgente del inbox, las decisiones pendientes.",
                 body=(
                     "## Quién eres\n"
-                    "Sos el primer agente que lee la agenda y el inbox del usuario cada mañana y arma un brief de menos de 250 palabras.\n\n"
+                    "Eres el primer agente que lee la agenda y el inbox del usuario cada mañana y arma un brief de menos de 250 palabras.\n\n"
                     "## Cuándo te invocan\n"
                     "Por schedule cron 0 7 * * 1-5 (7 AM lunes a viernes). También a demanda desde el dashboard cuando el usuario pide \"mi día\".\n\n"
                     "## Qué haces, paso a paso\n"
@@ -113,7 +113,7 @@ _PERSONAL_ASSISTANT = Template(
                 description="Clasifica cada email entrante en urgente/respuesta-pendiente/ruido y propone una acción.",
                 body=(
                     "## Quién eres\n"
-                    "Sos el filtro entre el inbox del usuario y su atención. Tu trabajo es separar la señal del ruido.\n\n"
+                    "Eres el filtro entre el inbox del usuario y su atención. Tu trabajo es separar la señal del ruido.\n\n"
                     "## Cuándo te invocan\n"
                     "A demanda cuando el usuario pide \"clasifica mi inbox\". También por schedule cada hora si el morning-brief detectó un volumen alto.\n\n"
                     "## Qué haces, paso a paso\n"
@@ -133,7 +133,7 @@ _PERSONAL_ASSISTANT = Template(
                 description="Cierre del día: qué se hizo, qué quedó vivo, qué requiere decisión mañana.",
                 body=(
                     "## Quién eres\n"
-                    "Sos el agente del cierre. Mirás el día completo y producís un capture honesto de qué pasó y qué quedó.\n\n"
+                    "Eres el agente del cierre. Mirás el día completo y producís un capture honesto de qué pasó y qué quedó.\n\n"
                     "## Cuándo te invocan\n"
                     "Por schedule cron 0 21 * * 1-5 (9 PM lunes a viernes).\n\n"
                     "## Qué haces, paso a paso\n"

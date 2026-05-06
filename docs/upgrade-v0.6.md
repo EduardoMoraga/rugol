@@ -202,6 +202,72 @@ pnpm dev
 
 ---
 
+## Multimodal en Telegram — fotos, PDFs, Office docs y audio
+
+Detectado al usar el bot de gugol: solo aceptaba texto. Cualquier foto,
+PDF, Word o audio que el usuario mandaba se ignoraba silenciosamente.
+v0.6 lo arregla: el adapter Telegram ahora acepta los 4 tipos.
+
+### Qué se puede mandar al bot
+
+| Tipo | Cómo se procesa | Soportado de fábrica |
+|---|---|---|
+| **Imagen** (PNG, JPG, WebP, etc.) | Se baja a `data/uploads/<chat_id>/`. El prompt al agente incluye el path absoluto. Claude la lee con su tool Read (vision nativo). | ✅ Sin instalación extra |
+| **PDF** | Igual. Claude PDFs nativos. | ✅ Sin instalación extra |
+| **Word (.docx)** | Se baja, se extrae texto con `python-docx`, se inyecta inline en el prompt (truncado a 18000 chars). | ✅ Con `pip install` actualizado |
+| **Excel (.xlsx, .xlsm)** | Igual con `openpyxl`. Cada hoja como sección, filas pipe-separadas. | ✅ Con `pip install` actualizado |
+| **PowerPoint (.pptx)** | Igual con `python-pptx`. Texto por slide. | ✅ Con `pip install` actualizado |
+| **Texto plano** (.txt, .md, .csv, .json, .yaml, .py, .js, .ts) | Lectura UTF-8 directo. | ✅ Sin instalación extra |
+| **Audio / nota de voz** | Se baja, se transcribe con **faster-whisper local** (CPU, int8, ~3-5s por minuto), se pasa el texto al agente. | ✅ Con `pip install` actualizado. Primera vez descarga modelo `small` (244 MB) |
+
+### Primera vez con audio
+
+La primera nota de voz que mandes va a tardar 30-60 segundos extra mientras
+faster-whisper descarga el modelo `small` desde Hugging Face. El bot te
+avisa con un mensaje *"Transcribiendo audio... (la primera vez puede tardar)"*.
+La segunda vez, el modelo ya está en disco y la transcripción tarda lo
+normal (~5 segundos para una nota de 30s).
+
+Para usar otro modelo (más rápido o más preciso):
+
+```powershell
+$env:ROGOLOGO_WHISPER_MODEL = "tiny"     # más rápido, menos preciso (~75 MB)
+$env:ROGOLOGO_WHISPER_MODEL = "medium"   # más preciso, más lento (~1.5 GB)
+```
+
+(Configurar **antes** de levantar uvicorn.)
+
+### Cómo el agente "ve" lo que mandaste
+
+- **Imagen y PDF**: el prompt le dice *"el usuario te envió un archivo, path: …"*
+  y el agente usa Read para abrirlo. Para que esto funcione, el agente debe
+  tener Read habilitado (es default en Claude Code).
+- **Office docs / texto plano**: el contenido extraído va inline en el prompt.
+  No necesita usar Read, ya tiene el texto delante.
+- **Audio**: la transcripción se enseña primero al usuario (editando el
+  mensaje "transcribiendo…") y después se pasa al agente como texto.
+
+### Probar rápido
+
+1. Mandale una foto a tu bot con caption *"qué se ve acá"* — el agente debería describirla.
+2. Mandale un PDF — debería resumirlo o responderte sobre su contenido.
+3. Mandale un .xlsx — debería resumir la planilla, filas relevantes, etc.
+4. Mandale una nota de voz de 10 segundos diciendo cualquier cosa — el bot edita el mensaje con la transcripción y después responde.
+
+### Dónde se guardan los archivos
+
+`data/uploads/<chat_id>/<timestamp>-<filename>`
+
+Esa carpeta NO se borra automáticamente. Si querés barrerla:
+
+```powershell
+Remove-Item -Recurse -Force C:\Moragent\rogologo\data\uploads
+```
+
+Los archivos están en `.gitignore` (toda `data/` lo está).
+
+---
+
 ## Memoria de conversación en Telegram y Slack (fix tardío)
 
 Detectado al probar v0.6 con Gugol vía Telegram: cada mensaje arrancaba un

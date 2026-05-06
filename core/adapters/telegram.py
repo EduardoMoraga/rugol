@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import select
@@ -28,6 +30,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 from core import runtime_state
 from core.adapters.base import Adapter
 from core.adapters import telegram_wizards as wizards
+from core.attachments import classify_path, extract_text
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, ChannelBinding
@@ -76,6 +79,11 @@ class TelegramAdapter(Adapter):
         app.add_handler(CommandHandler("help_prompt", self._cmd_help_prompt))
         app.add_handler(CommandHandler("reset", self._cmd_reset))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle))
+        # v0.6 — non-text inputs. Each handler downloads the file, then dispatches
+        # to the bound agent with an enriched prompt.
+        app.add_handler(MessageHandler(filters.PHOTO, self._handle_photo))
+        app.add_handler(MessageHandler(filters.Document.ALL, self._handle_document))
+        app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, self._handle_voice))
         app.add_error_handler(self._on_error)
 
         self._app = app
@@ -330,6 +338,215 @@ class TelegramAdapter(Adapter):
         except Exception as e:
             logger.exception("telegram dispatch failed")
             await placeholder.edit_text(f"Error: {e}")
+
+    # v0.6 — Non-text dispatch ----------------------------------------------
+
+    async def _download_to_uploads(
+        self,
+        ctx: ContextTypes.DEFAULT_TYPE,
+        chat_id: int,
+        file_id: str,
+        suggested_name: str | None,
+    ) -> Path:
+        """Persist an attachment under data/uploads/<chat_id>/<timestamp>-<name>.
+
+        Files are kept on disk so the agent can re-read them later (Read tool
+        does the right thing with images and PDFs). Old uploads can be swept
+        manually from data/uploads/ — we don't auto-rotate.
+        """
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        out_dir = repo_root / "data" / "uploads" / str(chat_id)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        clean_name = (suggested_name or "file.bin").replace("/", "_").replace("\\", "_")
+        out_path = out_dir / f"{ts}-{clean_name}"
+        tg_file = await ctx.bot.get_file(file_id)
+        await tg_file.download_to_drive(custom_path=str(out_path))
+        return out_path
+
+    async def _dispatch_with_prompt(
+        self,
+        update: Update,
+        chat_id: int,
+        prompt: str,
+    ) -> None:
+        """Dispatch an enriched prompt to the bound agent. Mirrors _handle's tail."""
+        bound = await _lookup_binding(str(chat_id))
+        if not bound:
+            await update.message.reply_text(
+                f"Este chat ({chat_id}) no está vinculado. Usá /bind <agente> o /agents.",
+            )
+            return
+        placeholder = await update.message.reply_text(
+            f"⏳ {bound['agent_name']} procesando…"
+        )
+        session_id = _CHAT_SESSIONS.get(str(chat_id))
+        try:
+            run_id = await get_orchestrator().enqueue(RunRequest(
+                agent_name=bound["agent_name"],
+                prompt=prompt,
+                source="telegram",
+                session_id=session_id,
+                metadata={"chat_id": chat_id, "placeholder_msg_id": placeholder.message_id},
+            ))
+            _PENDING[run_id] = {
+                "chat_id": chat_id,
+                "placeholder_msg_id": placeholder.message_id,
+            }
+        except Exception as e:
+            logger.exception("telegram dispatch failed (attachment)")
+            await placeholder.edit_text(f"Error: {e}")
+
+    async def _handle_photo(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        # Telegram entrega la foto en varios tamaños; el último es el más grande.
+        photos = update.message.photo
+        if not photos:
+            return
+        largest = photos[-1]
+        try:
+            local_path = await self._download_to_uploads(
+                ctx, chat_id, largest.file_id,
+                suggested_name=f"photo-{largest.file_unique_id}.jpg",
+            )
+        except Exception as e:
+            logger.exception("telegram photo download failed")
+            await update.message.reply_text(f"No pude descargar la imagen: {e}")
+            return
+        caption = (update.message.caption or "").strip()
+        prompt = (
+            (f"{caption}\n\n" if caption else "")
+            + "El usuario te envió una imagen por Telegram. "
+            + "Usá tu herramienta Read para abrirla y describí/respondé según corresponda. "
+            + f"Path absoluto del archivo: {local_path}"
+        )
+        await self._dispatch_with_prompt(update, chat_id, prompt)
+
+    async def _handle_document(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        doc = update.message.document
+        if doc is None:
+            return
+        try:
+            local_path = await self._download_to_uploads(
+                ctx, chat_id, doc.file_id, suggested_name=doc.file_name,
+            )
+        except Exception as e:
+            logger.exception("telegram document download failed")
+            await update.message.reply_text(f"No pude descargar el archivo: {e}")
+            return
+        caption = (update.message.caption or "").strip()
+        kind = classify_path(local_path)
+
+        if kind == "text-extracted":
+            text = extract_text(local_path)
+            if text is None:
+                # Library missing or extraction failed — fall back to path.
+                prompt = (
+                    (f"{caption}\n\n" if caption else "")
+                    + f"El usuario te envió el archivo {local_path.name}. "
+                    + f"No pude extraer texto automáticamente. Usá Read si querés inspeccionarlo. "
+                    + f"Path: {local_path}"
+                )
+            else:
+                # Trim very long extracted text to avoid blowing the prompt budget.
+                snippet = text if len(text) <= 18000 else text[:18000] + "\n\n[...truncado...]"
+                prompt = (
+                    (f"{caption}\n\n" if caption else "")
+                    + f"El usuario te envió el archivo {local_path.name}. "
+                    + f"Acá va el contenido extraído (delimitado por triple guión):\n\n"
+                    + f"---\n{snippet}\n---\n\n"
+                    + "Respondé al usuario sobre este contenido."
+                )
+        elif kind == "multimodal":
+            prompt = (
+                (f"{caption}\n\n" if caption else "")
+                + f"El usuario te envió un {local_path.suffix.lstrip('.').upper()} "
+                + f"({local_path.name}). Usá tu herramienta Read para abrirlo "
+                + "(soporta imágenes y PDFs nativos) y respondé al usuario.\n\n"
+                + f"Path absoluto: {local_path}"
+            )
+        else:
+            prompt = (
+                (f"{caption}\n\n" if caption else "")
+                + f"El usuario te envió un archivo de tipo desconocido: {local_path.name}. "
+                + f"Probá con tu herramienta Read; si no podés leerlo, decile al usuario qué tipo de archivo te sirve.\n\n"
+                + f"Path absoluto: {local_path}"
+            )
+
+        await self._dispatch_with_prompt(update, chat_id, prompt)
+
+    async def _handle_voice(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        media = update.message.voice or update.message.audio
+        if media is None:
+            return
+
+        # Inform the user that transcription may take a moment (and 30-60s
+        # the very first time while the model downloads).
+        notice = await update.message.reply_text(
+            "🎙️ Transcribiendo audio... (la primera vez puede tardar más mientras se descarga el modelo Whisper)"
+        )
+        try:
+            local_path = await self._download_to_uploads(
+                ctx, chat_id, media.file_id,
+                suggested_name=getattr(media, "file_name", None) or f"voice-{media.file_unique_id}.ogg",
+            )
+        except Exception as e:
+            logger.exception("telegram voice download failed")
+            await notice.edit_text(f"No pude descargar el audio: {e}")
+            return
+
+        # Lazy import — keeps backend startup fast even if faster-whisper
+        # isn't installed yet.
+        try:
+            from core.attachments import transcribe_audio
+        except Exception as e:
+            await notice.edit_text(
+                f"El módulo de transcripción no cargó: {e}. "
+                f"Verificá que faster-whisper esté instalado: pip install faster-whisper"
+            )
+            return
+
+        # Whisper is sync and CPU-bound; offload to a thread so the event
+        # loop doesn't stall while transcription runs.
+        try:
+            text, detected_lang = await asyncio.to_thread(transcribe_audio, local_path, None)
+        except RuntimeError as e:
+            await notice.edit_text(str(e))
+            return
+        except Exception as e:
+            logger.exception("whisper transcription failed")
+            await notice.edit_text(f"La transcripción falló: {e}")
+            return
+
+        if not text.strip():
+            await notice.edit_text(
+                "No se entendió nada en el audio (silencio o ruido). Probá hablando más cerca del micrófono."
+            )
+            return
+
+        # Replace the placeholder with the transcript so the user sees what
+        # we heard and can trust/correct it.
+        await notice.edit_text(
+            f"📝 Transcripción ({detected_lang or 'auto'}):\n\n{text}\n\n⏳ procesando…"
+        )
+
+        caption = (update.message.caption or "").strip()
+        prompt = (
+            (f"{caption}\n\n" if caption else "")
+            + "El usuario te envió un mensaje de voz por Telegram. "
+            + f"Esta es la transcripción literal (idioma: {detected_lang or 'desconocido'}):\n\n"
+            + f"\"{text}\"\n\n"
+            + "Respondele al usuario como si te hubiera escrito ese texto."
+        )
+        await self._dispatch_with_prompt(update, chat_id, prompt)
 
     # Bus consumer -----------------------------------------------------------
 

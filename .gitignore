@@ -45,10 +45,12 @@ Thumbs.db
 logs/
 *.log
 sessions/
-attachments/
 *.lock
 !package-lock.json
 !pnpm-lock.yaml
+# Runtime attachments storage (under data/uploads/) — already covered by `data/`
+# below. The earlier blanket `attachments/` rule mistakenly hid the
+# `core/attachments/` source module, so we don't use it.
 
 # Database
 *.db

@@ -26,6 +26,10 @@ logger = logging.getLogger(__name__)
 # In-flight runs we dispatched: run_id → {channel, thread_ts}.
 _PENDING: dict[int, dict] = {}
 
+# v0.6 — Same session continuity story as Telegram. Map channel_id → session_id.
+# Reused across mentions/DMs in the same channel so the agent has memory.
+_CHANNEL_SESSIONS: dict[str, str] = {}
+
 
 class SlackAdapter(Adapter):
     name = "slack"
@@ -140,6 +144,17 @@ class SlackAdapter(Adapter):
         if lowered in ("agents", "list agents"):
             await self._cmd_agents(thread_ts, say)
             return
+        if lowered == "reset":
+            had = _CHANNEL_SESSIONS.pop(str(channel), None)
+            await say(
+                text=(
+                    "Memoria borrada. Próximo mensaje empieza fresco."
+                    if had
+                    else "(no había memoria que borrar)"
+                ),
+                thread_ts=thread_ts,
+            )
+            return
 
         bound = await _lookup_binding(str(channel))
         if not bound:
@@ -155,10 +170,12 @@ class SlackAdapter(Adapter):
                 text=f":hourglass_flowing_sand: {bound['agent_name']} pensando…",
                 thread_ts=thread_ts,
             )
+            session_id = _CHANNEL_SESSIONS.get(str(channel))
             run_id = await get_orchestrator().enqueue(RunRequest(
                 agent_name=bound["agent_name"],
                 prompt=text,
                 source="slack",
+                session_id=session_id,
                 metadata={"channel": channel, "thread_ts": thread_ts},
             ))
             _PENDING[run_id] = {
@@ -233,6 +250,11 @@ class SlackAdapter(Adapter):
                         cost = evt.data.get("cost_usd", 0.0)
                         suffix = f"\n\n_run #{run_id} · ${cost:.4f}_"
                         text = _trim_for_slack(body) + suffix
+                        # v0.6 — capture session_id so the next message in
+                        # this Slack channel continues the same conversation.
+                        new_session = evt.data.get("session_id")
+                        if new_session:
+                            _CHANNEL_SESSIONS[str(pend["channel"])] = new_session
                     elif evt.topic == "run:failed":
                         text = f":x: Run #{run_id} falló: {evt.data.get('error', 'unknown')}"
                     else:

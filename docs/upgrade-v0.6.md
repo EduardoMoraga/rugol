@@ -202,6 +202,26 @@ pnpm dev
 
 ---
 
+## Memoria de conversación en Telegram y Slack (fix tardío)
+
+Detectado al probar v0.6 con Gugol vía Telegram: cada mensaje arrancaba un
+subprocess fresco sin contexto del turno anterior. Resultado: gugol decía
+*"no tengo contexto de la conversación anterior"* a cada rato.
+
+**Fix**: el adapter Telegram (y Slack) ahora persisten el `session_id` del
+último run completado por chat/canal y lo reutilizan en el siguiente
+mensaje. claude-agent-sdk usa eso para continuar la sesión.
+
+**Cómo se usa**: nada que hacer — funciona automático. La memoria se
+guarda en RAM del backend (se pierde si reinicias uvicorn, lo cual
+funciona como reset implícito). Si querés borrarla a propósito sin
+reiniciar:
+
+- Telegram: comando `/reset` en el chat con tu bot.
+- Slack: `@<bot> reset` (mismo handler).
+
+---
+
 ## Caso real: configurar Google (Gmail / Calendar / Sheets / Drive)
 
 > Detectado en la sesión 2026-05-05: el primer cut del Asistente de

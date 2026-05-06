@@ -256,6 +256,8 @@ class RuntimeOrchestrator:
             "output_tokens": result.output_tokens,
             "cost_usd": result.cost_usd,
             "final_text": result.final_text[:4000],
+            "session_id": result.session_id,  # v0.6: needed by adapters that
+            # want to thread conversational context across turns.
         })
 
     async def _mark_status(self, run_id: int, status: str, error: str = "") -> None:

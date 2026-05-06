@@ -202,6 +202,23 @@ CATALOG: list[McpPreset] = [
         ),
         is_python=True,
     ),
+    McpPreset(
+        id="playwright",
+        label="Playwright (scraping web + automatización de browser)",
+        package="@playwright/mcp@latest",
+        env_keys=[],
+        token_help=(
+            "Playwright MCP oficial de Microsoft. El agente puede:\n"
+            "- Navegar URLs y extraer contenido (scraping)\n"
+            "- Llenar formularios, hacer clicks, esperar elementos\n"
+            "- Tomar screenshots\n"
+            "- Trabajar con accessibility tree (más confiable que CSS selectors)\n\n"
+            "Pre-requisito (una sola vez): instalar Chromium con\n"
+            "    npx playwright install chromium\n\n"
+            "Si la primera ejecución del agente da error 'browser not found', "
+            "corré ese comando en PowerShell y reintentá."
+        ),
+    ),
 ]
 
 

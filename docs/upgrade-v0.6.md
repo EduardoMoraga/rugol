@@ -202,6 +202,63 @@ pnpm dev
 
 ---
 
+## Web scraping con Playwright
+
+`@playwright/mcp` (MCP oficial de Microsoft) está disponible como preset
+en el catálogo. El agente puede navegar URLs, extraer contenido,
+rellenar formularios, hacer clicks y tomar screenshots usando
+accessibility trees (más robusto que CSS selectors).
+
+### Setup (una sola vez)
+
+Instalar Chromium en tu PC:
+
+```powershell
+npx playwright install chromium
+```
+
+(~250 MB. Es la única dependencia externa que Playwright necesita.)
+
+### Activar en un agente
+
+Tres caminos como cualquier otro MCP:
+
+**A) Dashboard:**
+- `/agents/<id>` → MCP → Agregar
+- Nombre: `playwright`
+- Comando: `npx`
+- Args: `-y @playwright/mcp@latest`
+- Env: vacío
+- Save → Probar.
+
+**B) Telegram (más fácil):**
+```
+/setup_mcp
+```
+Agente → preset `playwright` → listo (no pide tokens, no pide nada).
+
+**C) Paste-and-go: pegale al config-assistant cualquier referencia a
+"quiero scraping" o un link a un sitio que querés monitorear, y va a
+proponer `add_mcp` con `preset_id=playwright`.
+
+### Probar
+
+Después de bindear el chat al agente con Playwright:
+
+```
+Edu: andá a https://news.ycombinator.com y contame cuáles son los 5 títulos top
+agente: [navega, extrae, responde con los títulos]
+```
+
+### Tools que expone
+
+`browser_navigate`, `browser_click`, `browser_type`, `browser_snapshot`
+(accessibility tree de la página actual), `browser_screenshot`,
+`browser_wait_for`, entre otros. El agente decide cuáles usar según la
+tarea.
+
+---
+
 ## Multimodal en Telegram — fotos, PDFs, Office docs y audio
 
 Detectado al usar el bot de gugol: solo aceptaba texto. Cualquier foto,

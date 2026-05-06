@@ -54,7 +54,7 @@ Reglas para el plan:
 - TIPOS DE ACCIÓN SOPORTADOS (otros se ignoran):
   * `set_telegram_token` — campos: `token` (string), `allowed_users` (string, opcional, ids comma-separated)
   * `set_slack_tokens` — campos: `bot_token`, `app_token`, `signing_secret` (todos opcionales individualmente)
-  * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`, `gmail`, `google-calendar`, `youtube`), `env` (dict de KEY: value, opcional para `youtube` que auto-detecta la key del archivo)
+  * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`, `gmail`, `google-calendar`, `youtube`, `playwright`), `env` (dict de KEY: value, opcional para `youtube` y `playwright` que no piden tokens)
   * `setup_google_oauth_credentials` — campos: `credentials_json` (string, el JSON entero de credentials.json desde Google Cloud Console — incluye `installed.client_id` y `installed.client_secret`), `target_path` (opcional, default es `~/.gmail-mcp/gcp-oauth.keys.json`)
   * `set_google_api_key` — campos: `key` (string, API key tipo `AIzaSy...`)
 - Si el input contiene OAuth client de Google (objeto `installed.client_id` + `installed.client_secret`), generá `setup_google_oauth_credentials` con el JSON entero. Esto es independiente de si después agregás `add_mcp` con preset `gmail` o `google-calendar` — la credential file tiene que existir antes de que cualquier MCP de Google funcione.

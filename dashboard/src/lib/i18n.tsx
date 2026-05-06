@@ -38,6 +38,7 @@ const ES: Dict = {
   // ---- Nav ----
   "nav.projects": "Proyectos",
   "nav.architect": "Architect",
+  "nav.configAssistant": "Asistente config",
   "nav.agents": "Agentes",
   "nav.skills": "Skills",
   "nav.schedules": "Schedules",
@@ -211,6 +212,7 @@ const EN: Dict = {
   // ---- Nav ----
   "nav.projects": "Projects",
   "nav.architect": "Architect",
+  "nav.configAssistant": "Config assistant",
   "nav.agents": "Agents",
   "nav.skills": "Skills",
   "nav.schedules": "Schedules",

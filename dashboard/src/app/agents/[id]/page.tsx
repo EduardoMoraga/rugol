@@ -23,8 +23,10 @@ import {
   fetchProject,
   fetchProjects,
   moveAgent,
+  testAgentMcp,
   updateAgent,
   type AgentSource,
+  type McpTestResult,
 } from "@/lib/api";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
@@ -286,11 +288,17 @@ function McpPane({ agentId }: { agentId: number }) {
   });
   const initial = source.data?.mcp_servers ?? null;
   const [draft, setDraft] = useState<Record<string, any>>({});
-  // Form state for adding a new server.
-  const [newName, setNewName] = useState("");
-  const [newCommand, setNewCommand] = useState("");
-  const [newArgs, setNewArgs] = useState("");
-  const [newEnv, setNewEnv] = useState("");
+
+  // Form state — used both for adding and editing.
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formCommand, setFormCommand] = useState("");
+  const [formArgs, setFormArgs] = useState("");
+  const [formEnv, setFormEnv] = useState("");
+
+  // Per-server test result state (Sprint 1 v0.6).
+  // null = never tested, "loading" = test running, otherwise the result.
+  const [testState, setTestState] = useState<Record<string, "loading" | McpTestResult>>({});
 
   // Sync draft when the source loads/changes.
   useEffect(() => {
@@ -324,33 +332,88 @@ function McpPane({ agentId }: { agentId: number }) {
     return <p className="text-sm text-[--color-fg-muted]">Cargando spec…</p>;
   }
 
-  function addServer() {
-    if (!newName.trim() || !newCommand.trim()) return;
-    const argsList = newArgs.trim() ? newArgs.trim().split(/\s+/) : [];
+  function resetForm() {
+    setEditingName(null);
+    setFormName("");
+    setFormCommand("");
+    setFormArgs("");
+    setFormEnv("");
+  }
+
+  function startEdit(name: string) {
+    const cfg = draft[name];
+    if (!cfg) return;
+    setEditingName(name);
+    setFormName(name);
+    setFormCommand(cfg.command || "");
+    setFormArgs((cfg.args || []).join(" "));
+    const envLines = Object.entries(cfg.env || {})
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\n");
+    setFormEnv(envLines);
+  }
+
+  function commitForm() {
+    if (!formName.trim() || !formCommand.trim()) return;
+    const argsList = formArgs.trim() ? formArgs.trim().split(/\s+/) : [];
     const envObj: Record<string, string> = {};
-    newEnv.split("\n").forEach((line) => {
+    formEnv.split("\n").forEach((line) => {
       const [k, ...rest] = line.split("=");
       if (k && rest.length > 0) envObj[k.trim()] = rest.join("=").trim();
     });
-    setDraft({
-      ...draft,
-      [newName.trim()]: {
-        type: "stdio",
-        command: newCommand.trim(),
-        ...(argsList.length ? { args: argsList } : {}),
-        ...(Object.keys(envObj).length ? { env: envObj } : {}),
-      },
-    });
-    setNewName("");
-    setNewCommand("");
-    setNewArgs("");
-    setNewEnv("");
+    const next = { ...draft };
+    // If editing under a different name, remove the old entry first.
+    if (editingName && editingName !== formName.trim()) {
+      delete next[editingName];
+    }
+    next[formName.trim()] = {
+      type: "stdio",
+      command: formCommand.trim(),
+      ...(argsList.length ? { args: argsList } : {}),
+      ...(Object.keys(envObj).length ? { env: envObj } : {}),
+    };
+    setDraft(next);
+    resetForm();
   }
 
   function removeServer(name: string) {
     const next = { ...draft };
     delete next[name];
     setDraft(next);
+    if (editingName === name) resetForm();
+    setTestState((prev) => {
+      const { [name]: _, ...rest } = prev;
+      return rest;
+    });
+  }
+
+  async function runTest(name: string) {
+    // Tests run against the SAVED config — if there are unsaved drafts, warn.
+    if (dirty) {
+      toast({
+        tone: "warning",
+        title: "Guardá primero",
+        body: "El test usa la config guardada en el agente. Apretá Guardar y volvé a probar.",
+      });
+      return;
+    }
+    setTestState((prev) => ({ ...prev, [name]: "loading" }));
+    try {
+      const result = await testAgentMcp(agentId, name);
+      setTestState((prev) => ({ ...prev, [name]: result }));
+    } catch (e: any) {
+      setTestState((prev) => ({
+        ...prev,
+        [name]: {
+          ok: false,
+          tools: [],
+          error: e?.message || "test request failed",
+          error_kind: "spawn_failed",
+          stderr_tail: null,
+          duration_ms: 0,
+        },
+      }));
+    }
   }
 
   function persist() {
@@ -359,6 +422,7 @@ function McpPane({ agentId }: { agentId: number }) {
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial ?? {});
   const serverNames = Object.keys(draft);
+  const isEditing = editingName !== null;
 
   return (
     <Card className="space-y-4">
@@ -366,7 +430,7 @@ function McpPane({ agentId }: { agentId: number }) {
         <div>
           <h2 className="text-sm font-semibold tracking-tight">MCP servers del agente</h2>
           <p className="text-xs text-[--color-fg-muted] mt-1 max-w-xl">
-            Conectá MCP servers extra solo para este agente — Asana, Notion, Slack,
+            Conecta MCP servers extra solo para este agente — Asana, Notion, Slack,
             tu propio server local. Se pasan a Claude vía{" "}
             <code className="font-mono">ClaudeAgentOptions.mcp_servers</code>. Los MCP
             globales del workspace siguen disponibles igual.
@@ -392,27 +456,50 @@ function McpPane({ agentId }: { agentId: number }) {
         <ul className="space-y-2">
           {serverNames.map((name) => {
             const cfg = draft[name];
+            const result = testState[name];
             return (
-              <li key={name} className="surface px-4 py-3 flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-sm font-mono text-[--color-fg]">{name}</p>
-                  <p className="text-[11px] text-[--color-fg-muted] font-mono break-all">
-                    {cfg?.type ?? "stdio"} · {cfg?.command || cfg?.url}
-                    {cfg?.args && ` ${cfg.args.join(" ")}`}
-                  </p>
-                  {cfg?.env && Object.keys(cfg.env).length > 0 && (
-                    <p className="text-[10px] text-[--color-fg-subtle] font-mono">
-                      env: {Object.keys(cfg.env).join(", ")}
+              <li key={name} className="surface px-4 py-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <p className="text-sm font-mono text-[--color-fg]">{name}</p>
+                    <p className="text-[11px] text-[--color-fg-muted] font-mono break-all">
+                      {cfg?.type ?? "stdio"} · {cfg?.command || cfg?.url}
+                      {cfg?.args && ` ${cfg.args.join(" ")}`}
                     </p>
-                  )}
+                    {cfg?.env && Object.keys(cfg.env).length > 0 && (
+                      <p className="text-[10px] text-[--color-fg-subtle] font-mono">
+                        env: {Object.keys(cfg.env).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => runTest(name)}
+                      disabled={result === "loading"}
+                      className="text-[11px] px-2 py-1 rounded border border-[--color-border] hover:border-[--color-accent] hover:text-[--color-accent] transition disabled:opacity-50"
+                      title="Probar conexión"
+                    >
+                      {result === "loading" ? "Probando…" : "Probar"}
+                    </button>
+                    <button
+                      onClick={() => startEdit(name)}
+                      className="text-[11px] px-2 py-1 rounded border border-[--color-border] hover:border-[--color-accent] hover:text-[--color-accent] transition"
+                      title="Editar"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => removeServer(name)}
+                      className="opacity-50 hover:opacity-100 hover:text-[--color-error] transition px-1.5 py-0.5 text-base leading-none"
+                      title="Quitar"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => removeServer(name)}
-                  className="opacity-50 hover:opacity-100 hover:text-[--color-error] transition shrink-0"
-                  title="Quitar"
-                >
-                  ×
-                </button>
+                {result && result !== "loading" && (
+                  <McpTestBadge result={result} />
+                )}
               </li>
             );
           })}
@@ -420,16 +507,26 @@ function McpPane({ agentId }: { agentId: number }) {
       )}
 
       <Card className="space-y-3 border border-dashed">
-        <p className="text-xs uppercase tracking-widest text-[--color-fg-muted] font-medium">
-          Agregar MCP server (stdio)
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-widest text-[--color-fg-muted] font-medium">
+            {isEditing ? `Editando: ${editingName}` : "Agregar MCP server (stdio)"}
+          </p>
+          {isEditing && (
+            <button
+              onClick={resetForm}
+              className="text-[11px] text-[--color-fg-muted] hover:text-[--color-fg] underline"
+            >
+              cancelar edición
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-[11px] text-[--color-fg-muted]">Nombre</label>
             <input
               type="text"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+              value={formName}
+              onChange={(e) => setFormName(e.target.value)}
               placeholder="my-asana"
               className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
             />
@@ -438,8 +535,8 @@ function McpPane({ agentId }: { agentId: number }) {
             <label className="text-[11px] text-[--color-fg-muted]">Comando</label>
             <input
               type="text"
-              value={newCommand}
-              onChange={(e) => setNewCommand(e.target.value)}
+              value={formCommand}
+              onChange={(e) => setFormCommand(e.target.value)}
               placeholder="npx"
               className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
             />
@@ -451,8 +548,8 @@ function McpPane({ agentId }: { agentId: number }) {
           </label>
           <input
             type="text"
-            value={newArgs}
-            onChange={(e) => setNewArgs(e.target.value)}
+            value={formArgs}
+            onChange={(e) => setFormArgs(e.target.value)}
             placeholder="-y @asana/mcp-server"
             className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm font-mono focus:outline-none focus:border-[--color-accent]"
           />
@@ -462,8 +559,8 @@ function McpPane({ agentId }: { agentId: number }) {
             Variables de entorno (KEY=value, una por línea)
           </label>
           <textarea
-            value={newEnv}
-            onChange={(e) => setNewEnv(e.target.value)}
+            value={formEnv}
+            onChange={(e) => setFormEnv(e.target.value)}
             rows={3}
             placeholder="ASANA_TOKEN=xxxx&#10;ASANA_WORKSPACE=123"
             spellCheck={false}
@@ -475,18 +572,84 @@ function McpPane({ agentId }: { agentId: number }) {
             type="button"
             variant="secondary"
             size="sm"
-            onClick={addServer}
-            disabled={!newName.trim() || !newCommand.trim()}
+            onClick={commitForm}
+            disabled={!formName.trim() || !formCommand.trim()}
           >
-            Agregar (no guarda hasta tocar Guardar arriba)
+            {isEditing
+              ? "Aplicar cambios al borrador (Guardar arriba para persistir)"
+              : "Agregar (no guarda hasta tocar Guardar arriba)"}
           </Button>
         </div>
         <p className="text-[10.5px] text-[--color-fg-subtle]">
-          Para SSE/HTTP, editá el JSON manualmente desde Edit spec por ahora.
+          Para SSE/HTTP, edita el JSON manualmente desde Edit spec por ahora.
           Próxima iteración: tipo SSE/HTTP en este formulario.
         </p>
       </Card>
     </Card>
+  );
+}
+
+
+function McpTestBadge({ result }: { result: McpTestResult }) {
+  const [open, setOpen] = useState(false);
+  if (result.ok) {
+    return (
+      <div className="rounded border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 space-y-1">
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-emerald-400 font-medium">
+            OK · {result.tools.length} {result.tools.length === 1 ? "herramienta" : "herramientas"} ·{" "}
+            {result.duration_ms} ms
+          </span>
+          {result.tools.length > 0 && (
+            <button
+              onClick={() => setOpen(!open)}
+              className="text-[--color-fg-muted] hover:text-[--color-fg] underline"
+            >
+              {open ? "ocultar" : "ver tools"}
+            </button>
+          )}
+        </div>
+        {open && (
+          <div className="text-[10px] font-mono text-[--color-fg-muted] flex flex-wrap gap-1">
+            {result.tools.map((t) => (
+              <span key={t} className="px-1.5 py-0.5 rounded bg-[--color-bg]">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  // Error variant
+  return (
+    <div className="rounded border border-red-500/30 bg-red-500/5 px-3 py-2 space-y-1">
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="text-red-400 font-medium">
+          Falló · {result.error_kind || "error"} · {result.duration_ms} ms
+        </span>
+        {(result.error || result.stderr_tail) && (
+          <button
+            onClick={() => setOpen(!open)}
+            className="text-[--color-fg-muted] hover:text-[--color-fg] underline"
+          >
+            {open ? "ocultar" : "ver detalle"}
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="text-[10.5px] text-[--color-fg-muted] space-y-1">
+          {result.error && (
+            <p className="whitespace-pre-wrap">{result.error}</p>
+          )}
+          {result.stderr_tail && (
+            <pre className="text-[10px] font-mono bg-[--color-bg] p-2 rounded overflow-x-auto whitespace-pre-wrap">
+              {result.stderr_tail}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

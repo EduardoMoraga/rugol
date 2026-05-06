@@ -27,6 +27,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from core import runtime_state
 from core.adapters.base import Adapter
+from core.adapters import telegram_wizards as wizards
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, ChannelBinding
@@ -59,6 +60,12 @@ class TelegramAdapter(Adapter):
         app.add_handler(CommandHandler("bind", self._cmd_bind))
         app.add_handler(CommandHandler("agents", self._cmd_agents))
         app.add_handler(CommandHandler("whoami", self._cmd_whoami))
+        # v0.6 — wizards conversacionales
+        app.add_handler(CommandHandler("setup_mcp", self._cmd_setup_mcp))
+        app.add_handler(CommandHandler("list_mcps", self._cmd_list_mcps))
+        app.add_handler(CommandHandler("test_mcp", self._cmd_test_mcp))
+        app.add_handler(CommandHandler("cancel", self._cmd_cancel))
+        app.add_handler(CommandHandler("help_prompt", self._cmd_help_prompt))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle))
         app.add_error_handler(self._on_error)
 
@@ -199,6 +206,53 @@ class TelegramAdapter(Adapter):
             await session.commit()
         await update.message.reply_text(f"Chat {action} a *{agent_name}*. Envía un mensaje y va.", parse_mode="Markdown")
 
+    # v0.6 — wizard commands -----------------------------------------------
+
+    async def _cmd_setup_mcp(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        if wizards.is_in_wizard(chat_id):
+            wizards.cancel_wizard(chat_id)
+        msg = await wizards.start_setup_mcp(chat_id)
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    async def _cmd_list_mcps(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        msg = await wizards.list_mcps_for_chat()
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    async def _cmd_test_mcp(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        msg = await wizards.test_mcp_for_chat(ctx.args or [])
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    async def _cmd_cancel(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        cancelled = wizards.cancel_wizard(chat_id)
+        await update.message.reply_text(
+            "Wizard cancelado." if cancelled else "(no había wizard activo)"
+        )
+
+    async def _cmd_help_prompt(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        await update.message.reply_text(
+            "*Cómo armar un buen prompt para el Architect*\n\n"
+            "1. *Idea (1 línea)* — qué tiene que entregar el equipo, no qué herramientas usa.\n"
+            "2. *Constraints* — USUARIO, EQUIPO (con modelos sugeridos), LECCIONES INICIALES, SCHEDULES, RESTRICCIONES.\n\n"
+            "Anti-patrones a evitar:\n"
+            "• Restricciones temporales en el body (\"sin Gmail por ahora\") → contaminan al modelo después.\n"
+            "• Roles superpuestos entre agentes.\n"
+            "• Detalles de implementación (paquetes npm, comandos) → eso lo configurás con `/setup_mcp`.\n\n"
+            "Guía completa con ejemplos copiables: dashboard → /architect → expandí *Cómo armar un buen prompt*.",
+            parse_mode="Markdown",
+        )
+
     # Message dispatch -------------------------------------------------------
 
     async def _handle(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -208,6 +262,22 @@ class TelegramAdapter(Adapter):
         if not text:
             return
         chat_id = update.effective_chat.id
+
+        # v0.6 — if a wizard is active, forward the input to it instead of
+        # dispatching to the orchestrator. This is what makes /setup_mcp
+        # feel conversational.
+        if wizards.is_in_wizard(chat_id):
+            try:
+                reply, finished = await wizards.step_setup_mcp(chat_id, text)
+                await update.message.reply_text(reply, parse_mode="Markdown")
+            except Exception as e:
+                logger.exception("wizard step crashed")
+                wizards.cancel_wizard(chat_id)
+                await update.message.reply_text(
+                    f"El wizard falló inesperadamente: {e}. Cancelado."
+                )
+            return
+
         bound = await _lookup_binding(str(chat_id))
         if not bound:
             await update.message.reply_text(

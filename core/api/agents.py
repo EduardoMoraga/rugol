@@ -13,6 +13,7 @@ from core import runtime_state
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
+from core.mcp import test_mcp_server
 from core.registry.service import upsert_agent_file
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
@@ -294,6 +295,47 @@ async def move_agent(agent_id: int, body: dict) -> AgentDTO:
         loaded = await _load_with_project(session, agent_id)
         a, p = loaded  # type: ignore[misc]
         return _to_dto(a, p)
+
+
+@router.post("/{agent_id}/mcp/{name}/test")
+async def test_agent_mcp(agent_id: int, name: str) -> dict:
+    """Spawn the configured MCP server and verify it answers the JSON-RPC handshake.
+
+    Returns a structured result the UI can render:
+    - ok=True with `tools` list when the server responded to tools/list.
+    - ok=False with `error` + `error_kind` + `stderr_tail` when it failed.
+
+    This is the most-asked-for v0.6 feature: before this, the only way to know
+    if a configured MCP actually worked was to invoke the agent and watch logs.
+    """
+    async with async_session_factory() as session:
+        a = await session.get(Agent, agent_id)
+        if a is None:
+            raise HTTPException(status_code=404, detail="agent not found")
+        mcp_servers = a.mcp_servers or {}
+
+    cfg = mcp_servers.get(name)
+    if not cfg:
+        raise HTTPException(
+            status_code=404,
+            detail=f"MCP server '{name}' is not configured on this agent.",
+        )
+
+    # Accept both stdio (command/args/env) and pre-built dict shapes.
+    command = cfg.get("command")
+    args = cfg.get("args") or []
+    env = cfg.get("env") or {}
+    if not command:
+        return {
+            "ok": False,
+            "error_kind": "bad_response",
+            "error": "El MCP no tiene `command` configurado. Solo se pueden testear servers stdio.",
+            "tools": [],
+            "duration_ms": 0,
+        }
+
+    result = await test_mcp_server(command=command, args=args, env=env)
+    return result.as_dict()
 
 
 @router.get("/{agent_id}/runs")

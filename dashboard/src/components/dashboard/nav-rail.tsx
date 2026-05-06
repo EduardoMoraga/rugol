@@ -15,6 +15,7 @@ import {
   Wrench,
   Briefcase,
   Languages,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/lib/i18n";
@@ -30,6 +31,7 @@ type NavItem = {
 const items: NavItem[] = [
   { href: "/projects", labelKey: "nav.projects", icon: Briefcase, accent: true },
   { href: "/architect", labelKey: "nav.architect", icon: Sparkles, primary: true },
+  { href: "/config-assistant", labelKey: "nav.configAssistant", icon: Wand2 },
   { href: "/agents", labelKey: "nav.agents", icon: Users },
   { href: "/skills", labelKey: "nav.skills", icon: Wrench },
   { href: "/schedules", labelKey: "nav.schedules", icon: CalendarClock },

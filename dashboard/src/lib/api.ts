@@ -373,6 +373,81 @@ export const updateAgent = async (id: number, spec: AgentSpec): Promise<Agent> =
   return r.json();
 };
 
+// --- Config Assistant (v0.6) ---
+export interface ConfigAssistantAction {
+  type: string;
+  id: string;
+  description: string;
+  [key: string]: any; // type-specific masked fields
+}
+export interface ConfigAssistantPlan {
+  actions: ConfigAssistantAction[];
+  unsure: string[];
+}
+export interface ConfigAssistantParseResponse {
+  plan_token: string;
+  plan: ConfigAssistantPlan;
+  ttl_seconds: number;
+}
+export interface ConfigAssistantApplyResult {
+  results: Array<{ id: string; ok: boolean; outcome?: string; error?: string }>;
+}
+export const configAssistantParse = async (
+  text: string,
+): Promise<ConfigAssistantParseResponse> => {
+  const r = await fetch("/api/config-assistant/parse", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${txt}`);
+  }
+  return r.json();
+};
+export const configAssistantApply = async (
+  plan_token: string,
+  action_ids: string[],
+): Promise<ConfigAssistantApplyResult> => {
+  const r = await fetch("/api/config-assistant/apply", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ plan_token, action_ids }),
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${txt}`);
+  }
+  return r.json();
+};
+
+// --- MCP test (v0.6) ---
+// Asks the backend to spawn the configured MCP server and verify it responds
+// to the JSON-RPC handshake. Returns either ok=true with discovered tools, or
+// ok=false with an error_kind and a human message.
+export interface McpTestResult {
+  ok: boolean;
+  tools: string[];
+  error: string | null;
+  error_kind: "not_installed" | "timeout" | "bad_response" | "stderr" | "spawn_failed" | null;
+  stderr_tail: string | null;
+  duration_ms: number;
+}
+export const testAgentMcp = async (
+  agentId: number,
+  name: string,
+): Promise<McpTestResult> => {
+  const r = await fetch(`/api/agents/${agentId}/mcp/${encodeURIComponent(name)}/test`, {
+    method: "POST",
+  });
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${txt}`);
+  }
+  return r.json();
+};
+
 // --- Settings ---
 export interface PublicSettings {
   telegram_bot_token_set: boolean;

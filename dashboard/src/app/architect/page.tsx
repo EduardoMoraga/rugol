@@ -35,6 +35,7 @@ import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
+import { PromptGuide } from "@/components/architect/prompt-guide";
 import { useI18n } from "@/lib/i18n";
 
 type Stage = "idea" | "review" | "deploying" | "done";
@@ -136,6 +137,17 @@ export default function ArchitectPage() {
 
       {stage === "idea" && (
         <>
+          <PromptGuide
+            onCopyExample={(ex) => {
+              setIdea(ex.idea);
+              setConstraints(ex.constraints);
+              toast({
+                tone: "success",
+                title: "Plantilla copiada",
+                body: "Editá lo que quieras y dale Proponer.",
+              });
+            }}
+          />
           <IdeaStage
             idea={idea}
             setIdea={setIdea}

@@ -1,10 +1,10 @@
 "use client";
 
 import { create } from "zustand";
-import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from "lucide-react";
 import { useEffect } from "react";
 
-type ToastTone = "success" | "error" | "info";
+type ToastTone = "success" | "error" | "warning" | "info";
 
 interface ToastItem {
   id: number;
@@ -38,12 +38,14 @@ export function toast(t: Omit<ToastItem, "id">) {
 const ICON: Record<ToastTone, React.ComponentType<{ size?: number; className?: string }>> = {
   success: CheckCircle2,
   error: AlertCircle,
+  warning: AlertTriangle,
   info: Info,
 };
 
 const COLOR: Record<ToastTone, string> = {
   success: "text-[--color-success]",
   error: "text-[--color-error]",
+  warning: "text-yellow-400",
   info: "text-[--color-accent-strong]",
 };
 

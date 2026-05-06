@@ -116,6 +116,39 @@ CATALOG: list[McpPreset] = [
             "agente pueda leer (ej: `C:\\Moragent\\01-INCREXA`)."
         ),
     ),
+    McpPreset(
+        id="gmail",
+        label="Gmail (lectura + envío con OAuth)",
+        package="@gongrzhe/server-gmail-autoauth-mcp",
+        env_keys=[],  # uses credentials at ~/.gmail-mcp/gcp-oauth.keys.json
+        token_help=(
+            "Gmail usa OAuth completo. Antes de poder usarlo:\n\n"
+            "1. Necesitás credentials.json desde Google Cloud Console "
+            "(APIs & Services → Credentials → OAuth client ID, tipo *Desktop*).\n"
+            "2. Lo más fácil: usá el *Asistente de configuración* del dashboard "
+            "y pegá el JSON entero — yo lo guardo donde el MCP lo busca.\n"
+            "3. Después corré una sola vez:\n"
+            "   `npx -y @gongrzhe/server-gmail-autoauth-mcp auth`\n"
+            "   Eso abre el browser para que autorices.\n\n"
+            "Para registrarlo acá igual, escribí cualquier cosa o `/cancel` "
+            "y configurá desde el dashboard."
+        ),
+    ),
+    McpPreset(
+        id="google-calendar",
+        label="Google Calendar (lectura + escritura con OAuth)",
+        package="@cocal/google-calendar-mcp",
+        env_keys=["GOOGLE_OAUTH_CREDENTIALS"],
+        token_help=(
+            "Google Calendar usa OAuth. Pasos:\n\n"
+            "1. Pegá el path absoluto de tu credentials.json. Ej: "
+            "`C:\\Users\\<vos>\\.gmail-mcp\\gcp-oauth.keys.json` (lo mismo "
+            "que usás para Gmail).\n\n"
+            "El MCP toma `GOOGLE_OAUTH_CREDENTIALS` como path al credentials. "
+            "Después corré `npx @cocal/google-calendar-mcp` y autorizá la "
+            "primera vez."
+        ),
+    ),
 ]
 
 

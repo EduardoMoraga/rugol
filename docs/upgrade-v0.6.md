@@ -202,6 +202,66 @@ pnpm dev
 
 ---
 
+## Caso real: configurar Google (Gmail / Calendar / Sheets / Drive)
+
+> Detectado en la sesión 2026-05-05: el primer cut del Asistente de
+> configuración no entendía Google OAuth — devolvía "0 acciones, vi
+> credenciales pero no tengo preset". Se arregló en este mismo commit.
+
+Google OAuth requiere un flujo distinto a Notion/Slack/Asana: necesitas
+**credentials.json** (cliente OAuth) **+ token.json** (refresh token tras
+autorizar). Los MCP servers de Google (`@gongrzhe/server-gmail-autoauth-mcp`,
+`@cocal/google-calendar-mcp`) buscan el credentials en
+`~/.gmail-mcp/gcp-oauth.keys.json` y manejan el flujo de auth ellos mismos.
+
+### Pasos
+
+1. **En el dashboard, andá a `/config-assistant`**.
+2. **Pegá el JSON entero de credentials.json** (típicamente lo descargás
+   desde Google Cloud Console → APIs & Services → Credentials → OAuth
+   client ID, *Desktop app*). Ejemplo:
+   ```json
+   {"installed":{"client_id":"...apps.googleusercontent.com","client_secret":"GOCSPX-...","redirect_uris":["http://localhost"], ...}}
+   ```
+   Si tenés también una API Key tipo `AIzaSy...` (para YouTube por ej.),
+   pegala en el mismo input — el assistant detecta ambas.
+
+3. Click **Analizar**. El plan que devuelve incluye:
+   - `setup_google_oauth_credentials` — escribe el credentials.json en
+     `~/.gmail-mcp/gcp-oauth.keys.json` (o donde le digas).
+   - `set_google_api_key` — guarda la API key en
+     `data/secrets/google-api-key.txt` (queda lista para el MCP custom de
+     YouTube cuando exista).
+   - Eventualmente, `add_mcp` con preset `gmail` o `google-calendar` para
+     algún agente — solo si el assistant interpreta que querés conectarlo.
+
+4. Marcá las que querés y **Aplicar**.
+
+5. **Paso manual una sola vez** (esto Rogologo no lo puede hacer porque
+   necesita un browser interactivo):
+   ```powershell
+   npx -y @gongrzhe/server-gmail-autoauth-mcp auth
+   ```
+   Te abre el browser, autorizás el scope, vuelve y guarda
+   `~/.gmail-mcp/credentials.json`. A partir de ahí el MCP server queda
+   listo para arrancar via npx en cada invocación.
+
+6. Después podés agregar el MCP `gmail` a cualquier agente desde
+   `/agents/<id>` → MCP → Agregar (preset `gmail`, sin env vars), o usar
+   el wizard de Telegram `/setup_mcp` y elegir `gmail`.
+
+### Lo que NO está soportado todavía
+
+| Servicio | Estado | Por qué |
+|---|---|---|
+| Gmail (read+send) | ✅ con OAuth manual | Funciona via `@gongrzhe/server-gmail-autoauth-mcp` |
+| Google Calendar | ✅ con OAuth manual | Funciona via `@cocal/google-calendar-mcp` |
+| Google Drive | ⏳ roadmap | El MCP oficial de Anthropic (`@modelcontextprotocol/server-gdrive`) requiere Service Account, no OAuth Desktop. Distinto flow. Sprint dedicado. |
+| Google Sheets | ⏳ roadmap | Idem Drive. |
+| YouTube Data API | ⏳ roadmap | API key ya queda guardada por `set_google_api_key`. Falta escribir el MCP custom Python (~50 líneas con googleapiclient). |
+
+---
+
 ## Lo que queda pendiente (roadmap-v0.6.md)
 
 Esta versión cierra los gaps críticos de UX. Lo que sigue:

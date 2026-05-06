@@ -54,7 +54,11 @@ Reglas para el plan:
 - TIPOS DE ACCIÓN SOPORTADOS (otros se ignoran):
   * `set_telegram_token` — campos: `token` (string), `allowed_users` (string, opcional, ids comma-separated)
   * `set_slack_tokens` — campos: `bot_token`, `app_token`, `signing_secret` (todos opcionales individualmente)
-  * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`), `env` (dict de KEY: value)
+  * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`, `gmail`, `google-calendar`), `env` (dict de KEY: value)
+  * `setup_google_oauth_credentials` — campos: `credentials_json` (string, el JSON entero de credentials.json desde Google Cloud Console — incluye `installed.client_id` y `installed.client_secret`), `target_path` (opcional, default es `~/.gmail-mcp/gcp-oauth.keys.json`)
+  * `set_google_api_key` — campos: `key` (string, API key tipo `AIzaSy...`)
+- Si el input contiene OAuth client de Google (objeto `installed.client_id` + `installed.client_secret`), generá `setup_google_oauth_credentials` con el JSON entero. Esto es independiente de si después agregás `add_mcp` con preset `gmail` o `google-calendar` — la credential file tiene que existir antes de que cualquier MCP de Google funcione.
+- Si el input contiene UNA Google API Key (string `AIzaSy...`), generá `set_google_api_key` (la usaremos para el MCP custom de YouTube cuando exista; por ahora la persistimos para que esté lista).
 - IMPORTANTE: NO devuelvas tokens en la `description`. La description debe decir "configurar X con token de Y" SIN mostrar el valor.
 - Si el input contiene varios bots Telegram (caso OpenClaw), recordá que Rogologo solo soporta UN bot Telegram a la vez. Elegí el más representativo (gugol o el del workspace) y describí qué descartaste.
 - Si el input contiene MCP servers para múltiples agentes, generá una `add_mcp` por par (agente, mcp).
@@ -67,7 +71,9 @@ Schema esperado:
   "actions": [
     {{ "type": "set_telegram_token", "id": "tg-1", "description": "...", "token": "...", "allowed_users": "..." }},
     {{ "type": "set_slack_tokens", "id": "sl-1", "description": "...", "bot_token": "...", "app_token": "...", "signing_secret": "..." }},
-    {{ "type": "add_mcp", "id": "mcp-1", "description": "...", "agent_name": "gugol", "mcp_name": "notion", "preset_id": "notion", "env": {{ "NOTION_TOKEN": "..." }} }}
+    {{ "type": "add_mcp", "id": "mcp-1", "description": "...", "agent_name": "gugol", "mcp_name": "notion", "preset_id": "notion", "env": {{ "NOTION_TOKEN": "..." }} }},
+    {{ "type": "setup_google_oauth_credentials", "id": "g-1", "description": "...", "credentials_json": "{{\\"installed\\": {{...}}}}", "target_path": null }},
+    {{ "type": "set_google_api_key", "id": "g-2", "description": "...", "key": "AIzaSy..." }}
   ],
   "unsure": ["..."]
 }}
@@ -344,5 +350,61 @@ async def _apply_one(action: ConfigAction) -> str:
         }
         await _patch_agent_mcp(agent_id, mcp_name, cfg)
         return f"MCP {mcp_name} agregado al agente {agent_name}"
+
+    if action.type == "setup_google_oauth_credentials":
+        creds_raw = str(action.payload.get("credentials_json", "")).strip()
+        if not creds_raw:
+            raise ValueError("missing credentials_json")
+        # Validate it parses
+        try:
+            parsed = json.loads(creds_raw)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"credentials_json no es JSON válido: {e}")
+        # Sanity check: must be a Google OAuth installed-app credentials object
+        if not isinstance(parsed, dict) or not (
+            "installed" in parsed or "web" in parsed
+        ):
+            raise ValueError(
+                "El JSON no parece un credentials.json de Google OAuth "
+                "(falta `installed` o `web` en el root)."
+            )
+        target_raw = action.payload.get("target_path")
+        target = (
+            str(target_raw).strip()
+            if target_raw
+            else str(Path.home() / ".gmail-mcp" / "gcp-oauth.keys.json")
+        )
+        target_path = Path(target).expanduser()
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(creds_raw, encoding="utf-8")
+        return (
+            f"Google OAuth credentials guardadas en `{target_path}`. "
+            f"Próximo paso (manual, una sola vez): correr "
+            f"`npx -y @gongrzhe/server-gmail-autoauth-mcp auth` para autorizar "
+            f"el flujo OAuth en el browser."
+        )
+
+    if action.type == "set_google_api_key":
+        key = str(action.payload.get("key", "")).strip()
+        if not key:
+            raise ValueError("missing key")
+        # Persist under the workspace's data dir so it survives restarts and
+        # is reachable by future MCP customs (YouTube etc).
+        from core.config import get_settings
+
+        settings = get_settings()
+        # data/ is gitignored (see .gitignore)
+        target = (
+            Path(__file__).resolve().parent.parent.parent
+            / "data"
+            / "secrets"
+            / "google-api-key.txt"
+        )
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(key, encoding="utf-8")
+        return (
+            f"Google API key guardada en `{target}`. Va a usarse cuando "
+            f"agreguemos el MCP custom de YouTube en una versión próxima."
+        )
 
     raise ValueError(f"unsupported action type: {action.type}")

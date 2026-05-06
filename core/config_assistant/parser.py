@@ -54,11 +54,11 @@ Reglas para el plan:
 - TIPOS DE ACCIÓN SOPORTADOS (otros se ignoran):
   * `set_telegram_token` — campos: `token` (string), `allowed_users` (string, opcional, ids comma-separated)
   * `set_slack_tokens` — campos: `bot_token`, `app_token`, `signing_secret` (todos opcionales individualmente)
-  * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`, `gmail`, `google-calendar`), `env` (dict de KEY: value)
+  * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`, `gmail`, `google-calendar`, `youtube`), `env` (dict de KEY: value, opcional para `youtube` que auto-detecta la key del archivo)
   * `setup_google_oauth_credentials` — campos: `credentials_json` (string, el JSON entero de credentials.json desde Google Cloud Console — incluye `installed.client_id` y `installed.client_secret`), `target_path` (opcional, default es `~/.gmail-mcp/gcp-oauth.keys.json`)
   * `set_google_api_key` — campos: `key` (string, API key tipo `AIzaSy...`)
 - Si el input contiene OAuth client de Google (objeto `installed.client_id` + `installed.client_secret`), generá `setup_google_oauth_credentials` con el JSON entero. Esto es independiente de si después agregás `add_mcp` con preset `gmail` o `google-calendar` — la credential file tiene que existir antes de que cualquier MCP de Google funcione.
-- Si el input contiene UNA Google API Key (string `AIzaSy...`), generá `set_google_api_key` (la usaremos para el MCP custom de YouTube cuando exista; por ahora la persistimos para que esté lista).
+- Si el input contiene UNA Google API Key (string `AIzaSy...`), generá `set_google_api_key`. ADEMÁS, si entre los agentes existentes hay uno que parezca dedicado a contenido / curaduría / videos / YouTube (mirá su descripción), generá también `add_mcp` con `preset_id=youtube` y `mcp_name=youtube` para ese agente (el script Python custom lee la key automáticamente del archivo guardado, no hay que pasar env). Si no hay un agente claramente apto, dejá solo `set_google_api_key` y mencionalo en `unsure`.
 - IMPORTANTE: NO devuelvas tokens en la `description`. La description debe decir "configurar X con token de Y" SIN mostrar el valor.
 - Si el input contiene varios bots Telegram (caso OpenClaw), recordá que Rogologo solo soporta UN bot Telegram a la vez. Elegí el más representativo (gugol o el del workspace) y describí qué descartaste.
 - Si el input contiene MCP servers para múltiples agentes, generá una `add_mcp` por par (agente, mcp).
@@ -326,7 +326,11 @@ async def _apply_one(action: ConfigAction) -> str:
         return f"slack tokens saved: {', '.join(updates.keys())}"
 
     if action.type == "add_mcp":
-        from core.adapters.telegram_wizards import find_preset, _patch_agent_mcp
+        from core.adapters.telegram_wizards import (
+            build_mcp_config,
+            find_preset,
+            _patch_agent_mcp,
+        )
 
         preset_id = str(action.payload.get("preset_id", "")).strip()
         agent_name = str(action.payload.get("agent_name", "")).strip()
@@ -342,12 +346,7 @@ async def _apply_one(action: ConfigAction) -> str:
             if a is None:
                 raise ValueError(f"agente no encontrado: {agent_name}")
             agent_id = a.id
-        cfg = {
-            "type": "stdio",
-            "command": "npx",
-            "args": ["-y", preset.package, *preset.extra_args],
-            **({"env": env} if env else {}),
-        }
+        cfg = build_mcp_config(preset, env)
         await _patch_agent_mcp(agent_id, mcp_name, cfg)
         return f"MCP {mcp_name} agregado al agente {agent_name}"
 

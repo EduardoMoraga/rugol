@@ -45,10 +45,47 @@ logger = logging.getLogger(__name__)
 class McpPreset:
     id: str          # short slug used as the MCP server name on the agent
     label: str       # human label
-    package: str     # npm package run via npx -y
+    package: str     # npm package run via npx -y (or path for python presets)
     env_keys: list[str]  # env var names the user must paste
     token_help: str  # message shown when asking for the token
     extra_args: list[str] = field(default_factory=list)  # args appended after the package
+    # When `is_python` is True, the build_mcp_config helper resolves command
+    # to sys.executable and treats `package` as a path RELATIVE to the repo
+    # root. Used by `youtube` (custom MCP shipped under scripts/mcp/).
+    is_python: bool = False
+    # Whether the wizard should ask for an extra arg (e.g. filesystem path).
+    requires_extra_arg: bool = False
+
+
+def build_mcp_config(preset: "McpPreset", env: dict[str, str], extra_args: list[str] | None = None) -> dict[str, Any]:
+    """Build the {type, command, args, env} dict that gets stored on the agent.
+
+    Honors is_python: if True, command becomes the current Python interpreter
+    and args is the absolute path to the script (under the repo root).
+    Otherwise it's the standard `npx -y <package>` invocation.
+    """
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    extras = list(extra_args or [])
+    if preset.is_python:
+        # `package` is a repo-relative path to a script.
+        repo_root = _Path(__file__).resolve().parent.parent.parent
+        script_path = (repo_root / preset.package).resolve()
+        cfg: dict[str, Any] = {
+            "type": "stdio",
+            "command": _sys.executable,
+            "args": [str(script_path), *preset.extra_args, *extras],
+        }
+    else:
+        cfg = {
+            "type": "stdio",
+            "command": "npx",
+            "args": ["-y", preset.package, *preset.extra_args, *extras],
+        }
+    if env:
+        cfg["env"] = dict(env)
+    return cfg
 
 
 CATALOG: list[McpPreset] = [
@@ -115,6 +152,7 @@ CATALOG: list[McpPreset] = [
             "Filesystem no necesita token. Decime una RUTA absoluta que el "
             "agente pueda leer (ej: `C:\\Moragent\\01-INCREXA`)."
         ),
+        requires_extra_arg=True,
     ),
     McpPreset(
         id="gmail",
@@ -148,6 +186,21 @@ CATALOG: list[McpPreset] = [
             "Después corré `npx @cocal/google-calendar-mcp` y autorizá la "
             "primera vez."
         ),
+    ),
+    McpPreset(
+        id="youtube",
+        label="YouTube Data API (custom Rogologo, solo necesita API key)",
+        package="scripts/mcp/youtube_server.py",  # repo-relative; build_mcp_config resolves
+        env_keys=["YOUTUBE_API_KEY"],
+        token_help=(
+            "YouTube usa una API key (no OAuth). Si ya pegaste tu key vía "
+            "/config-assistant, ya está guardada en `data/secrets/google-api-key.txt` "
+            "y el MCP la lee automáticamente — escribime cualquier cosa para continuar.\n\n"
+            "Si no, pegá tu API key (formato `AIzaSy...`). Si no tenés, "
+            "se crea en https://console.cloud.google.com/apis/credentials → "
+            "*Create credentials → API key* → habilitá *YouTube Data API v3*."
+        ),
+        is_python=True,
     ),
 ]
 
@@ -235,8 +288,12 @@ async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
         if preset is None:
             return (f"No conozco el preset `{text}`. Escribí otro o `/cancel`.", False)
         state.data["preset_id"] = preset.id
+        if not preset.env_keys and not preset.requires_extra_arg:
+            # Nothing to ask the user — finalize directly. Used by `youtube`,
+            # which auto-resolves the API key from data/secrets.
+            return await _finalize_mcp_install(chat_id, preset)
         if not preset.env_keys:
-            # No tokens needed (e.g. filesystem). Jump straight to args/path.
+            # Filesystem-style: extra arg only.
             state.step = "collect_args"
             return (
                 f"*Paso 3/4 — Configuración de {preset.label}*\n\n{preset.token_help}",
@@ -288,13 +345,7 @@ async def _finalize_mcp_install(chat_id: int, preset: McpPreset) -> tuple[str, b
     env: dict[str, str] = state.data.get("env_collected", {})
     extra_args: list[str] = state.data.get("extra_args", [])
 
-    args = ["-y", preset.package, *preset.extra_args, *extra_args]
-    cfg = {
-        "type": "stdio",
-        "command": "npx",
-        "args": args,
-        **({"env": env} if env else {}),
-    }
+    cfg = build_mcp_config(preset, env, extra_args)
 
     # Persist on the agent's frontmatter.
     try:
@@ -305,7 +356,9 @@ async def _finalize_mcp_install(chat_id: int, preset: McpPreset) -> tuple[str, b
         return (f"Error guardando la config: {e}", True)
 
     # Run the test endpoint logic directly so the user gets feedback in the chat.
-    test_result = await test_mcp_server(command="npx", args=args, env=env)
+    test_result = await test_mcp_server(
+        command=cfg["command"], args=cfg["args"], env=cfg.get("env") or {}
+    )
     cancel_wizard(chat_id)
 
     if test_result.ok:

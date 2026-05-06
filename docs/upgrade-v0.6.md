@@ -250,15 +250,46 @@ autorizar). Los MCP servers de Google (`@gongrzhe/server-gmail-autoauth-mcp`,
    `/agents/<id>` → MCP → Agregar (preset `gmail`, sin env vars), o usar
    el wizard de Telegram `/setup_mcp` y elegir `gmail`.
 
-### Lo que NO está soportado todavía
+### Lo que está soportado (y lo que no)
 
-| Servicio | Estado | Por qué |
+| Servicio | Estado | Cómo |
 |---|---|---|
-| Gmail (read+send) | ✅ con OAuth manual | Funciona via `@gongrzhe/server-gmail-autoauth-mcp` |
-| Google Calendar | ✅ con OAuth manual | Funciona via `@cocal/google-calendar-mcp` |
-| Google Drive | ⏳ roadmap | El MCP oficial de Anthropic (`@modelcontextprotocol/server-gdrive`) requiere Service Account, no OAuth Desktop. Distinto flow. Sprint dedicado. |
+| **Gmail (read+send)** | ✅ con OAuth manual | `@gongrzhe/server-gmail-autoauth-mcp`. Una corrida única de `npx ... auth` para autorizar |
+| **Google Calendar** | ✅ con OAuth manual | `@cocal/google-calendar-mcp`. Misma autorización OAuth que Gmail |
+| **YouTube Data API** | ✅ sin OAuth (solo API key) | Custom MCP Python que vive en `scripts/mcp/youtube_server.py`. Lee la key de `data/secrets/google-api-key.txt` o de `YOUTUBE_API_KEY` en env. Tools expuestos: `search_videos`, `get_channel_recent`, `get_video_details` |
+| Google Drive | ⏳ roadmap | El MCP oficial de Anthropic requiere Service Account, no OAuth Desktop. Distinto flow. Sprint dedicado. |
 | Google Sheets | ⏳ roadmap | Idem Drive. |
-| YouTube Data API | ⏳ roadmap | API key ya queda guardada por `set_google_api_key`. Falta escribir el MCP custom Python (~50 líneas con googleapiclient). |
+
+### Cómo activar YouTube en delichul (o el agente que quieras)
+
+**Si ya pegaste la API key vía `/config-assistant`** y el assistant generó
+`set_google_api_key`, la key ya está en `data/secrets/google-api-key.txt`.
+Solo falta agregar el MCP al agente:
+
+**Opción A — desde el dashboard:**
+
+1. `/agents/<id>` → MCP → Agregar:
+   - Nombre: `youtube`
+   - Comando: ruta absoluta del Python del venv (ej: `C:\Moragent\rogologo\.venv\Scripts\python.exe`)
+   - Args: ruta absoluta al script (ej: `C:\Moragent\rogologo\scripts\mcp\youtube_server.py`)
+   - Env: vacío (el script lee la key del archivo automáticamente)
+2. Save → click **Probar** → debería devolver verde con tools `search_videos`, `get_channel_recent`, `get_video_details`.
+
+**Opción B — más fácil, desde Telegram:**
+
+```
+/setup_mcp
+```
+
+Elegí el agente, después escribí `youtube` como preset. El wizard arma
+automáticamente el comando con el Python del venv y la ruta absoluta al
+script. Si tu API key ya está guardada, el test debería pasar de una.
+
+**Opción C — paste-and-go:**
+
+`/config-assistant` → pegá tu API key. El assistant ahora detecta que hay
+un agente apto (delichul si tienes el setup tipo Gugol) y genera `add_mcp`
+con preset `youtube` para ese agente, además del `set_google_api_key`.
 
 ---
 

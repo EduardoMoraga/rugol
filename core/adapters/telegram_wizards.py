@@ -246,19 +246,24 @@ async def start_setup_mcp(chat_id: int) -> str:
     async with async_session_factory() as session:
         agents = (await session.execute(select(Agent).order_by(Agent.name))).scalars().all()
     if not agents:
-        return "No tenés agentes registrados todavía. Usá `/setup_agent` primero."
+        return "No hay agentes registrados todavía. Usá /setup_agent primero."
     _WIZARDS[chat_id] = WizardState(kind="mcp", step="pick_agent", data={})
-    lines = "\n".join(f"• `{a.name}`" for a in agents)
+    lines = "\n".join(f"• {a.name}" for a in agents)
     return (
         "Vamos a conectar un MCP a un agente.\n\n"
-        "*Paso 1/4 — ¿A qué agente?*\n\n"
+        "Paso 1/4 — ¿A qué agente?\n\n"
         f"Agentes disponibles:\n{lines}\n\n"
-        "Escribí solo el nombre. Para abortar: `/cancel`."
+        "Escribí solo el nombre. Para abortar: /cancel."
     )
 
 
 async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
-    """Advance the /setup_mcp wizard. Returns (reply_text, finished)."""
+    """Advance the /setup_mcp wizard. Returns (reply_text, finished).
+
+    All strings here are plain text (no Markdown). Telegram's Markdown V1
+    parser is fragile around underscores and brackets, and tool names like
+    `search_videos` reliably break it. Plain text is uglier but never crashes.
+    """
     state = _WIZARDS.get(chat_id)
     if not state or state.kind != "mcp":
         return ("(no hay un wizard activo)", True)
@@ -270,23 +275,23 @@ async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
                 await session.execute(select(Agent).where(Agent.name == text))
             ).scalar_one_or_none()
         if agent is None:
-            return (f"No existe el agente `{text}`. Escribí otro o `/cancel`.", False)
+            return (f"No existe el agente '{text}'. Escribí otro o /cancel.", False)
         state.data["agent_id"] = agent.id
         state.data["agent_name"] = agent.name
         state.step = "pick_preset"
-        catalog_lines = "\n".join(f"• `{p.id}` — {p.label}" for p in CATALOG)
+        catalog_lines = "\n".join(f"• {p.id} — {p.label}" for p in CATALOG)
         return (
-            f"Bien, agente *{agent.name}* seleccionado.\n\n"
-            f"*Paso 2/4 — ¿Qué MCP?*\n\n"
+            f"Bien, agente '{agent.name}' seleccionado.\n\n"
+            "Paso 2/4 — ¿Qué MCP?\n\n"
             f"Presets disponibles:\n{catalog_lines}\n\n"
-            "Escribí el id (ej: `notion`). Para algo custom: `/cancel` y configurá desde el dashboard.",
+            "Escribí el id (ej: notion). Para algo custom: /cancel y configurá desde el dashboard.",
             False,
         )
 
     if state.step == "pick_preset":
         preset = find_preset(text)
         if preset is None:
-            return (f"No conozco el preset `{text}`. Escribí otro o `/cancel`.", False)
+            return (f"No conozco el preset '{text}'. Escribí otro o /cancel.", False)
         state.data["preset_id"] = preset.id
         if not preset.env_keys and not preset.requires_extra_arg:
             # Nothing to ask the user — finalize directly. Used by `youtube`,
@@ -296,14 +301,14 @@ async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
             # Filesystem-style: extra arg only.
             state.step = "collect_args"
             return (
-                f"*Paso 3/4 — Configuración de {preset.label}*\n\n{preset.token_help}",
+                f"Paso 3/4 — Configuración de {preset.label}\n\n{_strip_md(preset.token_help)}",
                 False,
             )
         state.step = "collect_env"
         state.data["env_remaining"] = list(preset.env_keys)
         state.data["env_collected"] = {}
         return (
-            f"*Paso 3/4 — Token para {preset.label}*\n\n{preset.token_help}",
+            f"Paso 3/4 — Token para {preset.label}\n\n{_strip_md(preset.token_help)}",
             False,
         )
 
@@ -317,7 +322,7 @@ async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
         collected[current_key] = text
         if remaining:
             return (
-                f"Listo. Próximo: necesito el valor para `{remaining[0]}`.",
+                f"Listo. Próximo: necesito el valor para {remaining[0]}.",
                 False,
             )
         # All env collected → save and test.
@@ -365,20 +370,20 @@ async def _finalize_mcp_install(chat_id: int, preset: McpPreset) -> tuple[str, b
         tools_preview = ", ".join(test_result.tools[:6]) or "(sin herramientas detectadas)"
         more = f" (+{len(test_result.tools) - 6} más)" if len(test_result.tools) > 6 else ""
         return (
-            f"*Paso 4/4 — Test OK ✅*\n\n"
-            f"`{preset.label}` quedó conectado a *{agent_name}* y respondió en {test_result.duration_ms} ms.\n\n"
+            "Paso 4/4 — Test OK\n\n"
+            f"{preset.label} quedó conectado a {agent_name} y respondió en {test_result.duration_ms} ms.\n\n"
             f"Herramientas detectadas: {tools_preview}{more}\n\n"
-            f"Listo para usar.",
+            "Listo para usar.",
             True,
         )
     err_brief = (test_result.error or "").splitlines()[0][:200]
     return (
-        f"*Paso 4/4 — Test falló ❌*\n\n"
-        f"La config quedó guardada en *{agent_name}* (podés probarla después desde el dashboard), "
-        f"pero el handshake JSON-RPC no respondió.\n\n"
-        f"Tipo de error: `{test_result.error_kind or 'desconocido'}`\n"
+        "Paso 4/4 — Test falló\n\n"
+        f"La config quedó guardada en {agent_name} (podés probarla después desde el dashboard), "
+        "pero el handshake JSON-RPC no respondió.\n\n"
+        f"Tipo de error: {test_result.error_kind or 'desconocido'}\n"
         f"Detalle: {err_brief}\n\n"
-        f"Próximo paso: revisá la config en el dashboard, o probá con otro preset.",
+        "Próximo paso: revisá la config en el dashboard, o probá con otro preset.",
         True,
     )
 
@@ -421,6 +426,12 @@ async def _patch_agent_mcp(agent_id: int, mcp_name: str, cfg: dict[str, Any]) ->
 # ---------------------------------------------------------------------------
 
 
+def _strip_md(text: str) -> str:
+    """Drop Markdown formatting characters that would otherwise break Telegram's
+    fragile MD V1 parser when interpolated into a wizard message."""
+    return text.replace("`", "").replace("*", "").replace("_", " ")
+
+
 async def list_mcps_for_chat() -> str:
     async with async_session_factory() as session:
         agents = (await session.execute(select(Agent).order_by(Agent.name))).scalars().all()
@@ -430,10 +441,10 @@ async def list_mcps_for_chat() -> str:
     for a in agents:
         mcps = a.mcp_servers or {}
         if not mcps:
-            lines.append(f"• `{a.name}` — sin MCPs")
+            lines.append(f"• {a.name} — sin MCPs")
             continue
-        names = ", ".join(f"`{n}`" for n in mcps.keys())
-        lines.append(f"• `{a.name}` → {names}")
+        names = ", ".join(mcps.keys())
+        lines.append(f"• {a.name} → {names}")
     return "MCPs por agente:\n" + "\n".join(lines)
 
 
@@ -444,7 +455,7 @@ async def list_mcps_for_chat() -> str:
 
 async def test_mcp_for_chat(args: list[str]) -> str:
     if len(args) < 2:
-        return "Uso: `/test_mcp <agente> <mcp>` — ej. `/test_mcp gugol notion`"
+        return "Uso: /test_mcp <agente> <mcp>  — ej. /test_mcp gugol notion"
     agent_name = args[0].strip()
     mcp_name = args[1].strip()
     async with async_session_factory() as session:
@@ -452,27 +463,27 @@ async def test_mcp_for_chat(args: list[str]) -> str:
             await session.execute(select(Agent).where(Agent.name == agent_name))
         ).scalar_one_or_none()
     if agent is None:
-        return f"No existe el agente `{agent_name}`."
+        return f"No existe el agente '{agent_name}'."
     mcps = agent.mcp_servers or {}
     cfg = mcps.get(mcp_name)
     if not cfg:
-        return f"El agente `{agent_name}` no tiene un MCP llamado `{mcp_name}`."
+        return f"El agente '{agent_name}' no tiene un MCP llamado '{mcp_name}'."
     command = cfg.get("command")
     args_list = cfg.get("args") or []
     env = cfg.get("env") or {}
     if not command:
-        return f"El MCP `{mcp_name}` no tiene `command` (probablemente es SSE/HTTP, no stdio). Por ahora solo testeo stdio."
+        return f"El MCP '{mcp_name}' no tiene command (probablemente es SSE/HTTP, no stdio). Por ahora solo testeo stdio."
     result = await test_mcp_server(command=command, args=args_list, env=env)
     if result.ok:
         tools = ", ".join(result.tools[:8]) or "(sin tools)"
         more = f" (+{len(result.tools) - 8} más)" if len(result.tools) > 8 else ""
         return (
-            f"*{agent_name} / {mcp_name}* — OK ✅ ({result.duration_ms} ms)\n\n"
+            f"{agent_name} / {mcp_name} — OK ({result.duration_ms} ms)\n\n"
             f"Herramientas: {tools}{more}"
         )
     err_brief = (result.error or "").splitlines()[0][:200]
     return (
-        f"*{agent_name} / {mcp_name}* — Falló ❌\n\n"
-        f"Tipo: `{result.error_kind or 'desconocido'}`\n"
+        f"{agent_name} / {mcp_name} — Falló\n\n"
+        f"Tipo: {result.error_kind or 'desconocido'}\n"
         f"Detalle: {err_brief}"
     )

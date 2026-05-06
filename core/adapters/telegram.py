@@ -224,19 +224,21 @@ class TelegramAdapter(Adapter):
         if wizards.is_in_wizard(chat_id):
             wizards.cancel_wizard(chat_id)
         msg = await wizards.start_setup_mcp(chat_id)
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        # No parse_mode — wizard messages may contain tool names and other
+        # tokens with Markdown-special chars that would crash MD V1.
+        await update.message.reply_text(msg)
 
     async def _cmd_list_mcps(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_authorized(update):
             return
         msg = await wizards.list_mcps_for_chat()
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        await update.message.reply_text(msg)
 
     async def _cmd_test_mcp(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_authorized(update):
             return
         msg = await wizards.test_mcp_for_chat(ctx.args or [])
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        await update.message.reply_text(msg)
 
     async def _cmd_cancel(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_authorized(update):
@@ -266,15 +268,14 @@ class TelegramAdapter(Adapter):
         if not self._is_authorized(update):
             return
         await update.message.reply_text(
-            "*Cómo armar un buen prompt para el Architect*\n\n"
-            "1. *Idea (1 línea)* — qué tiene que entregar el equipo, no qué herramientas usa.\n"
-            "2. *Constraints* — USUARIO, EQUIPO (con modelos sugeridos), LECCIONES INICIALES, SCHEDULES, RESTRICCIONES.\n\n"
+            "Cómo armar un buen prompt para el Architect\n\n"
+            "1. Idea (1 línea) — qué tiene que entregar el equipo, no qué herramientas usa.\n"
+            "2. Constraints — USUARIO, EQUIPO (con modelos sugeridos), LECCIONES INICIALES, SCHEDULES, RESTRICCIONES.\n\n"
             "Anti-patrones a evitar:\n"
             "• Restricciones temporales en el body (\"sin Gmail por ahora\") → contaminan al modelo después.\n"
             "• Roles superpuestos entre agentes.\n"
-            "• Detalles de implementación (paquetes npm, comandos) → eso lo configurás con `/setup_mcp`.\n\n"
-            "Guía completa con ejemplos copiables: dashboard → /architect → expandí *Cómo armar un buen prompt*.",
-            parse_mode="Markdown",
+            "• Detalles de implementación (paquetes npm, comandos) → eso lo configurás con /setup_mcp.\n\n"
+            "Guía completa con ejemplos copiables: dashboard → /architect → expandí 'Cómo armar un buen prompt'."
         )
 
     # Message dispatch -------------------------------------------------------
@@ -293,7 +294,8 @@ class TelegramAdapter(Adapter):
         if wizards.is_in_wizard(chat_id):
             try:
                 reply, finished = await wizards.step_setup_mcp(chat_id, text)
-                await update.message.reply_text(reply, parse_mode="Markdown")
+                # No parse_mode — wizard text is plain to avoid MD parse errors.
+                await update.message.reply_text(reply)
             except Exception as e:
                 logger.exception("wizard step crashed")
                 wizards.cancel_wizard(chat_id)

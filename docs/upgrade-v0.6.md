@@ -202,6 +202,48 @@ pnpm dev
 
 ---
 
+## Anti-alucinación + sandbox de filesystem (fix urgente)
+
+**Bug detectado (2026-05-06):** un agente respondió a *"está todo OK con
+los schedules?"* con una tabla ficticia que mezclaba "Lucy Morning
+Briefing", "SKF Daily Reports" y otros nombres de proyectos previos del
+usuario. La tabla era plausible pero inventada — el agente no tenía un
+tool real para listar APScheduler, así que leyó un script en
+`C:\Moragent\00-CORE\tools\moragent.py` (un proyecto distinto) y se lo
+entregó al usuario como verdad.
+
+Causa raíz: combinación de tres factores:
+1. `permission_mode="bypassPermissions"` + Read tool = el agente puede
+   leer cualquier archivo de la máquina, incluso fuera del workspace.
+2. NO existe tool que liste el estado real de Rogologo (schedules,
+   runs, agents) — solo la base de SQLite, que el agente no consulta
+   directamente.
+3. Sin instrucciones explícitas anti-alucinación, el modelo confía en
+   archivos plausibles del filesystem como si fueran la fuente.
+
+**Fix aplicado en `core/runner/claude_runner.py`:**
+
+El system prompt que recibe cada agente ahora incluye dos secciones nuevas:
+
+- **CRITICAL — anti-hallucination rule**: enseña explícitamente que el
+  estado runtime de Rogologo NO está en archivos. Le pasa al agente
+  los endpoints REST exactos (`GET /api/schedules`, `GET /api/agents`,
+  `GET /api/runs`, etc.) que puede consultar con `curl` cuando el
+  usuario le pregunte por ese estado. Si la API no responde, debe
+  decirlo explícitamente, no caer al filesystem como fallback.
+
+- **Filesystem sandbox**: instrucción dura de NO leer fuera del
+  workspace. Si el agente necesita algo de afuera, debe pedir
+  autorización al usuario primero.
+
+Estos son **defense-in-depth via prompt** — no son seguridad técnica
+absoluta (un modelo puede ignorar instrucciones), pero corrigen el
+80% de los casos. Para sandbox físico (chroot, contenedor) la
+defensa es más fuerte pero implica más complejidad y queda en
+roadmap si se vuelve necesario.
+
+---
+
 ## Memoria de largo plazo (Sprints A + B)
 
 Dos cambios encadenados que cierran el gap de "el agente olvida todo

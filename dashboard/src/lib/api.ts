@@ -373,6 +373,38 @@ export const updateAgent = async (id: number, spec: AgentSpec): Promise<Agent> =
   return r.json();
 };
 
+// --- Per-agent memories (v0.6 — Sprint B) ---
+export interface AgentMemory {
+  name: string;
+  description: string;
+  kind: string;
+  created_at: string;
+  body: string;
+  file: string;
+}
+export interface NewAgentMemory {
+  name: string;
+  description: string;
+  body: string;
+  kind?: string;
+}
+export const fetchAgentMemories = (id: number) =>
+  get<AgentMemory[]>(`/api/agents/${id}/memories`);
+
+export const createAgentMemory = (id: number, mem: NewAgentMemory) =>
+  post<AgentMemory>(`/api/agents/${id}/memories`, mem);
+
+export const deleteAgentMemory = async (id: number, fileOrName: string): Promise<void> => {
+  const r = await fetch(
+    `/api/agents/${id}/memories/${encodeURIComponent(fileOrName)}`,
+    { method: "DELETE" },
+  );
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`${r.status} ${r.statusText} — ${txt}`);
+  }
+};
+
 // --- Config Assistant (v0.6) ---
 export interface ConfigAssistantAction {
   type: string;

@@ -15,7 +15,10 @@ import {
 } from "lucide-react";
 import {
   AVAILABLE_TOOLS,
+  createAgentMemory,
+  deleteAgentMemory,
   fetchAgent,
+  fetchAgentMemories,
   fetchAgentRuns,
   fetchAgentSource,
   fetchOntologyEdges,
@@ -25,11 +28,13 @@ import {
   moveAgent,
   testAgentMcp,
   updateAgent,
+  type AgentMemory,
   type AgentSource,
   type McpTestResult,
 } from "@/lib/api";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/input";
 import { Card, CardSection, PageHeader, Stat } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -190,7 +195,7 @@ export default function AgentDetail() {
         </TabsContent>
 
         <TabsContent value="memory" className="mt-5">
-          <MemoryPane agentName={a.name} />
+          <MemoryPane agentId={agentId} agentName={a.name} />
         </TabsContent>
 
         <TabsContent value="tools" className="mt-5">
@@ -229,12 +234,215 @@ function SpecPane({ agentId }: { agentId: number }) {
   );
 }
 
-function MemoryPane({ agentName }: { agentName: string }) {
+function MemoryPane({ agentId, agentName }: { agentId: number; agentName: string }) {
+  return (
+    <div className="space-y-4">
+      <PersistentMemoriesSection agentId={agentId} agentName={agentName} />
+      <SharedOntologySection agentName={agentName} />
+    </div>
+  );
+}
+
+
+function PersistentMemoriesSection({
+  agentId,
+  agentName,
+}: {
+  agentId: number;
+  agentName: string;
+}) {
+  const qc = useQueryClient();
+  const memories = useQuery({
+    queryKey: ["agent-memories", agentId],
+    queryFn: () => fetchAgentMemories(agentId),
+  });
+
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newBody, setNewBody] = useState("");
+  const [newKind, setNewKind] = useState<"note" | "fact" | "preference" | "reference" | "episode">("note");
+
+  const create = useMutation({
+    mutationFn: () =>
+      createAgentMemory(agentId, {
+        name: newName.trim(),
+        description: newDesc.trim() || newName.trim(),
+        body: newBody.trim(),
+        kind: newKind,
+      }),
+    onSuccess: () => {
+      toast({ tone: "success", title: "Memoria guardada" });
+      qc.invalidateQueries({ queryKey: ["agent-memories", agentId] });
+      setNewName("");
+      setNewDesc("");
+      setNewBody("");
+      setNewKind("note");
+      setAdding(false);
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+  });
+
+  const remove = useMutation({
+    mutationFn: (file: string) => deleteAgentMemory(agentId, file),
+    onSuccess: () => {
+      toast({ tone: "info", title: "Memoria borrada" });
+      qc.invalidateQueries({ queryKey: ["agent-memories", agentId] });
+    },
+  });
+
+  const list = memories.data ?? [];
+  const canSave = newName.trim().length > 0 && newBody.trim().length > 0;
+
+  return (
+    <Card>
+      <header className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight inline-flex items-center gap-2">
+            <BookOpen size={13} className="text-[--color-accent-strong]" />
+            Memoria persistente de {agentName}
+          </h2>
+          <p className="text-[11px] text-[--color-fg-muted] mt-0.5">
+            Notas durables que el agente lee antes de cada run. Sobreviven restarts.
+            También se pueden agregar por Telegram con <code className="font-mono">/remember</code>.
+          </p>
+        </div>
+        {!adding && (
+          <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
+            <Pencil size={12} /> Nueva
+          </Button>
+        )}
+      </header>
+
+      {adding && (
+        <Card className="space-y-3 border border-dashed mb-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-[11px] text-[--color-fg-muted]">Título</label>
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ej: edu prefiere videos en español de más de 30 min"
+                className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-[--color-fg-muted]">Tipo</label>
+              <select
+                value={newKind}
+                onChange={(e) => setNewKind(e.target.value as any)}
+                className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent]"
+              >
+                <option value="note">note</option>
+                <option value="fact">fact</option>
+                <option value="preference">preference</option>
+                <option value="reference">reference</option>
+                <option value="episode">episode</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] text-[--color-fg-muted]">
+              Descripción corta (lo que ve el agente como hint)
+            </label>
+            <input
+              type="text"
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              placeholder="(opcional, se usa el título si lo dejás vacío)"
+              className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent]"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] text-[--color-fg-muted]">
+              Contenido (lo que el agente lee al inicio de cada run)
+            </label>
+            <textarea
+              value={newBody}
+              onChange={(e) => setNewBody(e.target.value)}
+              rows={4}
+              placeholder="Texto libre. Markdown OK."
+              className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent]"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => create.mutate()}
+              disabled={create.isPending || !canSave}
+            >
+              {create.isPending ? "Guardando…" : "Guardar"}
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {memories.isLoading && (
+        <p className="text-sm text-[--color-fg-muted]">Cargando memorias…</p>
+      )}
+
+      {!memories.isLoading && list.length === 0 && (
+        <Card className="text-center py-8">
+          <p className="text-sm text-[--color-fg-muted]">
+            {agentName} no tiene memorias persistentes todavía. Agregá una arriba o
+            mandá <code className="font-mono">/remember</code> al bot por Telegram.
+          </p>
+        </Card>
+      )}
+
+      {list.length > 0 && (
+        <ul className="space-y-2">
+          {list.map((m) => (
+            <li key={m.file} className="surface px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-[--color-fg]">{m.name}</p>
+                    <Badge tone="accent">{m.kind}</Badge>
+                  </div>
+                  {m.description && m.description !== m.name && (
+                    <p className="text-[11px] text-[--color-fg-muted]">
+                      {m.description}
+                    </p>
+                  )}
+                  <p className="text-[12.5px] text-[--color-fg-muted] whitespace-pre-wrap">
+                    {m.body}
+                  </p>
+                  <p className="text-[10px] text-[--color-fg-subtle] font-mono">
+                    {m.file} · {m.created_at?.slice(0, 16) || "—"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (confirm(`¿Borrar la memoria "${m.name}"?`)) {
+                      remove.mutate(m.file);
+                    }
+                  }}
+                  className="opacity-50 hover:opacity-100 hover:text-[--color-error] transition px-1.5 py-0.5 text-base leading-none shrink-0"
+                  title="Borrar"
+                >
+                  ×
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+
+function SharedOntologySection({ agentName }: { agentName: string }) {
   const nodes = useQuery({ queryKey: ["onto-nodes"], queryFn: fetchOntologyNodes });
   const edges = useQuery({ queryKey: ["onto-edges"], queryFn: fetchOntologyEdges });
 
-  // We don't yet have per-agent ontology filtering on the backend, so we surface all triples
-  // with a hint about how the linkage will tighten later.
   const nodeById = new Map<number, { label: string; type: string }>();
   (nodes.data ?? []).forEach((n) => nodeById.set(n.id, { label: n.label, type: n.type }));
   const triples = (edges.data ?? []).slice(0, 30).map((e) => ({
@@ -244,39 +452,37 @@ function MemoryPane({ agentName }: { agentName: string }) {
   }));
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <header className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold tracking-tight inline-flex items-center gap-2">
-            <Network size={13} className="text-[--color-accent-strong]" />
-            Shared ontology
-          </h2>
-          <Link href="/ontology" className="text-xs text-[--color-fg-muted] hover:text-[--color-fg]">
-            Open graph →
-          </Link>
-        </header>
-        {triples.length === 0 ? (
-          <p className="text-sm text-[--color-fg-muted]">
-            No facts in the graph yet. As <code className="font-mono">{agentName}</code> runs, it can
-            write triples that any other agent can read.
-          </p>
-        ) : (
-          <ul className="text-xs font-mono space-y-1 text-[--color-fg-muted]">
-            {triples.map((t, i) => (
-              <li key={`${t.src}-${t.predicate}-${t.dst}-${i}`} className="flex items-center gap-2">
-                <span className="text-[--color-fg]">{t.src}</span>
-                <span className="text-[--color-accent-strong]">{t.predicate}</span>
-                <span className="text-[--color-fg]">{t.dst}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-[11px] text-[--color-fg-subtle] mt-3">
-          Per-agent provenance filtering is roadmap (each edge already records the run that wrote it
-          via <code className="font-mono">created_by_run</code>).
+    <Card>
+      <header className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold tracking-tight inline-flex items-center gap-2">
+          <Network size={13} className="text-[--color-accent-strong]" />
+          Ontología compartida
+        </h2>
+        <Link href="/ontology" className="text-xs text-[--color-fg-muted] hover:text-[--color-fg]">
+          Abrir grafo →
+        </Link>
+      </header>
+      {triples.length === 0 ? (
+        <p className="text-sm text-[--color-fg-muted]">
+          Sin hechos en el grafo todavía. A medida que <code className="font-mono">{agentName}</code>{" "}
+          corre, puede escribir tripletas que cualquier otro agente puede leer.
         </p>
-      </Card>
-    </div>
+      ) : (
+        <ul className="text-xs font-mono space-y-1 text-[--color-fg-muted]">
+          {triples.map((t, i) => (
+            <li key={`${t.src}-${t.predicate}-${t.dst}-${i}`} className="flex items-center gap-2">
+              <span className="text-[--color-fg]">{t.src}</span>
+              <span className="text-[--color-accent-strong]">{t.predicate}</span>
+              <span className="text-[--color-fg]">{t.dst}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[11px] text-[--color-fg-subtle] mt-3">
+        Filtrado por agente queda en roadmap (cada edge ya guarda el run que la escribió
+        en <code className="font-mono">created_by_run</code>).
+      </p>
+    </Card>
   );
 }
 

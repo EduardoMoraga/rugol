@@ -14,6 +14,7 @@ import logging
 from sqlalchemy import select
 
 from core import runtime_state
+from core.adapters import session_store
 from core.adapters.base import Adapter
 from core.bus import bus
 from core.db import async_session_factory
@@ -45,6 +46,17 @@ class SlackAdapter(Adapter):
         if not (bot_token and app_token):
             logger.info("slack disabled (no tokens)")
             return
+
+        # v0.6.x — warm in-memory session cache from DB so conversations
+        # survive uvicorn restarts.
+        global _CHANNEL_SESSIONS
+        try:
+            persisted = await session_store.load_all("slack")
+            _CHANNEL_SESSIONS.update(persisted)
+            if persisted:
+                logger.info("slack session cache warmed: %d channels", len(persisted))
+        except Exception:
+            logger.exception("could not warm slack session cache from db")
 
         try:
             from slack_bolt.adapter.socket_mode.async_handler import AsyncSocketModeHandler
@@ -145,11 +157,16 @@ class SlackAdapter(Adapter):
             await self._cmd_agents(thread_ts, say)
             return
         if lowered == "reset":
-            had = _CHANNEL_SESSIONS.pop(str(channel), None)
+            had_mem = _CHANNEL_SESSIONS.pop(str(channel), None)
+            had_db = False
+            try:
+                had_db = await session_store.delete_one("slack", str(channel))
+            except Exception:
+                logger.exception("session_store.delete_one failed (slack)")
             await say(
                 text=(
-                    "Memoria borrada. Próximo mensaje empieza fresco."
-                    if had
+                    "Memoria borrada (RAM y DB). Próximo mensaje empieza fresco."
+                    if (had_mem or had_db)
                     else "(no había memoria que borrar)"
                 ),
                 thread_ts=thread_ts,
@@ -254,7 +271,12 @@ class SlackAdapter(Adapter):
                         # this Slack channel continues the same conversation.
                         new_session = evt.data.get("session_id")
                         if new_session:
-                            _CHANNEL_SESSIONS[str(pend["channel"])] = new_session
+                            channel_key = str(pend["channel"])
+                            _CHANNEL_SESSIONS[channel_key] = new_session
+                            try:
+                                await session_store.save("slack", channel_key, new_session)
+                            except Exception:
+                                logger.exception("session_store.save failed (slack)")
                     elif evt.topic == "run:failed":
                         text = f":x: Run #{run_id} falló: {evt.data.get('error', 'unknown')}"
                     else:

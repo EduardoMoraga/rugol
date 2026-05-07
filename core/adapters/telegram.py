@@ -29,11 +29,12 @@ from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandl
 
 from core import runtime_state
 from core.adapters.base import Adapter
-from core.adapters import telegram_wizards as wizards
+from core.adapters import session_store, telegram_wizards as wizards
 from core.attachments import classify_path, extract_text
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, ChannelBinding
+from core.memory import add_memory, list_memories
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -65,6 +66,17 @@ class TelegramAdapter(Adapter):
             logger.info("telegram disabled (no token)")
             return
 
+        # v0.6.x — warm up the in-memory session cache from DB so that
+        # conversations resume across uvicorn restarts.
+        global _CHAT_SESSIONS
+        try:
+            persisted = await session_store.load_all("telegram")
+            _CHAT_SESSIONS.update(persisted)
+            if persisted:
+                logger.info("telegram session cache warmed: %d chats", len(persisted))
+        except Exception:
+            logger.exception("could not warm telegram session cache from db")
+
         app = Application.builder().token(token).build()
         app.add_handler(CommandHandler("start", self._cmd_start))
         app.add_handler(CommandHandler("status", self._cmd_status))
@@ -78,6 +90,8 @@ class TelegramAdapter(Adapter):
         app.add_handler(CommandHandler("cancel", self._cmd_cancel))
         app.add_handler(CommandHandler("help_prompt", self._cmd_help_prompt))
         app.add_handler(CommandHandler("reset", self._cmd_reset))
+        app.add_handler(CommandHandler("remember", self._cmd_remember))
+        app.add_handler(CommandHandler("memories", self._cmd_list_memories))
         app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self._handle))
         # v0.6 — non-text inputs. Each handler downloads the file, then dispatches
         # to the bound agent with an enriched prompt.
@@ -262,15 +276,87 @@ class TelegramAdapter(Adapter):
         if not self._is_authorized(update):
             return
         chat_id = str(update.effective_chat.id)
-        had = _CHAT_SESSIONS.pop(chat_id, None)
-        if had:
+        had_mem = _CHAT_SESSIONS.pop(chat_id, None)
+        had_db = False
+        try:
+            had_db = await session_store.delete_one("telegram", chat_id)
+        except Exception:
+            logger.exception("session_store.delete_one failed")
+        if had_mem or had_db:
             await update.message.reply_text(
-                "Memoria de la conversación borrada. Próximo mensaje empieza de cero."
+                "Memoria de la conversación borrada (RAM y DB). Próximo mensaje empieza de cero."
             )
         else:
             await update.message.reply_text(
                 "(no había memoria que borrar — ya estabas en una conversación nueva)"
             )
+
+    async def _cmd_remember(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        """Add a memory to the agent currently bound to this chat.
+
+        Usage: /remember <texto libre que el agente debe recordar>
+        Anything after the command becomes the memory body. The first ~80
+        chars are used as the title. The agent will read this memory
+        before every future run.
+        """
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        bound = await _lookup_binding(str(chat_id))
+        if not bound:
+            await update.message.reply_text(
+                "Antes de recordar algo, vinculá el chat a un agente con /bind."
+            )
+            return
+        text = (update.message.text or "").strip()
+        # Drop the leading /remember command itself.
+        body = text.split(maxsplit=1)[1].strip() if " " in text else ""
+        if not body:
+            await update.message.reply_text(
+                "Uso: /remember <texto>\nEjemplo: /remember edu prefiere videos en español de más de 30 minutos"
+            )
+            return
+        title = body[:80] if len(body) <= 80 else body[:77] + "..."
+        try:
+            mem = add_memory(
+                agent_name=bound["agent_name"],
+                name=title,
+                description=title,
+                content=body,
+                kind="note",
+            )
+        except Exception as e:
+            logger.exception("memory add failed")
+            await update.message.reply_text(f"No pude guardar la memoria: {e}")
+            return
+        await update.message.reply_text(
+            f"Guardado en la memoria de {bound['agent_name']} (archivo: {mem.file}). "
+            "Lo va a leer antes de cada corrida."
+        )
+
+    async def _cmd_list_memories(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not self._is_authorized(update):
+            return
+        chat_id = update.effective_chat.id
+        bound = await _lookup_binding(str(chat_id))
+        if not bound:
+            await update.message.reply_text(
+                "Antes de listar memorias, vinculá el chat a un agente con /bind."
+            )
+            return
+        mems = list_memories(bound["agent_name"])
+        if not mems:
+            await update.message.reply_text(
+                f"{bound['agent_name']} no tiene memorias todavía. "
+                "Agregá una con /remember <texto>."
+            )
+            return
+        lines = [f"Memorias de {bound['agent_name']} ({len(mems)}):"]
+        for m in mems[-15:]:
+            lines.append(f"• {m.name}")
+        if len(mems) > 15:
+            lines.append(f"... +{len(mems) - 15} más antiguas")
+        await update.message.reply_text("\n".join(lines))
 
     async def _cmd_help_prompt(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_authorized(update):
@@ -575,7 +661,13 @@ class TelegramAdapter(Adapter):
                         # from this chat continues the same conversation.
                         new_session = evt.data.get("session_id")
                         if new_session:
-                            _CHAT_SESSIONS[str(pend["chat_id"])] = new_session
+                            chat_key = str(pend["chat_id"])
+                            _CHAT_SESSIONS[chat_key] = new_session
+                            # v0.6.x — also persist to DB so we survive restarts.
+                            try:
+                                await session_store.save("telegram", chat_key, new_session)
+                            except Exception:
+                                logger.exception("session_store.save failed")
                         await self._app.bot.edit_message_text(
                             chat_id=pend["chat_id"],
                             message_id=pend["placeholder_msg_id"],

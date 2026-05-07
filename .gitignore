@@ -59,6 +59,12 @@ sessions/
 data/
 db_data/
 
+# Per-agent persistent memories — local to each user's setup. The
+# core/memory/ Python module is tracked, but the data it writes into
+# agent-memory/ contains the user's personal memories (preferences,
+# notes from conversations, etc.) and must not be committed.
+agent-memory/
+
 # Docker
 .docker/
 

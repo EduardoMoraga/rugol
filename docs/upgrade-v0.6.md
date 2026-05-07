@@ -202,6 +202,88 @@ pnpm dev
 
 ---
 
+## Memoria de largo plazo (Sprints A + B)
+
+Dos cambios encadenados que cierran el gap de "el agente olvida todo
+entre sesiones".
+
+### Sprint A — `session_id` persistido en SQLite
+
+Antes: el adapter de Telegram/Slack guardaba el `session_id` (que
+claude-agent-sdk usa para continuar una conversación) en un dict en
+RAM. Reiniciar `uvicorn` borraba el dict, así que tras un restart el
+agente decía *"no tengo contexto de la conversación anterior"*.
+
+Ahora: hay una tabla `chat_sessions (channel_type, external_id,
+session_id, last_used_at)`. Cuando un run completa, el adapter persiste
+el session_id ahí. Cuando uvicorn arranca, los adapters cargan la tabla
+en su cache RAM. La conversación con gugol del jueves sigue activa el
+viernes después de un restart.
+
+Para borrar a propósito: `/reset` (Telegram) o `reset` (Slack) borra
+ambas memorias — RAM y DB.
+
+### Sprint B — Auto-memoria file-based per agente
+
+Inspirado en cómo funciona la auto-memoria de Claude Code en tu PC.
+
+Nuevo directorio (creado al primer uso, ignorado por git):
+
+```
+agent-memory/
+  gugol/
+    MEMORY.md                    # índice
+    20260506-edu-prefiere-...md  # una memoria
+    20260506-decision-sobre-...md
+  delichul/
+    ...
+```
+
+Cada memoria es un archivo `.md` con frontmatter (`name`, `description`,
+`kind`, `created_at`) más el body. El orchestrator antes de cada run
+arma un bloque "## Tu memoria persistente" con todas las memorias del
+agente (greedy hasta 4000 chars) y lo agrega al system_prompt junto
+con la misión del proyecto y las lecciones.
+
+**Cómo agregar memorias:**
+
+1. **Telegram (más rápido):**
+   ```
+   /remember edu prefiere videos en español de más de 30 minutos
+   ```
+   El comando agarra todo lo que viene después y lo guarda en la memoria
+   del agente bound al chat. El primer chunk del texto se usa como
+   título.
+
+2. **Telegram — listar:**
+   ```
+   /memories
+   ```
+   Muestra los nombres de todas las memorias del agente bound.
+
+3. **API:**
+   ```
+   POST /api/agents/{id}/memories
+   { "name": "...", "description": "...", "body": "...", "kind": "note" }
+
+   GET    /api/agents/{id}/memories
+   DELETE /api/agents/{id}/memories/{file_or_name}
+   ```
+
+4. **Manual:** crear el archivo `.md` directo en `agent-memory/<name>/`
+   con el frontmatter — el orchestrator lo lee la próxima corrida.
+
+**El agente puede escribir sus propias memorias.** Como tiene Write
+tool de Claude Code activo, puede crear archivos en
+`agent-memory/<su-name>/`. Si le decís "guardá esto en tu memoria", lo
+hace solo (le tendrías que indicar la ruta una vez, o agregárselo al
+body del agente como instrucción permanente).
+
+**Privacidad:** `agent-memory/` está en `.gitignore` — las memorias
+no se commitean. Son locales a tu PC.
+
+---
+
 ## Web scraping con Playwright
 
 `@playwright/mcp` (MCP oficial de Microsoft) está disponible como preset

@@ -223,3 +223,34 @@ class ChannelBinding(Base):
     agent_id: Mapped[int] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
     label: Mapped[str | None] = mapped_column(String(128), default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ChatSession(Base):
+    """Persisted conversational session_id per (channel_type, external_id).
+
+    Capa v0.6.x — long-running conversation memory.
+
+    Before this table existed, the Telegram and Slack adapters kept session
+    ids only in-memory (`_CHAT_SESSIONS: dict[str, str]`). Restarting uvicorn
+    threw away that dict, so the agent forgot the conversation right after
+    a backend restart. With this table, the adapter loads on startup and
+    persists on every run completion — across restarts, the chat resumes
+    where it left off.
+
+    Each (channel_type, external_id) is unique: one chat → one current
+    session_id at a time. When the user runs `/reset` (Telegram) or
+    `reset` (Slack), the row is deleted and the next message starts fresh.
+    """
+
+    __tablename__ = "chat_sessions"
+    __table_args__ = (
+        UniqueConstraint("channel_type", "external_id", name="uq_chat_sessions_chan"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    channel_type: Mapped[str] = mapped_column(String(16))  # telegram|slack
+    external_id: Mapped[str] = mapped_column(String(128), index=True)
+    session_id: Mapped[str] = mapped_column(String(128))
+    last_used_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )

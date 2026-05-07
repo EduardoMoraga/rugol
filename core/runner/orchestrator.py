@@ -17,6 +17,7 @@ from core.bus import bus
 from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
+from core.memory import build_memory_block
 from core.runner.claude_runner import run_agent
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,16 @@ class RuntimeOrchestrator:
             agent.last_run_at = dt.datetime.now(dt.timezone.utc)
             project = agent.project
             project_context = _build_project_context(project) if project else None
+            # v0.6.x — Sprint B: per-agent file-based memory. Read the agent's
+            # MEMORY.md index + memory files and append a "Tu memoria
+            # persistente" block. Cumulative agent knowledge across runs.
+            memory_block = build_memory_block(agent.name)
+            if memory_block:
+                project_context = (
+                    f"{project_context}\n\n{memory_block}"
+                    if project_context
+                    else memory_block
+                )
             await session.commit()
 
         await bus.publish("run:started", {

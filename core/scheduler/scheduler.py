@@ -52,13 +52,42 @@ class RogologoScheduler:
             pass
 
     def list_jobs(self) -> list[dict]:
-        return [
-            {
+        """Return live state of every job APScheduler currently has loaded.
+
+        Used by /api/schedules to enrich the DB rows with the trigger
+        actually firing (which can drift from the DB row if migrations or
+        manual DB edits skip the scheduler) and the next_run_time computed
+        by APScheduler. Without this, GET /schedules always returned
+        next_run_at=null because the DB column never gets populated.
+        """
+        out = []
+        for j in self._scheduler.get_jobs():
+            trigger_str = ""
+            try:
+                # CronTrigger.__str__ returns something like
+                # "cron[minute='0', hour='9', ...]" — useful for debugging
+                # drift between DB and scheduler.
+                trigger_str = str(j.trigger)
+            except Exception:
+                trigger_str = "?"
+            out.append({
                 "id": j.id,
                 "next_run_time": j.next_run_time.isoformat() if j.next_run_time else None,
-            }
-            for j in self._scheduler.get_jobs()
-        ]
+                "trigger": trigger_str,
+            })
+        return out
+
+    def job_for_schedule(self, schedule_id: int) -> dict | None:
+        """Convenience: lookup a single job by schedule id."""
+        target = f"schedule:{schedule_id}"
+        for j in self._scheduler.get_jobs():
+            if j.id == target:
+                return {
+                    "id": j.id,
+                    "next_run_time": j.next_run_time.isoformat() if j.next_run_time else None,
+                    "trigger": str(j.trigger),
+                }
+        return None
 
 
 async def _fire_schedule(schedule_id: int, agent_name: str, prompt: str) -> None:

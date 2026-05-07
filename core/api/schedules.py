@@ -48,21 +48,60 @@ class ScheduleDTO(BaseModel):
     enabled: bool
     next_run_at: str | None = None
     last_run_at: str | None = None
+    # v0.6.x — drift detection between DB and APScheduler. When the row in
+    # `schedules` says one cron but the live job in APScheduler is firing on
+    # a different one (because somebody edited the DB without reloading,
+    # or an old job survived a migration), this lets the UI show it.
+    runtime_trigger: str | None = None
+    runtime_drift: bool = False
 
 
 @router.get("", response_model=list[ScheduleDTO])
 async def list_schedules() -> list[ScheduleDTO]:
     async with async_session_factory() as session:
         rows = (await session.execute(select(Schedule))).scalars().all()
-        return [
-            ScheduleDTO(
-                id=s.id, agent_id=s.agent_id, cron_expr=s.cron_expr,
-                prompt=s.prompt, enabled=s.enabled,
-                next_run_at=s.next_run_at.isoformat() if s.next_run_at else None,
-                last_run_at=s.last_run_at.isoformat() if s.last_run_at else None,
-            )
-            for s in rows
-        ]
+    # Enrich each row with whatever APScheduler currently has loaded for it.
+    live_jobs = {j["id"]: j for j in get_scheduler().list_jobs()}
+    out: list[ScheduleDTO] = []
+    for s in rows:
+        live = live_jobs.get(f"schedule:{s.id}")
+        runtime_next = live["next_run_time"] if live else None
+        runtime_trig = live["trigger"] if live else None
+        # Heuristic drift detection: see if the DB cron string appears
+        # somewhere inside the trigger repr. APScheduler's repr is e.g.
+        # "cron[minute='0', hour='12', day_of_week='1-5']". We compare the
+        # 5 fields of the DB cron against the trigger repr — if any field
+        # is missing, flag drift so the UI / tooling can surface it.
+        drift = False
+        if runtime_trig and s.cron_expr:
+            db_fields = s.cron_expr.split()
+            field_names = ["minute", "hour", "day", "month", "day_of_week"]
+            for name, val in zip(field_names, db_fields):
+                if val == "*":
+                    continue
+                if f"{name}='{val}'" not in runtime_trig:
+                    drift = True
+                    break
+        out.append(ScheduleDTO(
+            id=s.id, agent_id=s.agent_id, cron_expr=s.cron_expr,
+            prompt=s.prompt, enabled=s.enabled,
+            next_run_at=runtime_next or (s.next_run_at.isoformat() if s.next_run_at else None),
+            last_run_at=s.last_run_at.isoformat() if s.last_run_at else None,
+            runtime_trigger=runtime_trig,
+            runtime_drift=drift,
+        ))
+    return out
+
+
+@router.get("/runtime")
+async def list_runtime_jobs() -> dict:
+    """Return APScheduler's current view of jobs — the source of truth for what fires.
+
+    Useful for debugging when /schedules (the DB view) and the actual
+    behaviour disagree. Each entry shows the parsed cron trigger and the
+    next_run_time APScheduler computed.
+    """
+    return {"jobs": get_scheduler().list_jobs()}
 
 
 @router.post("", status_code=201, response_model=ScheduleDTO)
@@ -93,6 +132,63 @@ async def create_schedule(body: ScheduleCreate) -> ScheduleDTO:
             prompt=s.prompt, enabled=s.enabled,
             next_run_at=None, last_run_at=None,
         )
+
+
+@router.post("/resync")
+async def resync_schedules() -> dict:
+    """Force APScheduler's job set to match the DB rows.
+
+    For every enabled schedule, re-register it in APScheduler with
+    replace_existing=True so the trigger stored in the jobstore matches
+    the cron expression in the DB. Then drop any APScheduler job that
+    points at a schedule_id no longer in the DB.
+
+    Use case: drift between DB cron and APScheduler trigger (detected by
+    GET /schedules's runtime_drift flag).
+    """
+    sched = get_scheduler()
+    db_schedule_ids: set[int] = set()
+    fixed: list[int] = []
+    removed_orphans: list[str] = []
+    async with async_session_factory() as session:
+        rows = (await session.execute(select(Schedule))).scalars().all()
+        agent_ids = [r.agent_id for r in rows]
+        agents = (
+            await session.execute(select(Agent).where(Agent.id.in_(agent_ids)))
+        ).scalars().all() if agent_ids else []
+        agents_by_id = {a.id: a for a in agents}
+        for s in rows:
+            db_schedule_ids.add(s.id)
+            if not s.enabled:
+                # Disabled rows shouldn't have a live job — remove if present.
+                sched.remove(s.id)
+                continue
+            agent = agents_by_id.get(s.agent_id)
+            if agent is None:
+                continue
+            try:
+                sched.add_cron(s.id, agent.name, s.prompt, s.cron_expr)
+                fixed.append(s.id)
+            except Exception as e:
+                logger.exception("resync: failed to add schedule %s", s.id)
+    # Remove orphan jobs in APScheduler whose schedule_id is no longer in DB.
+    for job in sched.list_jobs():
+        jid = job["id"]
+        if not jid.startswith("schedule:"):
+            continue
+        try:
+            sid = int(jid.split(":", 1)[1])
+        except ValueError:
+            continue
+        if sid not in db_schedule_ids:
+            sched.remove(sid)
+            removed_orphans.append(jid)
+    return {
+        "ok": True,
+        "fixed_count": len(fixed),
+        "fixed_ids": fixed,
+        "removed_orphans": removed_orphans,
+    }
 
 
 @router.delete("/{schedule_id}", status_code=204)

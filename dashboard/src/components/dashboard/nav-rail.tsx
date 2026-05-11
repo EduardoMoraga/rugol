@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Users,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/lib/i18n";
+import { fetchHealth } from "@/lib/api";
 
 type NavItem = {
   href: string;
@@ -45,6 +47,16 @@ const items: NavItem[] = [
 export function NavRail() {
   const path = usePathname();
   const { t, locale, setLocale } = useI18n();
+  // Pull the live backend version so the sidebar always reflects what
+  // is actually deployed. Refreshes every 30s.
+  const health = useQuery({
+    queryKey: ["health"],
+    queryFn: fetchHealth,
+    refetchInterval: 30_000,
+  });
+  const versionLabel = health.data?.version
+    ? `v${health.data.version}`
+    : "alpha";
   return (
     <nav className="w-60 shrink-0 border-r border-[--color-border] flex flex-col p-3 bg-gradient-to-b from-[--color-bg-elev] to-[--color-bg]">
       <Link href="/" className="px-3 py-3 mb-2 group block">
@@ -55,7 +67,7 @@ export function NavRail() {
           <div>
             <div className="text-base font-semibold tracking-tight">Rogologo</div>
             <div className="text-[10px] text-[--color-fg-muted] uppercase tracking-widest">
-              v0.5 · alpha
+              {versionLabel}
             </div>
           </div>
         </div>

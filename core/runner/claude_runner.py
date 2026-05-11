@@ -184,15 +184,26 @@ async def run_agent(
     if mcp_servers:
         merged_mcp.update(mcp_servers)
 
+    # Built-in tools (the preset or the agent whitelist). Preset is None
+    # → claude_code default set; explicit list → restricted.
     if tools:
-        # When the agent has a tool allowlist, surface the platform tools too
-        # so the agent can actually call them. Preset mode (no allowlist)
-        # opens all tools by default, so we skip the splice there.
-        tool_list = list(tools)
-        for extra in list(soul_tool_names) + list(telegram_tool_names):
-            if extra not in tool_list:
-                tool_list.append(extra)
-        options_kwargs["tools"] = tool_list
+        options_kwargs["tools"] = list(tools)
+
+    # `allowed_tools` is the SDK's auto-permit list. We use it for the
+    # MCP tools we want the model to invoke without prompting, regardless
+    # of whether the agent has a built-in whitelist. With
+    # permission_mode="bypassPermissions" this list also ensures the
+    # tools are surfaced — without it, the bundled CLI was treating the
+    # SDK-registered MCP tools as "available but never invoked" because
+    # the model never saw them as auto-allowed (root cause of the
+    # 2026-05-11 'Guardado' confabulation incident).
+    platform_allowed: list[str] = []
+    for extra in list(soul_tool_names) + list(telegram_tool_names):
+        if extra not in platform_allowed:
+            platform_allowed.append(extra)
+    if platform_allowed:
+        options_kwargs["allowed_tools"] = platform_allowed
+
     if merged_mcp:
         options_kwargs["mcp_servers"] = merged_mcp
     options = ClaudeAgentOptions(**options_kwargs)

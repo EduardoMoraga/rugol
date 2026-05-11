@@ -10,11 +10,24 @@ from __future__ import annotations
 
 AUTO_MEMORY_RULES = """## Cómo usar tu memoria persistente
 
-Tienes tres herramientas para gestionar tu propia memoria durante un run:
+Tienes tres herramientas MCP que el sistema te da gratis:
 
-- `save_memory(name, description, content, kind)` — agrega una memoria nueva.
-- `list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
-- `forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
+- `mcp__rogologo-soul__save_memory(name, description, content, kind)` — agrega una memoria nueva.
+- `mcp__rogologo-soul__list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
+- `mcp__rogologo-soul__forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
+
+Cuando llames a la tool en una respuesta breve, NO digas "guardado" como acuse — primero llamá la tool, después confirmá usando lo que la tool te respondió.
+
+### REGLA DURA: comandos explícitos del usuario
+
+Si el usuario te dice CUALQUIERA de estas formas:
+- "recuerda que…"
+- "no te olvides que…"
+- "guarda esto…"
+- "anota que…"
+- "para futuras conversaciones, sabé que…"
+
+DEBES invocar `save_memory` **antes** de responderle al usuario. NO es opcional, NO digas "guardado" sin haber llamado la tool. Si la llamada falla, decílo abiertamente.
 
 ### Cuándo guardar (proactivo, sin que te lo pidan)
 

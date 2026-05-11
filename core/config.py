@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # LLM auth
     USE_SUBSCRIPTION: bool = True
     ANTHROPIC_API_KEY: str = ""
-    DEFAULT_MODEL: str = "claude-sonnet-4-6"
+    DEFAULT_MODEL: str = "claude-sonnet-4-6"  # core.llm_models.SONNET
 
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Telemetry
     TELEMETRY_ENABLED: bool = False
 
+    # Timezone for scheduling and world-state injection. Defaults to Chile;
+    # any IANA name works (e.g. "America/Lima", "Europe/Madrid", "UTC").
+    SCHEDULER_TIMEZONE: str = "America/Santiago"
+
     # Soul Layer — ADR-006/007/008
     # When true, every run hits the dispatcher classifier before model selection
     # (Soul-2). Disable to bypass the extra Haiku call (useful for benchmarks
@@ -64,12 +68,16 @@ class Settings(BaseSettings):
     # When true and dispatcher returns S2, wrap the prompt to force a
     # plan-critique-answer structure (single round-trip). Off by default.
     SOUL_PLAN_THEN_EXECUTE_ENABLED: bool = False
-    # When true, inject the agent's body (.md persona) as a system_prompt
-    # block. v0.7.0-alpha shipped this ON and it crashed subprocess CLI
-    # for large bodies; reverting to OFF by default until we can pass
-    # the body via stdin instead of command-line append. Soul-3 archive
-    # still works — when a version is chosen, that body wins.
-    SOUL_INJECT_AGENT_BODY: bool = False
+    # When true, inject the agent's body (.md persona) into the system
+    # prompt. v0.7.0-alpha shipped this ON and crashed the bundled CLI
+    # subprocess for bodies >8 KB on Windows (command-line length limit).
+    # v0.7.1 re-enables by default with a guard: if the body exceeds
+    # SOUL_INJECT_BODY_MAX_CHARS, the orchestrator skips injection and
+    # logs a warning instead of crashing. Soul-3 archive still works —
+    # version bodies under the limit get injected, oversized ones are
+    # noted in the run log.
+    SOUL_INJECT_AGENT_BODY: bool = True
+    SOUL_INJECT_BODY_MAX_CHARS: int = 8000
     # When true (and the agent has multiple active versions in its archive),
     # the runner routes runs across active versions per A/B (Soul-3). Off
     # by default — opt in once you have a proposer-driven branch.

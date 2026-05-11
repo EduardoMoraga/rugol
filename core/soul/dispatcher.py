@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass
 
 from core.config import get_settings
+from core.llm_models import HAIKU
 
 logger = logging.getLogger(__name__)
 
@@ -197,5 +198,5 @@ def model_for_track(track: str, agent_default_model: str) -> str:
             # Avoid the Haiku-on-subscription crash. Telemetry still
             # records the run as 's1'.
             return agent_default_model
-        return "claude-haiku-4-5-20251001"
+        return HAIKU
     return agent_default_model

@@ -108,6 +108,11 @@ def create_app() -> FastAPI:
     app.include_router(memories.router, prefix="/api")
     app.include_router(evolution.router, prefix="/api")
 
+    # Capture the app for the agent runtime's endpoint inventory (so agents
+    # see the exact list of REST paths and don't hallucinate new ones).
+    from core.runner.api_inventory import set_app
+    set_app(app)
+
     return app
 
 

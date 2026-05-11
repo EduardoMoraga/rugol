@@ -19,23 +19,30 @@ logger = logging.getLogger(__name__)
 class RogologoScheduler:
     def __init__(self, jobstore_path: Path) -> None:
         jobstore_path.parent.mkdir(parents=True, exist_ok=True)
+        tz = get_settings().SCHEDULER_TIMEZONE or "UTC"
         self._scheduler = AsyncIOScheduler(
             jobstores={"default": SQLAlchemyJobStore(url=f"sqlite:///{jobstore_path}")},
             executors={"default": AsyncIOExecutor()},
             job_defaults={"coalesce": True, "max_instances": 1, "misfire_grace_time": 60},
-            timezone="UTC",
+            timezone=tz,
         )
+        self._timezone = tz
 
     def start(self) -> None:
         self._scheduler.start()
-        logger.info("scheduler started")
+        logger.info("scheduler started (timezone=%s)", self._timezone)
 
     def shutdown(self) -> None:
         self._scheduler.shutdown(wait=False)
 
     def add_cron(self, schedule_id: int, agent_name: str, prompt: str, cron_expr: str) -> None:
-        """Add or replace a cron-triggered job."""
-        trigger = CronTrigger.from_crontab(cron_expr, timezone="UTC")
+        """Add or replace a cron-triggered job.
+
+        Cron expressions are interpreted in the SCHEDULER_TIMEZONE setting
+        (default America/Santiago). A user writing "0 8 * * 1-5" expects
+        8 AM their time, not 8 AM UTC.
+        """
+        trigger = CronTrigger.from_crontab(cron_expr, timezone=self._timezone)
         self._scheduler.add_job(
             _fire_schedule,
             trigger=trigger,
@@ -43,7 +50,10 @@ class RogologoScheduler:
             id=f"schedule:{schedule_id}",
             replace_existing=True,
         )
-        logger.info("scheduled %s → %s on %s", schedule_id, agent_name, cron_expr)
+        logger.info(
+            "scheduled %s → %s on %s (%s)",
+            schedule_id, agent_name, cron_expr, self._timezone,
+        )
 
     def remove(self, schedule_id: int) -> None:
         try:

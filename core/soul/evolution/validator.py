@@ -25,6 +25,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from core.llm_models import OPUS
 from core.runner.claude_runner import run_agent
 from core.soul.evolution.archive import (
     archive_dir,
@@ -182,7 +183,7 @@ async def validate_candidate(
             agent_name="rogologo-validator",
             prompt=prompt,
             workspace_dir=workspace_dir,
-            model="claude-opus-4-7",
+            model=OPUS,
         )
     except Exception:
         logger.exception("validator run failed for %s/%s", agent_name, version_id)

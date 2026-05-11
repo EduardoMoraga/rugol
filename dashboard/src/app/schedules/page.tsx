@@ -109,15 +109,20 @@ function buildCron(
   hhmm: string,
   weekday: number,
   intervalMin: number,
-  tz: string,
+  _tz: string,
 ): string {
   if (mode === "interval") {
     const m = Math.max(1, Math.min(59, intervalMin));
     return `*/${m} * * * *`;
   }
+  // v0.7.1: the backend scheduler is configured in America/Santiago by
+  // default (settings.SCHEDULER_TIMEZONE). The cron expression is now
+  // interpreted in THAT zone, so we no longer convert to UTC here —
+  // we pass the user's chosen wall-clock hour straight through. If the
+  // user runs the backend in a non-Chile timezone they should set
+  // SCHEDULER_TIMEZONE in their .env accordingly.
   const [hStr, mStr] = (hhmm || "09:00").split(":");
-  const utc = localToUtcHourMinute(Number(hStr), Number(mStr), tz);
-  const t = `${utc.minute} ${utc.hour}`;
+  const t = `${Number(mStr)} ${Number(hStr)}`;
   if (mode === "daily") return `${t} * * *`;
   if (mode === "weekdays") return `${t} * * 1-5`;
   if (mode === "weekend") return `${t} * * 0,6`;
@@ -129,7 +134,7 @@ function buildCron(
  * Try to interpret a cron expression as a friendly local-time description.
  * Returns null when the expression doesn't match any of our supported shapes.
  */
-function describeCronInLocal(cronExpr: string, tz: string): string | null {
+function describeCronInLocal(cronExpr: string, _tz: string): string | null {
   const parts = cronExpr.trim().split(/\s+/);
   if (parts.length !== 5) return null;
   const [m, h, dom, mon, dow] = parts;
@@ -144,14 +149,17 @@ function describeCronInLocal(cronExpr: string, tz: string): string | null {
   // Daily / weekly / etc — needs concrete h, m
   if (!/^\d+$/.test(m) || !/^\d+$/.test(h)) return null;
   if (dom !== "*" || mon !== "*") return null;
-  const local = utcHourMinuteToLocal(Number(h), Number(m), tz);
-  const tStr = `${pad2(local.hour)}:${pad2(local.minute)}`;
-  if (dow === "*") return `todos los días a las ${tStr} ${tz}`;
-  if (dow === "1-5") return `lunes a viernes a las ${tStr} ${tz}`;
-  if (dow === "0,6" || dow === "6,0") return `sábado y domingo a las ${tStr} ${tz}`;
+  // v0.7.1: cron is interpreted in the backend's SCHEDULER_TIMEZONE
+  // (default America/Santiago), not in the browser's tz. We display the
+  // hour exactly as stored — the backend zone takes care of firing it.
+  const tStr = `${pad2(Number(h))}:${pad2(Number(m))}`;
+  const tzNote = " hora del servidor";
+  if (dow === "*") return `todos los días a las ${tStr}${tzNote}`;
+  if (dow === "1-5") return `lunes a viernes a las ${tStr}${tzNote}`;
+  if (dow === "0,6" || dow === "6,0") return `sábado y domingo a las ${tStr}${tzNote}`;
   if (/^\d$/.test(dow)) {
     const wd = WEEKDAY_LABELS.find((w) => w.value === Number(dow));
-    if (wd) return `cada ${wd.es.toLowerCase()} a las ${tStr} ${tz}`;
+    if (wd) return `cada ${wd.es.toLowerCase()} a las ${tStr}${tzNote}`;
   }
   return null;
 }

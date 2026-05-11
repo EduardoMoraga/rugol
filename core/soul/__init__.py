@@ -22,6 +22,7 @@ from core.soul.builder import build_soul_context
 from core.soul.dispatcher import TrackDecision, classify, model_for_track
 from core.soul.plan_then_execute import extract_final_answer, wrap_prompt_for_s2
 from core.soul.tools import SOUL_TOOL_NAMES, build_soul_mcp_server
+from core.soul.world_state import build_world_state_block
 
 __all__ = [
     "build_soul_context",
@@ -32,4 +33,5 @@ __all__ = [
     "model_for_track",
     "wrap_prompt_for_s2",
     "extract_final_answer",
+    "build_world_state_block",
 ]

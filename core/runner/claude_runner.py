@@ -90,6 +90,8 @@ async def run_agent(
     soul_mcp_server=None,
     soul_tool_names: tuple[str, ...] = (),
     agent_body: str | None = None,
+    telegram_mcp_server=None,
+    telegram_tool_names: tuple[str, ...] = (),
 ) -> RunResult:
     """Invoke claude-agent-sdk and stream events while collecting the result.
 
@@ -133,8 +135,11 @@ async def run_agent(
     # to the agent" → "most specific to the run":
     #   1. agent_body          — the .md persona / current lineage version
     #   2. SYSTEM_PROMPT_APPEND — Rogologo platform rules
-    #   3. soul_context         — identity block + auto-memory policy (ADR-006)
-    #   4. project_context      — project mission + lessons (ADR-005)
+    #   3. endpoint inventory   — real /api/* paths the agent can call
+    #   4. soul_context         — world state + identity + auto-memory (ADR-006)
+    #   5. project_context      — project mission + lessons (ADR-005)
+    from core.runner.api_inventory import render_endpoint_block
+
     parts: list[str] = []
     if agent_body and agent_body.strip():
         parts.append(
@@ -142,6 +147,9 @@ async def run_agent(
             + agent_body.strip()
         )
     parts.append(SYSTEM_PROMPT_APPEND)
+    endpoint_block = render_endpoint_block()
+    if endpoint_block:
+        parts.append(endpoint_block)
     if soul_context:
         parts.append(soul_context)
     if project_context:
@@ -165,23 +173,25 @@ async def run_agent(
         setting_sources=["user"],
         env=_build_env(),
     )
-    # Soul MCP server (ADR-006) — merged into the per-agent mcp_servers
-    # map under its own name. Agent-configured servers win on name clash
-    # (legacy compat), though `rogologo-soul` is reserved by convention.
+    # MCP servers merge order:
+    #   - Platform-provided servers (rogologo-soul, rogologo-telegram) come first.
+    #   - Per-agent configured servers can override on name clash (legacy compat).
     merged_mcp: dict = {}
     if soul_mcp_server is not None:
         merged_mcp["rogologo-soul"] = soul_mcp_server
+    if telegram_mcp_server is not None:
+        merged_mcp["rogologo-telegram"] = telegram_mcp_server
     if mcp_servers:
         merged_mcp.update(mcp_servers)
 
     if tools:
-        # When the agent has a tool allowlist, surface the soul tools too so
-        # the agent can actually call them. Preset mode (no allowlist) opens
-        # all tools by default, so we skip the splice there.
+        # When the agent has a tool allowlist, surface the platform tools too
+        # so the agent can actually call them. Preset mode (no allowlist)
+        # opens all tools by default, so we skip the splice there.
         tool_list = list(tools)
-        for soul_tool in soul_tool_names:
-            if soul_tool not in tool_list:
-                tool_list.append(soul_tool)
+        for extra in list(soul_tool_names) + list(telegram_tool_names):
+            if extra not in tool_list:
+                tool_list.append(extra)
         options_kwargs["tools"] = tool_list
     if merged_mcp:
         options_kwargs["mcp_servers"] = merged_mcp

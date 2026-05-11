@@ -25,6 +25,7 @@ from sqlalchemy import desc, select
 from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, Run
+from core.llm_models import OPUS
 from core.runner.claude_runner import run_agent
 from core.soul.evolution.archive import (
     current_body,
@@ -138,7 +139,7 @@ async def propose_mutations(
             agent_name="rogologo-proposer",
             prompt=prompt,
             workspace_dir=workspace_dir,
-            model="claude-opus-4-7",
+            model=OPUS,
         )
     except Exception:
         logger.exception("proposer run failed for agent %s", agent_id)

@@ -3,6 +3,66 @@
 All notable changes to Rogologo are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1-alpha] — 2026-05-11
+
+**Stability + sensory release.** Cierra los bugs que Eduardo hit en
+tráfico real durante el primer fin de semana en producción. Los agentes
+ahora saben qué día es, los schedules corren en hora Chile y el agente
+nunca más inventa endpoints REST que no existen.
+
+### Fixed (P0 — los que rompían la experiencia diaria)
+- **El agente sabe qué fecha y hora es**. Nuevo bloque `core/soul/world_state.py`
+  inyectado en cada run con la fecha actual en español, el día de la
+  semana (laborable o no), el ISO timestamp con offset, y la zona
+  horaria configurada. Causa raíz del incidente "es domingo" un lunes.
+- **Scheduler con timezone Chile**. APScheduler y `CronTrigger` ahora
+  usan `settings.SCHEDULER_TIMEZONE` (default `America/Santiago`).
+  El cron `"0 8 * * 1-5"` se dispara 8 AM Chile, no 8 AM UTC.
+- **Lista cerrada de endpoints REST en el system prompt**. Nuevo
+  `core/runner/api_inventory.py` introspecciona el FastAPI router en
+  boot y renderiza un bloque markdown `## REST endpoints disponibles`
+  para cada run. El agente ya no inventa `/api/telegram/send` ni rutas
+  inexistentes.
+- **`SOUL_INJECT_AGENT_BODY` reactivado por default** con un guard de
+  tamaño (`SOUL_INJECT_BODY_MAX_CHARS=8000`). Si el body excede el
+  límite, se loggea warning y se salta la inyección — antes de eso
+  reventaba el subprocess CLI por largo de command line en Windows.
+
+### Added (P1 — calidad)
+- **MCP server in-process `rogologo-telegram`** (`core/runner/telegram_tools.py`).
+  Cada agente recibe automáticamente la tool
+  `mcp__rogologo-telegram__send_telegram_message`. Soporta `chat_id="default"`
+  que resuelve al binding de Telegram más reciente del usuario. Solo
+  se construye si `TELEGRAM_BOT_TOKEN` está configurado.
+- **Suite de tests smoke para la API REST** (`tests/test_api_smoke.py`).
+  11 tests nuevos cubren health, agents, runs, schedules, projects,
+  skills, los 404 esperados, y la inventory del endpoint block.
+- **Constante central de modelos Claude** (`core/llm_models.py`).
+  `OPUS`, `SONNET`, `HAIKU`. Cuando Anthropic suelte la siguiente
+  generación se cambia en un archivo y propaga. Dispatcher, proposer
+  y validator ya consumen las constantes.
+
+### Changed (P2 — pulido)
+- Dashboard `/schedules` ya no convierte la hora del usuario a UTC
+  antes de guardar el cron. La hora ingresada se almacena tal cual y
+  el scheduler la interpreta en su zona configurada. Etiqueta de
+  horario cambia de "20:00 America/Santiago" a "20:00 hora del servidor"
+  para no confundir cuando el server corre en otra zona.
+
+### Tests
+- 55 pytest verdes (11 nuevos de la API smoke + 44 anteriores).
+
+### Settings nuevos en `.env`
+- `SCHEDULER_TIMEZONE` (default `America/Santiago`).
+- `SOUL_INJECT_BODY_MAX_CHARS` (default `8000`).
+
+### Migración
+Sin cambios de schema. Los schedules creados en v0.7.0-alpha apuntando
+a UTC seguirán activos pero se dispararán en la zona configurada — si
+estás en Chile no notarás diferencia (ese era el bug). Si tu .env
+tiene `SOUL_DUAL_TRACK_ENABLED=false` del workaround del hotfix1,
+puedes borrarlo: el dispatcher ya no rompe.
+
 ## [0.7.0-alpha-hotfix1] — 2026-05-10 (later)
 
 Stabilises v0.7.0 after Eduardo hit two crashes on real Telegram traffic:

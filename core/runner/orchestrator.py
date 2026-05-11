@@ -23,6 +23,7 @@ from core.soul import (
     SOUL_TOOL_NAMES,
     build_soul_context,
     build_soul_mcp_server,
+    build_world_state_block,
     classify,
     model_for_track,
     wrap_prompt_for_s2,
@@ -32,6 +33,10 @@ from core.soul.evolution import (
     load_lineage,
     pick_version_for_run,
     record_metrics,
+)
+from core.runner.telegram_tools import (
+    TELEGRAM_TOOL_NAMES,
+    build_telegram_mcp_server,
 )
 
 logger = logging.getLogger(__name__)
@@ -175,6 +180,22 @@ class RuntimeOrchestrator:
         )
         soul_mcp_server = build_soul_mcp_server(agent_name_snapshot)
 
+        # Telegram MCP server — None when no bot token is configured. When
+        # present, the agent gains an `mcp__rogologo-telegram__send_telegram_message`
+        # tool it can call directly (no Bash, no telegram_send.py script).
+        telegram_mcp_server = build_telegram_mcp_server()
+
+        # World State block — real date/time + run metadata. Gets prepended
+        # so the agent never invents "today is X". See core/soul/world_state.py.
+        world_state = build_world_state_block(
+            run_id=run_id,
+            source=req.source,
+            agent_name=agent_name_snapshot,
+            schedule_id=req.schedule_id,
+        )
+        # Compose: world_state first, then identity+memory rules.
+        soul_context = f"{world_state}\n\n{soul_context}"
+
         # ADR-008 Soul-3: resolve which lineage version executes this run.
         # If the agent has no archive, version_id is None and we fall back
         # to the body persisted on the Agent row. If an archive exists, the
@@ -182,12 +203,8 @@ class RuntimeOrchestrator:
         chosen_version_id = pick_version_for_run(agent_name_snapshot, run_id)
         settings = get_settings()
         if chosen_version_id is not None:
-            # Archive-driven body — opt-in via the same flag, since the
-            # crash root cause is large system_append in subprocess CLI.
-            effective_agent_body = (
-                evolution_current_body(agent_name_snapshot, agent_body_snapshot)
-                if settings.SOUL_INJECT_AGENT_BODY
-                else None
+            candidate_body = evolution_current_body(
+                agent_name_snapshot, agent_body_snapshot
             )
             # Stamp version_id on the Run row in a tiny follow-up tx so the
             # dashboard can attribute metrics correctly.
@@ -197,11 +214,27 @@ class RuntimeOrchestrator:
                     run_row.agent_version_id = chosen_version_id
                     await session.commit()
         else:
-            # No archive yet — preserve v0.6 behaviour unless the user
-            # explicitly opts in to body injection.
-            effective_agent_body = (
-                agent_body_snapshot if settings.SOUL_INJECT_AGENT_BODY else None
+            candidate_body = agent_body_snapshot
+
+        # Size guard: bundled CLI passes system_append on the command line
+        # and Windows balks at >~32 KB of args. We cap injection at a safe
+        # body size; oversized bodies skip injection AND log a warning so
+        # the user can shrink the .md or split the agent.
+        if not settings.SOUL_INJECT_AGENT_BODY:
+            effective_agent_body = None
+        elif candidate_body and len(candidate_body) > settings.SOUL_INJECT_BODY_MAX_CHARS:
+            logger.warning(
+                "agent %s body is %s chars (> %s limit) — skipping injection "
+                "to avoid bundled-CLI crash; trim the .md or raise "
+                "SOUL_INJECT_BODY_MAX_CHARS in .env if you know your CLI "
+                "supports larger command lines",
+                agent_name_snapshot,
+                len(candidate_body),
+                settings.SOUL_INJECT_BODY_MAX_CHARS,
             )
+            effective_agent_body = None
+        else:
+            effective_agent_body = candidate_body
 
         await bus.publish("run:started", {
             "run_id": run_id,
@@ -249,6 +282,7 @@ class RuntimeOrchestrator:
                 mcp_servers=agent.mcp_servers,
                 soul_context=soul_context,
                 soul_mcp_server=soul_mcp_server,
+                telegram_mcp_server=telegram_mcp_server,
                 runner_prompt=runner_prompt,
                 agent_body=effective_agent_body,
                 agent_name_for_metrics=agent_name_snapshot,
@@ -269,6 +303,7 @@ class RuntimeOrchestrator:
         mcp_servers: dict | None = None,
         soul_context: str | None = None,
         soul_mcp_server=None,
+        telegram_mcp_server=None,
         runner_prompt: str | None = None,
         agent_body: str | None = None,
         agent_name_for_metrics: str | None = None,
@@ -289,6 +324,8 @@ class RuntimeOrchestrator:
                     soul_context=soul_context,
                     soul_mcp_server=soul_mcp_server,
                     soul_tool_names=SOUL_TOOL_NAMES,
+                    telegram_mcp_server=telegram_mcp_server,
+                    telegram_tool_names=TELEGRAM_TOOL_NAMES,
                     agent_body=agent_body,
                 )
                 await self._mark_completed(run_id, result)

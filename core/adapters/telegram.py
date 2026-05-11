@@ -637,62 +637,126 @@ class TelegramAdapter(Adapter):
     # Bus consumer -----------------------------------------------------------
 
     async def _consume_bus(self) -> None:
-        """Edit the placeholder message with the final text when the run ends."""
-        try:
-            async for evt in bus.subscribe("run:*"):
-                if not self._app:
-                    continue
-                topic = evt.topic
-                if topic not in {"run:completed", "run:failed", "run:cancelled"}:
-                    continue
-                run_id = evt.data.get("run_id")
-                if run_id is None:
-                    continue
-                pend = _PENDING.pop(run_id, None)
-                if not pend:
-                    continue
+        """Edit the placeholder message with the final text when the run ends.
+
+        v0.7.1 — auto-restart on inner failures. Until v0.7.0 a single
+        exception inside the `async for` killed the consumer for the rest
+        of the session, leaving every subsequent run hanging on its
+        placeholder. Now we wrap the inner loop and re-subscribe after a
+        short backoff so the adapter is self-healing.
+        """
+        while True:
+            try:
+                async for evt in bus.subscribe("run:*"):
+                    if not self._app:
+                        continue
+                    topic = evt.topic
+                    if topic not in {"run:completed", "run:failed", "run:cancelled"}:
+                        continue
+                    run_id = evt.data.get("run_id")
+                    if run_id is None:
+                        continue
+                    pend = _PENDING.pop(run_id, None)
+                    if not pend:
+                        # Could be a scheduled run (no Telegram placeholder)
+                        # or an event whose placeholder was already consumed.
+                        # Log at debug-level so we keep visibility without
+                        # spamming. If a Telegram-sourced run loses its
+                        # placeholder, the backend log + dashboard still
+                        # show the result.
+                        logger.debug(
+                            "telegram: no pending placeholder for run %s (topic=%s)",
+                            run_id, topic,
+                        )
+                        continue
+                    await self._deliver_terminal_event(topic, run_id, evt.data, pend)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception(
+                    "telegram bus consumer crashed; auto-restarting in 2s"
+                )
+                await asyncio.sleep(2)
+                continue
+
+    async def _deliver_terminal_event(
+        self,
+        topic: str,
+        run_id: int,
+        data: dict,
+        pend: dict,
+    ) -> None:
+        """Edit (or replace) the placeholder with the run's final state.
+
+        Markdown is best-effort: if Telegram rejects it (escape mistake,
+        unbalanced backticks, etc.) we retry in plain text. If even the
+        edit itself fails (placeholder lost, permission, race), we fall
+        back to sending a fresh message so the user always sees the reply.
+        """
+        chat_id = pend.get("chat_id")
+        msg_id = pend.get("placeholder_msg_id")
+        if not self._app or chat_id is None or msg_id is None:
+            return
+
+        if topic == "run:completed":
+            text = (data.get("final_text") or "").strip() or "(sin texto)"
+            cost = data.get("cost_usd", 0.0)
+            body = _trim_for_telegram(text)
+            suffix = f"\n\n_run #{run_id} · ${cost:.4f}_"
+            new_session = data.get("session_id")
+            if new_session:
+                chat_key = str(chat_id)
+                _CHAT_SESSIONS[chat_key] = new_session
                 try:
-                    if topic == "run:completed":
-                        text = (evt.data.get("final_text") or "").strip() or "(sin texto)"
-                        cost = evt.data.get("cost_usd", 0.0)
-                        body = _trim_for_telegram(text)
-                        suffix = f"\n\n_run #{run_id} · ${cost:.4f}_"
-                        # v0.6 — capture the session_id so the next message
-                        # from this chat continues the same conversation.
-                        new_session = evt.data.get("session_id")
-                        if new_session:
-                            chat_key = str(pend["chat_id"])
-                            _CHAT_SESSIONS[chat_key] = new_session
-                            # v0.6.x — also persist to DB so we survive restarts.
-                            try:
-                                await session_store.save("telegram", chat_key, new_session)
-                            except Exception:
-                                logger.exception("session_store.save failed")
-                        await self._app.bot.edit_message_text(
-                            chat_id=pend["chat_id"],
-                            message_id=pend["placeholder_msg_id"],
-                            text=body + suffix,
-                            parse_mode="Markdown",
-                            disable_web_page_preview=True,
-                        )
-                    elif topic == "run:failed":
-                        await self._app.bot.edit_message_text(
-                            chat_id=pend["chat_id"],
-                            message_id=pend["placeholder_msg_id"],
-                            text=f"❌ Run #{run_id} falló: {evt.data.get('error', 'unknown')}",
-                        )
-                    else:  # cancelled
-                        await self._app.bot.edit_message_text(
-                            chat_id=pend["chat_id"],
-                            message_id=pend["placeholder_msg_id"],
-                            text=f"⚠️ Run #{run_id} cancelado.",
-                        )
+                    await session_store.save("telegram", chat_key, new_session)
                 except Exception:
-                    logger.exception("telegram reply edit failed for run %s", run_id)
-        except asyncio.CancelledError:
-            raise
+                    logger.exception("session_store.save failed")
+            final_text = body + suffix
+        elif topic == "run:failed":
+            final_text = f"❌ Run #{run_id} falló: {data.get('error', 'unknown')}"
+        else:  # cancelled
+            final_text = f"⚠️ Run #{run_id} cancelado."
+
+        # 1st attempt: Markdown.
+        try:
+            await self._app.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=msg_id,
+                text=final_text,
+                parse_mode="Markdown",
+                disable_web_page_preview=True,
+            )
+            return
+        except Exception as e_md:
+            logger.warning(
+                "telegram edit Markdown failed for run %s (%s); retrying plain",
+                run_id, e_md,
+            )
+        # 2nd attempt: plain text edit (no parse_mode).
+        try:
+            await self._app.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=msg_id,
+                text=final_text,
+                disable_web_page_preview=True,
+            )
+            return
+        except Exception as e_plain:
+            logger.warning(
+                "telegram edit plain failed for run %s (%s); sending fresh message",
+                run_id, e_plain,
+            )
+        # 3rd attempt: send a brand-new message so the user always sees the answer.
+        try:
+            await self._app.bot.send_message(
+                chat_id=chat_id,
+                text=final_text,
+                disable_web_page_preview=True,
+            )
         except Exception:
-            logger.exception("telegram bus consumer crashed; will not auto-restart this session")
+            logger.exception(
+                "telegram fallback send_message also failed for run %s", run_id
+            )
 
     # Error handler ----------------------------------------------------------
 

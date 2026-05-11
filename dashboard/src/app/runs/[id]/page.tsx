@@ -94,10 +94,26 @@ export default function RunDetail() {
         title={`Run #${r.id}`}
         description={`Source: ${r.source}${
           elapsed !== null ? ` · ${elapsed.toFixed(1)}s elapsed` : ""
-        }${r.session_id ? ` · session ${r.session_id.slice(0, 8)}` : ""}`}
+        }${r.session_id ? ` · session ${r.session_id.slice(0, 8)}` : ""}${
+          r.agent_version_id ? ` · version ${r.agent_version_id}` : ""
+        }`}
         actions={
           <>
             <StatusBadge status={r.status} />
+            {r.track && (
+              <Badge
+                tone={r.track === "s1" ? "idle" : "accent"}
+                title={
+                  r.classifier_rationale
+                    ? `${r.track.toUpperCase()} (${(
+                        (r.classifier_confidence ?? 0) * 100
+                      ).toFixed(0)}%) — ${r.classifier_rationale}`
+                    : r.track.toUpperCase()
+                }
+              >
+                {r.track === "s1" ? "S1 · fast" : "S2 · deliberate"}
+              </Badge>
+            )}
             {isLive && (
               <Button variant="danger" size="sm" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
                 <Square size={12} /> Cancel

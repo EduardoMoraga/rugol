@@ -51,6 +51,12 @@ async def init_db() -> None:
             ("projects", "lessons_json", "TEXT"),
             # Capa 8: per-agent MCP servers (JSON dict keyed by server name).
             ("agents", "mcp_servers_json", "TEXT"),
+            # Soul-2 (ADR-007): dual-track dispatcher metadata.
+            ("runs", "track", "TEXT"),
+            ("runs", "classifier_confidence", "REAL"),
+            ("runs", "classifier_rationale", "TEXT"),
+            # Soul-3 (ADR-008): which system-prompt version ran.
+            ("runs", "agent_version_id", "TEXT"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

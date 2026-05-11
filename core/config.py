@@ -55,6 +55,23 @@ class Settings(BaseSettings):
     # Telemetry
     TELEMETRY_ENABLED: bool = False
 
+    # Soul Layer — ADR-006/007/008
+    # When true, every run hits the dispatcher classifier before model selection
+    # (Soul-2). Disable to bypass the extra Haiku call (useful for benchmarks
+    # or when running offline-ish without API credits).
+    SOUL_DUAL_TRACK_ENABLED: bool = True
+    SOUL_CLASSIFIER_MODEL: str = "claude-haiku-4-5-20251001"
+    # When true and dispatcher returns S2, wrap the prompt to force a
+    # plan-critique-answer structure (single round-trip). Off by default.
+    SOUL_PLAN_THEN_EXECUTE_ENABLED: bool = False
+    # When true (and the agent has multiple active versions in its archive),
+    # the runner routes runs across active versions per A/B (Soul-3). Off
+    # by default — opt in once you have a proposer-driven branch.
+    SOUL_EVOLUTION_AB_ENABLED: bool = False
+    # Cadence multiplier for Soul-3 proposer. Higher = less frequent.
+    # 1.0 = inherit existing trigger (every 10 runs or 3 consecutive fails).
+    SOUL_PROPOSER_MULTIPLIER: float = 1.0
+
     # Security
     SESSION_SECRET: str = "change-me-to-a-random-32-char-string"
 

@@ -135,6 +135,33 @@ the decisions that matter.
 
 ---
 
+## The Soul Layer
+
+Every agent registered in Rogologo inherits a stack of capabilities
+that turns it from "a prompt with a model" into something with
+continuity. You don't configure this — it's the platform's default.
+
+1. **Identity** — every run starts with "you are X, you've been here
+   N times before, this is what we've worked on together". The agent
+   sounds like itself across runs because it always knows who it is.
+2. **Proactive memory** — the agent has three tools it can call on
+   its own: `save_memory`, `list_my_memories`, `forget_memory`. It
+   reads explicit rules about *when* to save (user facts, feedback,
+   project state, external references) and what NOT to save. The
+   memory persists across runs as plain markdown in `agent-memory/`.
+3. **(Roadmap) Dual-track dispatch** — a Haiku classifier routes
+   every request to System 1 (fast, cached) or System 2 (deliberate,
+   Opus, plan-then-execute). Kahneman, made executable.
+4. **(Roadmap) Evolutionary archive** — each agent's system prompt
+   has a tree of versions, each validated empirically against past
+   runs. Inspired by the Darwin Gödel Machine (arXiv:2505.22954).
+   Open-ended self-improvement, with the human always in the loop.
+
+See [`docs/adrs/ADR-006-soul-layer.md`](docs/adrs/ADR-006-soul-layer.md)
+for the design, plus ADR-007 and ADR-008 for the future sprints.
+
+---
+
 ## Quickstart
 
 **Prerequisites**: Windows 10/11 (Mac/Linux work, installers in
@@ -166,7 +193,7 @@ emotional landing screen with five ready-to-clone templates. Click one
 
 ---
 
-## What's already inside · `v0.5.0-alpha`
+## What's already inside · `v0.7.0-alpha`
 
 Rogologo was built in layers, each shipped as a working, tested commit.
 The current version includes:
@@ -187,6 +214,9 @@ The current version includes:
 | **13** | Telegram + Slack adapters with channel bindings + reply-on-completion |
 | **14** | Reset to clean state (script + admin endpoint + Settings button) — install on a new PC in minutes |
 | **15** | EN/ES toggle in the nav rail (persisted in localStorage) |
+| **16** | **Soul Layer — Sprint 1**: identity + proactive memory tools, every agent inherits them automatically ([ADR-006](docs/adrs/ADR-006-soul-layer.md)) |
+| **17** | **Soul Layer — Sprint 2**: dual-track dispatcher (S1/S2 routing via Haiku classifier) + opt-in plan-then-execute ([ADR-007](docs/adrs/ADR-007-dual-track-dispatcher.md)) |
+| **18** | **Soul Layer — Sprint 3**: per-agent evolutionary archive — propose/validate/accept mutations of system prompts ([ADR-008](docs/adrs/ADR-008-evolutionary-archive.md)) |
 
 Full history in [CHANGELOG.md](CHANGELOG.md). Technical detail in
 [DEVELOPMENT.md](DEVELOPMENT.md) and the ADRs at [`docs/adrs/`](docs/adrs/).

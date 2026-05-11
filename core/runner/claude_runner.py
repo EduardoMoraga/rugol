@@ -86,6 +86,10 @@ async def run_agent(
     tools: list[str] | None = None,
     project_context: str | None = None,
     mcp_servers: dict | None = None,
+    soul_context: str | None = None,
+    soul_mcp_server=None,
+    soul_tool_names: tuple[str, ...] = (),
+    agent_body: str | None = None,
 ) -> RunResult:
     """Invoke claude-agent-sdk and stream events while collecting the result.
 
@@ -99,6 +103,24 @@ async def run_agent(
     `mcp_servers`: per-agent MCP server configurations (Capa 8). Dict keyed
     by server name; values are McpServerConfig (stdio/sse/http). Passed
     straight through to the SDK; ignored when None or empty.
+
+    `soul_context`: identity + auto-memory rules block (ADR-006). Prepended
+    to project_context so the agent reads "who am I + how to remember"
+    before the project mission.
+
+    `soul_mcp_server`: in-process MCP server exposing save_memory,
+    list_my_memories, forget_memory bound to this agent's name. None
+    disables the Soul tools for the run.
+
+    `soul_tool_names`: MCP-qualified tool names to add to the allowlist
+    when `tools` whitelist is set. Ignored when `tools` is None/empty
+    (preset uses every tool anyway).
+
+    `agent_body`: the agent's persona/instructions (the body of its .md
+    template, or — when Soul-3 is active — the body of the currently
+    selected lineage version). Prepended to the platform rules so the
+    model reads "who I am and what I do" before "what the platform expects".
+    None falls back to a generic Rogologo agent (no specific persona).
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
@@ -107,9 +129,24 @@ async def run_agent(
             "claude-agent-sdk is not installed. Install it with `pip install claude-agent-sdk`."
         ) from e
 
-    system_append = SYSTEM_PROMPT_APPEND
+    # Compose system-prompt append in layers, ordered from "most specific
+    # to the agent" → "most specific to the run":
+    #   1. agent_body          — the .md persona / current lineage version
+    #   2. SYSTEM_PROMPT_APPEND — Rogologo platform rules
+    #   3. soul_context         — identity block + auto-memory policy (ADR-006)
+    #   4. project_context      — project mission + lessons (ADR-005)
+    parts: list[str] = []
+    if agent_body and agent_body.strip():
+        parts.append(
+            "## Agent persona (your spec — what you are, how you work)\n"
+            + agent_body.strip()
+        )
+    parts.append(SYSTEM_PROMPT_APPEND)
+    if soul_context:
+        parts.append(soul_context)
     if project_context:
-        system_append = f"{SYSTEM_PROMPT_APPEND}\n\n{project_context}"
+        parts.append(project_context)
+    system_append = "\n\n".join(parts)
 
     # `setting_sources=["user"]` — solo necesitamos el "user" setting source
     # para que la SDK use las credenciales de la subscripción Claude Pro/Max
@@ -128,10 +165,26 @@ async def run_agent(
         setting_sources=["user"],
         env=_build_env(),
     )
-    if tools:
-        options_kwargs["tools"] = list(tools)
+    # Soul MCP server (ADR-006) — merged into the per-agent mcp_servers
+    # map under its own name. Agent-configured servers win on name clash
+    # (legacy compat), though `rogologo-soul` is reserved by convention.
+    merged_mcp: dict = {}
+    if soul_mcp_server is not None:
+        merged_mcp["rogologo-soul"] = soul_mcp_server
     if mcp_servers:
-        options_kwargs["mcp_servers"] = dict(mcp_servers)
+        merged_mcp.update(mcp_servers)
+
+    if tools:
+        # When the agent has a tool allowlist, surface the soul tools too so
+        # the agent can actually call them. Preset mode (no allowlist) opens
+        # all tools by default, so we skip the splice there.
+        tool_list = list(tools)
+        for soul_tool in soul_tool_names:
+            if soul_tool not in tool_list:
+                tool_list.append(soul_tool)
+        options_kwargs["tools"] = tool_list
+    if merged_mcp:
+        options_kwargs["mcp_servers"] = merged_mcp
     options = ClaudeAgentOptions(**options_kwargs)
 
     parts: list[str] = []

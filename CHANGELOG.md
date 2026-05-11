@@ -3,6 +3,103 @@
 All notable changes to Rogologo are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0-alpha] — 2026-05-10
+
+**The Soul Layer release.** Every agent registered in Rogologo now inherits
+identity, proactive memory, dual-track dispatch, and an evolutionary archive
+of its own system prompt — without per-agent configuration. Inspired by the
+Darwin Gödel Machine (Zhang/Hu/Lu/Lange/Clune, arXiv:2505.22954) and
+Kahneman's dual-process theory.
+
+### Soul-1 · Identity + proactive memory (ADR-006)
+- `core/soul/identity.py` — identity block prepended to every system prompt:
+  name, description, prior run count, persistent memory count. Built from
+  immutable agent fields, so reflection writes to memory (not identity).
+- `core/soul/auto_memory.py` — explicit policy block the agent reads on
+  every run. Four memory kinds with examples: `user`, `feedback`,
+  `project`, `reference`. Includes the "what NOT to save" rules and the
+  `Why:`/`How to apply:` structure for feedback/project entries.
+- `core/soul/tools.py` — in-process MCP server `rogologo-soul` exposing
+  `save_memory`, `list_my_memories`, `forget_memory`. The `agent_name` is
+  captured in closure for each run, so an agent can never write into
+  another agent's memory.
+- `core/soul/builder.py` — composes identity + rules into one block.
+
+### Soul-2 · Dual-track dispatcher (ADR-007)
+- `core/soul/dispatcher.py` — Haiku-based classifier labels each request
+  S1 (fast/intuitive) or S2 (deliberate). Defaults to S2 on ambiguity.
+  Bypasses cleanly when `SOUL_DUAL_TRACK_ENABLED=false` or the caller
+  forced `model_override`.
+- `core/soul/plan_then_execute.py` — opt-in wrapper that makes S2 runs
+  emit "Plan → Critique → Answer" in a single round-trip. Toggle via
+  `SOUL_PLAN_THEN_EXECUTE_ENABLED`. `extract_final_answer()` helper for
+  adapters that want to send only the user-facing answer to Telegram/Slack.
+- `runs.track`, `runs.classifier_confidence`, `runs.classifier_rationale`
+  columns added. Dashboard shows an `S1 · fast` / `S2 · deliberate` badge
+  on run detail and on the agent's recent-runs list, with the classifier
+  rationale as tooltip.
+
+### Soul-3 · Evolutionary archive (ADR-008)
+- `core/soul/evolution/archive.py` — per-agent lineage on disk
+  (`agent-soul/<agent>/lineage.json` + `versions/<id>.md`). Supports
+  `propose / accept / reject / branch / rollback / record_metrics`.
+- `core/soul/evolution/proposer.py` — generates 1-3 candidate mutations
+  from recent run history. Opus-based, parses `===CANDIDATE n===` blocks.
+- `core/soul/evolution/validator.py` — Opus self-critique scoring with
+  an optional `golden_set.jsonl` per-agent. Score is informational, not
+  a gate; humans always decide. Designed so adding a golden set later
+  upgrades the validator without API changes.
+- `core/soul/evolution/router.py` — deterministic A/B routing across
+  active branches when `SOUL_EVOLUTION_AB_ENABLED=true`.
+- REST API under `/api/agents/{id}/evolution/{...}`: list lineage,
+  propose, validate, accept, reject, branch, rollback, get version body.
+- `runs.agent_version_id` column added — every run is now attributable
+  to a specific lineage version, so per-version metrics are honest.
+- Dashboard: new `/agents/[id]/evolution` page with a list of versions
+  ordered by recency, status badges, metrics per version, validation
+  scores, and all lifecycle actions inline. "Evolution" button added to
+  the agent detail header.
+
+### Cross-cutting fixes
+- `agent_body` (the `.md` body that defines the agent's persona) is now
+  actually injected into the system prompt. Until v0.6 it was persisted
+  in the DB but never reached the model — the agent ran with the
+  Claude Code preset only. This was masked because Rogologo's bundled
+  templates happen to be short. Soul-3 needed this fixed to be coherent
+  (the body is the unit of evolution).
+- `core/runner/claude_runner.py` system-prompt composition now layers:
+  agent persona → platform rules → soul context → project context.
+- `core/runner/orchestrator.py` calls the dispatcher before model
+  selection, resolves the body via the evolutionary router, and folds
+  run metrics back into the version's averages.
+
+### Settings (`.env`)
+- `SOUL_DUAL_TRACK_ENABLED` (default `true`) — toggle the classifier.
+- `SOUL_CLASSIFIER_MODEL` (default `claude-haiku-4-5-20251001`).
+- `SOUL_PLAN_THEN_EXECUTE_ENABLED` (default `false`).
+- `SOUL_EVOLUTION_AB_ENABLED` (default `false`).
+- `SOUL_PROPOSER_MULTIPLIER` (default `1.0`).
+
+### Testing
+- 43 pytest cases green: Soul-1 (10), Soul-2 dispatcher (16), Soul-3
+  evolution (14), legacy smoke (3). Proposer + validator + REST endpoints
+  are integration-tested with the live SDK; unit tests cover all pure logic
+  (parsing, file ops, routing, metric folding).
+
+### Migration
+SQLite migrator is idempotent and runs on boot. Adds nullable columns:
+`runs.track`, `runs.classifier_confidence`, `runs.classifier_rationale`,
+`runs.agent_version_id`. No data loss. The new `agent-soul/` directory is
+created on demand the first time the evolution UI is opened or the
+proposer fires.
+
+### Known limitations
+- The validator without a curated `golden_set.jsonl` operates on Opus
+  self-critique only. Scores are a second opinion, not a gate. Curate a
+  golden set per agent once you have enough runs with thumbs-up signal.
+- Cross-agent evolution (one agent's discovery flowing to another) is
+  not implemented. ADR-008 sketches the design.
+
 ## [0.5.0-alpha] — 2026-05-04
 
 **Primer release coherente, instalable y demostrable en una PC limpia.** Pasamos de "scaffold con dashboard" a "sistema operativo de agentes" con paradigma project-first, lecciones vivas, sistema 1/2 explícito, devil's advocate, y templates listos para clonar en un click.

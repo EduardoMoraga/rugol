@@ -12,6 +12,7 @@ import {
   Network,
   ListTree,
   Plug,
+  GitBranch,
 } from "lucide-react";
 import {
   AVAILABLE_TOOLS,
@@ -84,6 +85,11 @@ export default function AgentDetail() {
         actions={
           <div className="flex items-center gap-2">
             <ProjectMover agent={a} />
+            <Link href={`/agents/${agentId}/evolution`}>
+              <Button variant="ghost" size="sm">
+                <GitBranch size={13} /> Evolution
+              </Button>
+            </Link>
             <Link href={`/agents/${agentId}/edit`}>
               <Button variant="secondary" size="sm">
                 <Pencil size={13} /> Edit spec
@@ -173,6 +179,25 @@ export default function AgentDetail() {
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-xs font-mono text-[--color-fg-subtle]">#{r.id}</span>
                       <StatusBadge status={r.status} />
+                      {r.track && (
+                        <span
+                          className={
+                            "pill text-[10px] " +
+                            (r.track === "s1" ? "pill-idle" : "pill-accent")
+                          }
+                          title={r.track === "s1" ? "System 1 — fast track" : "System 2 — deliberate track"}
+                        >
+                          {r.track.toUpperCase()}
+                        </span>
+                      )}
+                      {r.agent_version_id && (
+                        <span
+                          className="text-[10px] text-[--color-fg-subtle] font-mono"
+                          title="Agent version that executed this run"
+                        >
+                          v{r.agent_version_id}
+                        </span>
+                      )}
                       <span className="text-xs text-[--color-fg-muted]">{r.source}</span>
                       <span className="text-xs text-[--color-fg-muted] truncate hidden md:inline max-w-md">
                         {r.prompt}

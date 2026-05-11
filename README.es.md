@@ -134,6 +134,35 @@ para las decisiones que importan.
 
 ---
 
+## La capa Soul (Alma)
+
+Cada agente registrado en Rogologo hereda automáticamente un stack de
+capacidades que lo transforma de "un prompt con un modelo" en algo con
+continuidad. No tienes que configurarlo — es el default de la plataforma.
+
+1. **Identidad** — cada run arranca con "eres X, has corrido N veces
+   antes, esto es lo que ya hemos trabajado juntos". El agente suena
+   como él mismo entre runs porque siempre sabe quién es.
+2. **Memoria proactiva** — el agente tiene tres herramientas que puede
+   llamar por su cuenta: `save_memory`, `list_my_memories`,
+   `forget_memory`. Lee reglas explícitas de *cuándo* guardar (hechos
+   del usuario, feedback, estado del proyecto, referencias externas) y
+   qué NO guardar. La memoria persiste entre runs como markdown plano
+   en `agent-memory/`.
+3. **(Roadmap) Despachador dual** — un clasificador en Haiku rutea
+   cada request a Sistema 1 (rápido, con caché) o Sistema 2
+   (deliberado, Opus, plan-then-execute). Kahneman, hecho ejecutable.
+4. **(Roadmap) Archivo evolutivo** — cada system prompt de cada agente
+   tiene un árbol de versiones, cada una validada empíricamente contra
+   runs pasados. Inspirado en Darwin Gödel Machine (arXiv:2505.22954).
+   Auto-mejora abierta, con humano siempre en el loop.
+
+Diseño completo en
+[`docs/adrs/ADR-006-soul-layer.md`](docs/adrs/ADR-006-soul-layer.md),
+más ADR-007 y ADR-008 para los próximos sprints.
+
+---
+
 ## Quickstart
 
 **Pre-requisitos**: Windows 10/11 (Mac/Linux funcionan, instaladores
@@ -186,6 +215,9 @@ y testeado end-to-end. La versión actual incluye:
 | **13** | Adapters Telegram + Slack con channel bindings + reply-on-completion |
 | **14** | Reset a estado limpio (script + endpoint admin + botón en Settings) — instalar en otro PC en minutos |
 | **15** | Toggle EN/ES en el nav rail (persistido en localStorage) |
+| **16** | **Capa Soul — Sprint 1**: identidad + herramientas de memoria proactiva, cada agente las hereda automáticamente ([ADR-006](docs/adrs/ADR-006-soul-layer.md)) |
+| **17** | **Capa Soul — Sprint 2**: despachador dual S1/S2 (clasificador Haiku) + plan-then-execute opcional ([ADR-007](docs/adrs/ADR-007-dual-track-dispatcher.md)) |
+| **18** | **Capa Soul — Sprint 3**: archivo evolutivo por agente — proponer/validar/aceptar mutaciones del system prompt ([ADR-008](docs/adrs/ADR-008-evolutionary-archive.md)) |
 
 Historia completa en [CHANGELOG.md](CHANGELOG.md). Detalle técnico en
 [DEVELOPMENT.md](DEVELOPMENT.md) y los ADRs en [`docs/adrs/`](docs/adrs/).

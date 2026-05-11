@@ -134,6 +134,15 @@ class Run(Base):
     session_id: Mapped[str | None] = mapped_column(String(128), default=None)
     error_message: Mapped[str | None] = mapped_column(Text, default=None)
     final_text: Mapped[str | None] = mapped_column(Text, default=None)
+    # Soul-2 (ADR-007): dual-track dispatcher metadata. NULL on runs that
+    # bypassed the dispatcher (forced model_override, devil's advocate, etc.).
+    track: Mapped[str | None] = mapped_column(String(8), default=None)  # s1|s2|None
+    classifier_confidence: Mapped[float | None] = mapped_column(Float, default=None)
+    classifier_rationale: Mapped[str | None] = mapped_column(Text, default=None)
+    # Soul-3 (ADR-008): the system-prompt version this run executed against.
+    # Format: short id from agent-soul/<name>/lineage.json ("001", "002b", …).
+    # NULL on runs that pre-date Soul-3 or on agents with no archive yet.
+    agent_version_id: Mapped[str | None] = mapped_column(String(32), default=None)
 
     agent: Mapped[Agent] = relationship(back_populates="runs")
     messages: Mapped[list["Message"]] = relationship(back_populates="run", cascade="all, delete-orphan")

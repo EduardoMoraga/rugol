@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from core.bus import bus
@@ -19,6 +19,20 @@ from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.memory import build_memory_block
 from core.runner.claude_runner import run_agent
+from core.soul import (
+    SOUL_TOOL_NAMES,
+    build_soul_context,
+    build_soul_mcp_server,
+    classify,
+    model_for_track,
+    wrap_prompt_for_s2,
+)
+from core.soul.evolution import (
+    current_body as evolution_current_body,
+    load_lineage,
+    pick_version_for_run,
+    record_metrics,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +95,16 @@ class RuntimeOrchestrator:
 
     async def enqueue(self, req: RunRequest) -> int:
         """Persist a Run row and spawn the runner task. Returns run_id."""
+        # Soul-2 (ADR-007): classify the request BEFORE we touch the DB so a
+        # slow Haiku call does not hold a SQLAlchemy connection open. Bypasses
+        # gracefully when dual-track is disabled or the caller forced a model.
+        dispatch_decision = await classify(
+            req.prompt,
+            agent_name=req.agent_name,
+            model_override=req.model_override,
+            workspace_dir=self._workspace,
+        )
+
         async with async_session_factory() as session:
             agent = (await session.execute(
                 select(Agent)
@@ -90,6 +114,17 @@ class RuntimeOrchestrator:
             if agent is None:
                 raise ValueError(f"Agent not found: {req.agent_name}")
 
+            # Run count BEFORE we insert this one, so "this is run #N" matches
+            # what the soul block claims to the agent.
+            prior_run_count = int(
+                (await session.execute(
+                    select(func.count(Run.id)).where(Run.agent_id == agent.id)
+                )).scalar_one() or 0
+            )
+            last_run_at_iso = (
+                agent.last_run_at.isoformat() if agent.last_run_at else None
+            )
+
             run = Run(
                 agent_id=agent.id,
                 schedule_id=req.schedule_id,
@@ -97,12 +132,24 @@ class RuntimeOrchestrator:
                 prompt=req.prompt,
                 session_id=req.session_id,
                 status="running",
+                # Stamp dispatcher decision when it actually ran (not bypassed).
+                track=None if dispatch_decision.bypassed else dispatch_decision.track,
+                classifier_confidence=(
+                    None if dispatch_decision.bypassed else dispatch_decision.confidence
+                ),
+                classifier_rationale=(
+                    None if dispatch_decision.bypassed else dispatch_decision.rationale
+                ),
             )
             session.add(run)
             await session.flush()
             run_id = run.id
             agent.status = "running"
             agent.last_run_at = dt.datetime.now(dt.timezone.utc)
+            agent_name_snapshot = agent.name
+            agent_description_snapshot = agent.description or ""
+            agent_default_model_snapshot = agent.model
+            agent_body_snapshot = agent.body or ""
             project = agent.project
             project_context = _build_project_context(project) if project else None
             # v0.6.x — Sprint B: per-agent file-based memory. Read the agent's
@@ -117,16 +164,72 @@ class RuntimeOrchestrator:
                 )
             await session.commit()
 
+        # ADR-006 Soul Layer: identity + auto-memory rules block, plus the
+        # in-process MCP server bound to this agent's name. Built outside
+        # the DB session so a slow filesystem scan can't hold the connection.
+        soul_context = build_soul_context(
+            agent_name=agent_name_snapshot,
+            description=agent_description_snapshot,
+            run_count=prior_run_count,
+            last_run_at_iso=last_run_at_iso,
+        )
+        soul_mcp_server = build_soul_mcp_server(agent_name_snapshot)
+
+        # ADR-008 Soul-3: resolve which lineage version executes this run.
+        # If the agent has no archive, version_id is None and we fall back
+        # to the body persisted on the Agent row. If an archive exists, the
+        # router picks current (or an A/B branch when enabled).
+        chosen_version_id = pick_version_for_run(agent_name_snapshot, run_id)
+        if chosen_version_id is not None:
+            effective_agent_body = evolution_current_body(
+                agent_name_snapshot, agent_body_snapshot
+            )
+            # Stamp version_id on the Run row in a tiny follow-up tx so the
+            # dashboard can attribute metrics correctly.
+            async with async_session_factory() as session:
+                run_row = await session.get(Run, run_id)
+                if run_row is not None:
+                    run_row.agent_version_id = chosen_version_id
+                    await session.commit()
+        else:
+            effective_agent_body = agent_body_snapshot
+
         await bus.publish("run:started", {
             "run_id": run_id,
             "agent": req.agent_name,
             "source": req.source,
             "advocate_for_run_id": req.advocate_for_run_id,
+            "track": dispatch_decision.track if not dispatch_decision.bypassed else None,
+            "agent_version_id": chosen_version_id,
         })
 
-        # Capa 4: System 1/2 selector overrides the agent's default model
-        # for this run. None falls back to the agent's normal choice.
-        effective_model = req.model_override or agent.model
+        # Resolve the effective model in priority order:
+        #   1. Explicit model_override from the caller (Capa 4).
+        #   2. Dispatcher decision (Soul-2): s1 → Haiku, s2 → agent default.
+        #   3. Agent's configured default model.
+        if req.model_override:
+            effective_model = req.model_override
+        elif not dispatch_decision.bypassed:
+            effective_model = model_for_track(
+                dispatch_decision.track, agent_default_model_snapshot
+            )
+        else:
+            effective_model = agent_default_model_snapshot
+
+        # Soul-2: when dispatcher routed S2 and plan-then-execute is on,
+        # wrap the prompt so the model produces a plan + critique + answer
+        # in a single round-trip. Skipped for devil's advocate (which has
+        # its own meta-prompt) and bypassed runs.
+        runner_prompt = req.prompt
+        settings = get_settings()
+        if (
+            settings.SOUL_PLAN_THEN_EXECUTE_ENABLED
+            and not dispatch_decision.bypassed
+            and dispatch_decision.track == "s2"
+            and not req.advocate_for_run_id
+        ):
+            runner_prompt = wrap_prompt_for_s2(req.prompt)
+
         task = asyncio.create_task(
             self._execute(
                 run_id, req,
@@ -135,6 +238,12 @@ class RuntimeOrchestrator:
                 project_context=project_context,
                 agent_id=agent.id,
                 mcp_servers=agent.mcp_servers,
+                soul_context=soul_context,
+                soul_mcp_server=soul_mcp_server,
+                runner_prompt=runner_prompt,
+                agent_body=effective_agent_body,
+                agent_name_for_metrics=agent_name_snapshot,
+                version_id_for_metrics=chosen_version_id,
             )
         )
         self._active[run_id] = task
@@ -149,12 +258,18 @@ class RuntimeOrchestrator:
         project_context: str | None = None,
         agent_id: int | None = None,
         mcp_servers: dict | None = None,
+        soul_context: str | None = None,
+        soul_mcp_server=None,
+        runner_prompt: str | None = None,
+        agent_body: str | None = None,
+        agent_name_for_metrics: str | None = None,
+        version_id_for_metrics: str | None = None,
     ) -> None:
         async with self._sem:
             try:
                 result = await run_agent(
                     agent_name=req.agent_name,
-                    prompt=req.prompt,
+                    prompt=runner_prompt if runner_prompt is not None else req.prompt,
                     workspace_dir=self._workspace,
                     model=model,
                     session_id=req.session_id,
@@ -162,8 +277,27 @@ class RuntimeOrchestrator:
                     tools=tools,
                     project_context=project_context,
                     mcp_servers=mcp_servers,
+                    soul_context=soul_context,
+                    soul_mcp_server=soul_mcp_server,
+                    soul_tool_names=SOUL_TOOL_NAMES,
+                    agent_body=agent_body,
                 )
                 await self._mark_completed(run_id, result)
+                # Soul-3 (ADR-008): fold this run's cost into the version's
+                # rolling average. Best-effort — never block the happy path
+                # on archive bookkeeping.
+                if agent_name_for_metrics and version_id_for_metrics:
+                    try:
+                        record_metrics(
+                            agent_name_for_metrics, version_id_for_metrics,
+                            cost_usd=float(result.cost_usd or 0.0),
+                            latency_ms=0.0,  # filled by adapters that time the call
+                        )
+                    except Exception:
+                        logger.exception(
+                            "evolution metrics record failed for %s/%s",
+                            agent_name_for_metrics, version_id_for_metrics,
+                        )
                 # Capa 4: spawn the devil's advocate run after the original
                 # finishes. Same agent, same project context, opus model,
                 # critique meta-prompt. Detached task so the user's primary

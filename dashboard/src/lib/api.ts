@@ -106,6 +106,10 @@ export interface RunSummary {
   cost_usd: number;
   prompt?: string;
   error_message?: string | null;
+  // Soul-2 (ADR-007): dual-track dispatcher metadata.
+  track?: "s1" | "s2" | null;
+  // Soul-3 (ADR-008): which lineage version executed.
+  agent_version_id?: string | null;
 }
 
 export interface RunDetail extends RunSummary {
@@ -113,6 +117,9 @@ export interface RunDetail extends RunSummary {
   prompt: string;
   session_id?: string | null;
   final_text?: string | null;
+  // Soul-2 extra detail.
+  classifier_confidence?: number | null;
+  classifier_rationale?: string | null;
 }
 
 export interface Schedule {
@@ -160,7 +167,7 @@ async function readError(r: Response): Promise<string> {
 // convertimos en un mensaje accionable en vez de "Failed to fetch".
 function networkErrorMessage(): Error {
   return new Error(
-    "No se puede conectar al backend de Rogologo en :8000. " +
+    "No se puede conectar al backend de TeamAgent en :8000. " +
       "Revisa que `uvicorn core.main:app --port 8000` esté corriendo en otra terminal.",
   );
 }
@@ -197,6 +204,64 @@ export const fetchAgent = (id: number) => get<Agent>(`/api/agents/${id}`);
 export const fetchAgentRuns = (id: number) => get<RunSummary[]>(`/api/agents/${id}/runs`);
 export const moveAgent = (id: number, project_slug: string) =>
   post<Agent>(`/api/agents/${id}/move`, { project_slug });
+
+// --- Soul-3 evolutionary archive (ADR-008) ---
+export interface EvolutionVersion {
+  id: string;
+  parent: string | null;
+  created_at: string;
+  status: "active" | "archived" | "proposed" | "rejected" | "accepted";
+  rationale: string;
+  hypothesis: string;
+  metrics: { runs: number; avg_cost_usd: number; avg_latency_ms: number };
+  validation_score: number | null;
+}
+
+export interface EvolutionLineage {
+  agent_id: number;
+  agent_name: string;
+  current: string;
+  active: string[];
+  versions: EvolutionVersion[];
+}
+
+export interface EvolutionValidation {
+  score: number;
+  verdict: "improve" | "neutral" | "regress" | "unknown";
+  rationale: string;
+  concerns: string[];
+}
+
+export const fetchEvolution = (agentId: number) =>
+  get<EvolutionLineage>(`/api/agents/${agentId}/evolution`);
+export const fetchVersionBody = (agentId: number, versionId: string) =>
+  get<{ version_id: string; body: string }>(
+    `/api/agents/${agentId}/evolution/${versionId}/body`,
+  );
+export const proposeEvolution = (agentId: number, max_candidates = 2) =>
+  post<{ proposed_version_ids: string[] }>(
+    `/api/agents/${agentId}/evolution/propose?max_candidates=${max_candidates}`,
+  );
+export const validateEvolution = (agentId: number, versionId: string) =>
+  post<EvolutionValidation>(
+    `/api/agents/${agentId}/evolution/${versionId}/validate`,
+  );
+export const acceptEvolution = (agentId: number, versionId: string) =>
+  post<{ status: string; version_id: string }>(
+    `/api/agents/${agentId}/evolution/${versionId}/accept`,
+  );
+export const rejectEvolution = (agentId: number, versionId: string) =>
+  post<{ status: string; version_id: string }>(
+    `/api/agents/${agentId}/evolution/${versionId}/reject`,
+  );
+export const branchEvolution = (agentId: number, versionId: string) =>
+  post<{ status: string; version_id: string }>(
+    `/api/agents/${agentId}/evolution/${versionId}/branch`,
+  );
+export const rollbackEvolution = (agentId: number, versionId: string) =>
+  post<{ status: string; version_id: string }>(
+    `/api/agents/${agentId}/evolution/${versionId}/rollback`,
+  );
 
 // --- Admin (peligrosos) ---
 export const resetInstall = () =>

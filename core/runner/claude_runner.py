@@ -173,36 +173,49 @@ async def run_agent(
         setting_sources=["user"],
         env=_build_env(),
     )
-    # MCP servers merge order:
-    #   - Platform-provided servers (rogologo-soul, rogologo-telegram) come first.
-    #   - Per-agent configured servers can override on name clash (legacy compat).
+    # MCP servers merge order (v0.7.1 second fix — platform wins):
+    #   - Per-agent configured servers come first.
+    #   - Platform-provided servers (rogologo-soul, rogologo-telegram)
+    #     overwrite ANY collision with their canonical name. This prevents
+    #     a stale or wrong per-agent MCP config from silently breaking the
+    #     in-process tools the runtime depends on.
     merged_mcp: dict = {}
+    if mcp_servers:
+        merged_mcp.update(mcp_servers)
     if soul_mcp_server is not None:
         merged_mcp["rogologo-soul"] = soul_mcp_server
     if telegram_mcp_server is not None:
         merged_mcp["rogologo-telegram"] = telegram_mcp_server
-    if mcp_servers:
-        merged_mcp.update(mcp_servers)
 
-    # Built-in tools (the preset or the agent whitelist). Preset is None
-    # → claude_code default set; explicit list → restricted.
-    if tools:
-        options_kwargs["tools"] = list(tools)
-
-    # `allowed_tools` is the SDK's auto-permit list. We use it for the
-    # MCP tools we want the model to invoke without prompting, regardless
-    # of whether the agent has a built-in whitelist. With
-    # permission_mode="bypassPermissions" this list also ensures the
-    # tools are surfaced — without it, the bundled CLI was treating the
-    # SDK-registered MCP tools as "available but never invoked" because
-    # the model never saw them as auto-allowed (root cause of the
-    # 2026-05-11 'Guardado' confabulation incident).
-    platform_allowed: list[str] = []
+    # Built-in tools — preset (None) or agent whitelist (list).
+    # CRITICAL: when the agent has a whitelist, MCP tools must be added
+    # to that whitelist too. The CLI uses `--tools` as a "base set of
+    # available tools" — anything not in there is invisible to the model,
+    # no matter what allowed_tools says. allowed_tools is permissions,
+    # tools is availability. The 2026-05-11 "Guardado" confabulation
+    # incident with gugol was this: gugol has a tool whitelist, the
+    # platform MCP tools were never in it, so the model never saw
+    # save_memory existing — it just acknowledged like a polite assistant.
+    platform_tool_names: list[str] = []
     for extra in list(soul_tool_names) + list(telegram_tool_names):
-        if extra not in platform_allowed:
-            platform_allowed.append(extra)
-    if platform_allowed:
-        options_kwargs["allowed_tools"] = platform_allowed
+        if extra not in platform_tool_names:
+            platform_tool_names.append(extra)
+
+    if tools:
+        tool_list = list(tools)
+        for extra in platform_tool_names:
+            if extra not in tool_list:
+                tool_list.append(extra)
+        options_kwargs["tools"] = tool_list
+    # When tools is None/empty, we leave it unset so the CLI uses its
+    # default preset, which surfaces MCP tools automatically. Confirmed
+    # by the 2026-05-11 E2E test with company-analyst (tools=None).
+
+    # `allowed_tools` is the SDK's auto-permit list. Used for the MCP
+    # tools so they execute without permission prompts under
+    # bypassPermissions mode.
+    if platform_tool_names:
+        options_kwargs["allowed_tools"] = list(platform_tool_names)
 
     if merged_mcp:
         options_kwargs["mcp_servers"] = merged_mcp

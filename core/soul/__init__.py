@@ -19,6 +19,7 @@ Public surface
 from __future__ import annotations
 
 from core.soul.builder import build_soul_context
+from core.soul.checkpoint import run_checkpoint
 from core.soul.dispatcher import TrackDecision, classify, model_for_track
 from core.soul.plan_then_execute import extract_final_answer, wrap_prompt_for_s2
 from core.soul.tools import SOUL_TOOL_NAMES, build_soul_mcp_server
@@ -34,4 +35,5 @@ __all__ = [
     "wrap_prompt_for_s2",
     "extract_final_answer",
     "build_world_state_block",
+    "run_checkpoint",
 ]

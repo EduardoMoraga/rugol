@@ -26,6 +26,7 @@ from core.soul import (
     build_world_state_block,
     classify,
     model_for_track,
+    run_checkpoint,
     wrap_prompt_for_s2,
 )
 from core.soul.evolution import (
@@ -344,6 +345,19 @@ class RuntimeOrchestrator:
                             "evolution metrics record failed for %s/%s",
                             agent_name_for_metrics, version_id_for_metrics,
                         )
+
+                # Soul-1.5 — auto memory checkpoint. Detached task so it
+                # never blocks the response to the user. Skip for sources
+                # explicitly listed (advocate, schedule, etc.) and for
+                # checkpoint-of-checkpoint recursion (the agent_name
+                # of a checkpoint ends with "-checkpoint").
+                self._maybe_spawn_checkpoint(
+                    agent_name=req.agent_name,
+                    source=req.source,
+                    user_prompt=req.prompt,
+                    agent_response=result.final_text,
+                    advocate_for_run_id=req.advocate_for_run_id,
+                )
                 # Capa 4: spawn the devil's advocate run after the original
                 # finishes. Same agent, same project context, opus model,
                 # critique meta-prompt. Detached task so the user's primary
@@ -370,6 +384,46 @@ class RuntimeOrchestrator:
                     asyncio.create_task(
                         self._maybe_reflect(agent_id, req.agent_name)
                     )
+
+    def _maybe_spawn_checkpoint(
+        self,
+        *,
+        agent_name: str,
+        source: str,
+        user_prompt: str,
+        agent_response: str,
+        advocate_for_run_id: int | None,
+    ) -> None:
+        """Fire-and-forget end-of-run memory evaluation (Soul-1.5).
+
+        Skips on:
+        - Source in SOUL_AUTO_CHECKPOINT_SKIP_SOURCES (devils-advocate,
+          schedule by default — schedules run unattended, no human
+          feedback to capture; advocates are critiques, not conversation).
+        - Agent name ending with -checkpoint (prevents recursion).
+        - The run was itself a devil's advocate run.
+        """
+        settings = get_settings()
+        if not settings.SOUL_AUTO_CHECKPOINT_ENABLED:
+            return
+        if advocate_for_run_id is not None:
+            return
+        if agent_name.endswith("-checkpoint"):
+            return
+        skip = {
+            s.strip() for s in (settings.SOUL_AUTO_CHECKPOINT_SKIP_SOURCES or "").split(",")
+            if s.strip()
+        }
+        if source in skip:
+            return
+        asyncio.create_task(
+            run_checkpoint(
+                agent_name=agent_name,
+                user_prompt=user_prompt,
+                agent_response=agent_response,
+                workspace_dir=self._workspace,
+            )
+        )
 
     async def _spawn_devils_advocate(
         self,

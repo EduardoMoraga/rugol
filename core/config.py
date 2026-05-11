@@ -78,6 +78,17 @@ class Settings(BaseSettings):
     # noted in the run log.
     SOUL_INJECT_AGENT_BODY: bool = True
     SOUL_INJECT_BODY_MAX_CHARS: int = 8000
+    # Soul-1.5 — after each completed run, fire a cheap Haiku evaluation
+    # that decides whether to persist any durable memory from the
+    # interaction. Without this, Soul-1's save_memory tool exists but is
+    # rarely invoked (the model is focused on responding, not reflecting).
+    # Default ON — adds ~$0.001-0.005 per primary run, but the memory
+    # grows organically without the user having to type /remember.
+    SOUL_AUTO_CHECKPOINT_ENABLED: bool = True
+    # Skip the checkpoint when the primary run did NOT come from a real
+    # conversation (e.g. schedule-fired, devil's advocate, reflection,
+    # checkpoint of a checkpoint). The list below matches Run.source.
+    SOUL_AUTO_CHECKPOINT_SKIP_SOURCES: str = "devils-advocate,schedule"
     # When true (and the agent has multiple active versions in its archive),
     # the runner routes runs across active versions per A/B (Soul-3). Off
     # by default — opt in once you have a proposer-driven branch.

@@ -74,7 +74,7 @@ export default function EvolutionPage() {
     mutationFn: () => proposeEvolution(agentId, 2),
     onSuccess: (r) => {
       toast({
-        tone: r.proposed_version_ids.length ? "info" : "warn",
+        tone: r.proposed_version_ids.length ? "info" : "warning",
         title: r.proposed_version_ids.length
           ? `Proposed ${r.proposed_version_ids.join(", ")}`
           : "No proposals — the spec is already strong",
@@ -89,7 +89,7 @@ export default function EvolutionPage() {
     onSuccess: (r, versionId) => {
       setValidationByVersion((m) => ({ ...m, [versionId]: r }));
       toast({
-        tone: r.verdict === "improve" ? "info" : r.verdict === "regress" ? "error" : "warn",
+        tone: r.verdict === "improve" ? "info" : r.verdict === "regress" ? "error" : "warning",
         title: `Score ${(r.score * 100).toFixed(0)}% — ${r.verdict}`,
       });
       qc.invalidateQueries({ queryKey: ["evolution", agentId] });

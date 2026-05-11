@@ -7,8 +7,8 @@ import { NavRail } from "@/components/dashboard/nav-rail";
 import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
-  title: "Rogologo — Agent Operations Center",
-  description: "Open-source operations center for Claude Code agents.",
+  title: "TeamAgent — Increxa",
+  description: "Centro de operaciones de agentes IA para Market Qualification.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

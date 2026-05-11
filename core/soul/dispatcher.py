@@ -183,9 +183,19 @@ def model_for_track(track: str, agent_default_model: str) -> str:
     """Resolve which model to use given a track.
 
     Convention:
-    - s1 → Haiku 4.5 (cheap, fast).
+    - s1 → Haiku 4.5 ONLY when running via API key. With subscription
+      auth (Pro/Max), Haiku via the bundled CLI subprocess crashes
+      (exit code 1, observed 2026-05-10 with agent=gugol). Until we
+      identify the root cause, S1 with subscription keeps the agent's
+      default model — the routing still has value (telemetry, future
+      prompt caching) without the model swap risk.
     - s2 → the agent's configured default model.
     """
     if track == "s1":
+        settings = get_settings()
+        if settings.USE_SUBSCRIPTION:
+            # Avoid the Haiku-on-subscription crash. Telemetry still
+            # records the run as 's1'.
+            return agent_default_model
         return "claude-haiku-4-5-20251001"
     return agent_default_model

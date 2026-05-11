@@ -105,8 +105,23 @@ async def test_classify_bypass_when_model_override_opus():
 
 # ---------- model_for_track ----------
 
-def test_model_for_track_s1_overrides_to_haiku():
+def test_model_for_track_s1_overrides_to_haiku_only_with_api_key(monkeypatch):
+    from core import config
+    # With API key auth: S1 routes to Haiku.
+    monkeypatch.setattr(
+        config.get_settings(), "USE_SUBSCRIPTION", False, raising=False
+    )
     assert model_for_track("s1", "claude-opus-4-7") == "claude-haiku-4-5-20251001"
+
+
+def test_model_for_track_s1_keeps_default_on_subscription(monkeypatch):
+    from core import config
+    # With subscription (Pro/Max): S1 keeps the agent's model. This avoids
+    # the bundled-CLI crash observed when forcing Haiku via subscription.
+    monkeypatch.setattr(
+        config.get_settings(), "USE_SUBSCRIPTION", True, raising=False
+    )
+    assert model_for_track("s1", "claude-opus-4-7") == "claude-opus-4-7"
 
 
 def test_model_for_track_s2_keeps_default():

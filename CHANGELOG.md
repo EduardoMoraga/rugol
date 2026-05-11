@@ -3,6 +3,35 @@
 All notable changes to Rogologo are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0-alpha-hotfix1] — 2026-05-10 (later)
+
+Stabilises v0.7.0 after Eduardo hit two crashes on real Telegram traffic:
+
+### Fixed
+- **Dispatcher S1 + subscription auth crashed** the bundled `claude.exe`
+  with exit code 1 whenever a run was routed to Haiku via Pro/Max
+  subscription. `model_for_track()` now keeps the agent's default model
+  on subscription auth and only swaps to Haiku when running with an
+  API key (where the crash does not occur). The classifier still runs
+  and stamps `track=s1` for telemetry — the routing has value beyond
+  the model swap.
+- **`agent_body` injection into `system_prompt` was reverted to opt-in**
+  via the new `SOUL_INJECT_AGENT_BODY` setting (default **false**). The
+  underlying issue is that the SDK passes the system_append on the CLI
+  command line; large bodies (4-10 KB persona + soul + project + memory
+  = >25 KB total) hit Windows' command-line buffer limit and crash the
+  subprocess. Soul-3 archive still picks the right version body, it just
+  doesn't get injected until we have a stdin path for the system prompt.
+
+### Changed
+- `model_for_track("s1", default)` returns `default` when
+  `USE_SUBSCRIPTION=true`.
+- Orchestrator gates body injection on `SOUL_INJECT_AGENT_BODY`.
+- 44 pytest cases green (1 new test for the subscription branch).
+
+### Settings
+- New: `SOUL_INJECT_AGENT_BODY` (default `false`).
+
 ## [0.7.0-alpha] — 2026-05-10
 
 **The Soul Layer release.** Every agent registered in Rogologo now inherits

@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     # When true and dispatcher returns S2, wrap the prompt to force a
     # plan-critique-answer structure (single round-trip). Off by default.
     SOUL_PLAN_THEN_EXECUTE_ENABLED: bool = False
+    # When true, inject the agent's body (.md persona) as a system_prompt
+    # block. v0.7.0-alpha shipped this ON and it crashed subprocess CLI
+    # for large bodies; reverting to OFF by default until we can pass
+    # the body via stdin instead of command-line append. Soul-3 archive
+    # still works — when a version is chosen, that body wins.
+    SOUL_INJECT_AGENT_BODY: bool = False
     # When true (and the agent has multiple active versions in its archive),
     # the runner routes runs across active versions per A/B (Soul-3). Off
     # by default — opt in once you have a proposer-driven branch.

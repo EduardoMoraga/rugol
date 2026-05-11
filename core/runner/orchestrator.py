@@ -180,9 +180,14 @@ class RuntimeOrchestrator:
         # to the body persisted on the Agent row. If an archive exists, the
         # router picks current (or an A/B branch when enabled).
         chosen_version_id = pick_version_for_run(agent_name_snapshot, run_id)
+        settings = get_settings()
         if chosen_version_id is not None:
-            effective_agent_body = evolution_current_body(
-                agent_name_snapshot, agent_body_snapshot
+            # Archive-driven body — opt-in via the same flag, since the
+            # crash root cause is large system_append in subprocess CLI.
+            effective_agent_body = (
+                evolution_current_body(agent_name_snapshot, agent_body_snapshot)
+                if settings.SOUL_INJECT_AGENT_BODY
+                else None
             )
             # Stamp version_id on the Run row in a tiny follow-up tx so the
             # dashboard can attribute metrics correctly.
@@ -192,7 +197,11 @@ class RuntimeOrchestrator:
                     run_row.agent_version_id = chosen_version_id
                     await session.commit()
         else:
-            effective_agent_body = agent_body_snapshot
+            # No archive yet — preserve v0.6 behaviour unless the user
+            # explicitly opts in to body injection.
+            effective_agent_body = (
+                agent_body_snapshot if settings.SOUL_INJECT_AGENT_BODY else None
+            )
 
         await bus.publish("run:started", {
             "run_id": run_id,

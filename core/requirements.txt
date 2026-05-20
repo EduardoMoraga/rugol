@@ -39,6 +39,10 @@ httpx>=0.28,<1.0
 # Frontmatter parsing
 python-frontmatter>=1.1,<2.0
 
+# Honcho — shared cross-agent memory (ADR-009). Opt-in via HONCHO_ENABLED;
+# the SDK is imported lazily so disabled installs incur no overhead.
+honcho-ai>=1.6,<2.0
+
 # Attachments (v0.6) — extract text from Office docs that users send via Telegram
 python-docx>=1.1,<2.0
 openpyxl>=3.1,<4.0

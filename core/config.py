@@ -97,8 +97,25 @@ class Settings(BaseSettings):
     # 1.0 = inherit existing trigger (every 10 runs or 3 consecutive fails).
     SOUL_PROPOSER_MULTIPLIER: float = 1.0
 
+    # Honcho — ADR-009 shared cross-agent memory.
+    # Opt-in: when false (default), the honcho-ai SDK is never imported and
+    # the rogologo-honcho MCP server is not built. The Soul Layer keeps
+    # working unchanged. Enable to give your agents a Plastic-Labs-backed
+    # shared knowledge graph over external peers (users, clients).
+    HONCHO_ENABLED: bool = False
+    HONCHO_API_KEY: str = ""
+    HONCHO_WORKSPACE_ID: str = "rogologo-default"
+    HONCHO_ENVIRONMENT: str = "production"
+    # If empty, the adapter uses today's ISO date as session id, so
+    # observations naturally group per day. Override for stable sessions.
+    HONCHO_DEFAULT_SESSION: str = ""
+
     # Security
     SESSION_SECRET: str = "change-me-to-a-random-32-char-string"
+
+    @property
+    def honcho_enabled(self) -> bool:
+        return bool(self.HONCHO_ENABLED and self.HONCHO_API_KEY)
 
     @property
     def telegram_enabled(self) -> bool:

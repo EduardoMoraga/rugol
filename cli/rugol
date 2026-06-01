@@ -158,21 +158,19 @@ cmd_setup() {
         *)   warn "Una API key de Anthropic empieza con 'sk-ant-'. Reintentá." ;;
       esac
     done
-  else
+  elif have claude; then
+    # Claude CLI presente en esta máquina → usamos tu login directo.
+    # Token sólo opcional (para correr headless / en un server sin login).
     echo ""
-    echo "   ${D}Tu suscripción se usa con un token long-lived (claude setup-token),"
-    echo "   que funciona headless. Usa tu plan, no cobra por uso.${X}"
-    if have claude; then
-      read -r -p "   ¿Generar el token ahora con 'claude setup-token'? [S/n]: " gen
-      case "${gen:-s}" in
-        s|S|y|Y) echo "   ${D}Autorizá en el navegador y copiá el token que muestra.${X}"
-                 claude setup-token || warn "No pude correr setup-token; pegá un token existente." ;;
-      esac
-    else
-      echo "   ${D}(el CLI 'claude' no está acá — generá el token donde lo tengas y pegalo)${X}"
-    fi
+    echo "   ${D}Usaremos tu login de Claude en esta máquina — no necesitás token.${X}"
+    read -rs -p "   Token de suscripción (opcional, Enter para usar tu login): " oauth_token; echo ""
+  else
+    # Sin claude local → hace falta un token long-lived para autenticar.
+    echo ""
+    echo "   ${D}El CLI 'claude' no está en esta máquina. Generá un token con"
+    echo "   'claude setup-token' donde tengas Claude y pegalo acá.${X}"
     while :; do
-      read -rs -p "   Pegá tu token de suscripción: " oauth_token; echo ""
+      read -rs -p "   Token de suscripción: " oauth_token; echo ""
       [ -n "$oauth_token" ] && break || warn "No puede quedar vacío."
     done
   fi

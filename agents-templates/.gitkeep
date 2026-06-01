@@ -15,5 +15,5 @@ El catálogo de templates *no* vive como archivos `.md` aquí — vive en
 clone limpio del repo arranque con 0 agentes pero con los 5 templates
 disponibles para clonar con un click.
 
-Si quieres apuntar Rogologo a otra carpeta (p.ej. `C:\Moragent\.claude\agents`
+Si quieres apuntar Rugol a otra carpeta (p.ej. `C:\Moragent\.claude\agents`
 para reusar agentes de Claude Code), edítalo en Settings → Agents folder.

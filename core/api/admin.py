@@ -2,7 +2,7 @@
 
 POST /api/admin/reset?confirm=YES_RESET_EVERYTHING
     Borra: DB, settings runtime, todos los .md de agentes generados.
-    Mantiene: skills internas de Rogologo (rogologo-*.md), templates
+    Mantiene: skills internas de Rugol (rugol-*.md), templates
     curados que viven en core/templates/catalog.py.
 
     Después de llamar este endpoint hay que reiniciar el backend para
@@ -25,10 +25,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 PROTECTED_SKILL_NAMES = {
-    "rogologo-add-agent.md",
-    "rogologo-deploy.md",
-    "rogologo-schedule.md",
-    "rogologo-self-improve.md",
+    "rugol-add-agent.md",
+    "rugol-deploy.md",
+    "rugol-schedule.md",
+    "rugol-self-improve.md",
 }
 
 
@@ -49,7 +49,7 @@ async def reset_install(confirm: str = "") -> dict:
     targets: list[Path] = []
 
     # DB files
-    targets.append(REPO_ROOT / "data" / "rogologo.db")
+    targets.append(REPO_ROOT / "data" / "rugol.db")
     targets.append(REPO_ROOT / "data" / "scheduler.db")
     # Runtime settings (tokens, dir overrides, etc.)
     targets.append(REPO_ROOT / "data" / "settings.json")

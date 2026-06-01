@@ -8,7 +8,7 @@ is a shared graph: agent A can ask "what does the team know about peer X?"
 and Honcho synthesises an answer from everything A, B and C have observed.
 
 This adapter is **opt-in**. With HONCHO_ENABLED=false (default) the SDK is
-never imported, so Rogologo runs perfectly without an internet connection
+never imported, so Rugol runs perfectly without an internet connection
 or a Honcho account. When enabled, missing credentials raise on first use
 rather than at import time, so the rest of the stack keeps booting.
 
@@ -63,7 +63,7 @@ def _load_config() -> HonchoConfig:
         )
     return HonchoConfig(
         api_key=s.HONCHO_API_KEY,
-        workspace_id=s.HONCHO_WORKSPACE_ID or "rogologo-default",
+        workspace_id=s.HONCHO_WORKSPACE_ID or "rugol-default",
         environment=s.HONCHO_ENVIRONMENT or "production",
         default_session_id=s.HONCHO_DEFAULT_SESSION or date.today().isoformat(),
     )
@@ -150,7 +150,7 @@ def search_raw(*, query: str, limit: int = 5, session_id: str | None = None) -> 
             raw = search_fn(query.strip())
         return _flatten_search_results(raw, limit)
     logger.warning("honcho: session.search() not available — falling back to chat()")
-    return [query_synthesis(query=query, peer_id="rogologo")]
+    return [query_synthesis(query=query, peer_id="rugol")]
 
 
 def _flatten_search_results(raw: Any, limit: int) -> list[str]:

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering it. Rogologo is small and we'd like to keep it lean.
+Thanks for considering it. Rugol is small and we'd like to keep it lean.
 
 ## Ground rules
 

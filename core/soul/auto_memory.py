@@ -3,7 +3,7 @@
 This is intentionally explicit and prescriptive. The model is good at
 following clear "save this / don't save that" rules; it is bad at
 inferring them on the fly. The four-kind taxonomy mirrors what Claude
-Code itself uses internally, adapted for the Rogologo per-agent store.
+Code itself uses internally, adapted for the Rugol per-agent store.
 """
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ AUTO_MEMORY_RULES = """## Cómo usar tu memoria persistente
 
 Tienes tres herramientas MCP que el sistema te da gratis:
 
-- `mcp__rogologo-soul__save_memory(name, description, content, kind)` — agrega una memoria nueva.
-- `mcp__rogologo-soul__list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
-- `mcp__rogologo-soul__forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
+- `mcp__rugol-soul__save_memory(name, description, content, kind)` — agrega una memoria nueva.
+- `mcp__rugol-soul__list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
+- `mcp__rugol-soul__forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
 
 Cuando llames a la tool en una respuesta breve, NO digas "guardado" como acuse — primero llamá la tool, después confirmá usando lo que la tool te respondió.
 

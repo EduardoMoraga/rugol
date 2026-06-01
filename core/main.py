@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    logger.info("Rogologo core %s starting (subscription=%s)", __version__, settings.USE_SUBSCRIPTION)
+    logger.info("Rugol core %s starting (subscription=%s)", __version__, settings.USE_SUBSCRIPTION)
 
     # 1. Database
     await init_db()
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     scheduler.start()
 
     # 4. Adapters — NEVER fatal: if a chat platform is misconfigured or
-    # unreachable, the rest of Rogologo must keep working. We caught a
+    # unreachable, the rest of Rugol must keep working. We caught a
     # production bug where a Telegram getMe timeout brought the entire
     # backend down.
     telegram = TelegramAdapter()
@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    logger.info("Rogologo shutting down")
+    logger.info("Rugol shutting down")
     await telegram.stop()
     await slack.stop()
     scheduler.shutdown()
@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="Rogologo Core",
+        title="Rugol Core",
         version=__version__,
         description="Open-source operations center for Claude Code agents.",
         lifespan=lifespan,

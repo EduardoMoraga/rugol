@@ -122,7 +122,7 @@ def test_search_falls_back_when_search_missing(monkeypatch):
 def test_mcp_server_exposes_three_tools():
     server = build_honcho_mcp_server(agent_name="some-agent")
     assert server is not None
-    assert HONCHO_MCP_NAME == "rogologo-honcho"
+    assert HONCHO_MCP_NAME == "rugol-honcho"
     assert len(HONCHO_TOOL_NAMES) == 3
     assert all(name.startswith(f"mcp__{HONCHO_MCP_NAME}__") for name in HONCHO_TOOL_NAMES)
 

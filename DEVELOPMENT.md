@@ -1,6 +1,6 @@
-# Rogologo — Developer notes
+# Rugol — Developer notes
 
-Working notes for anyone touching the Rogologo codebase. The README is for
+Working notes for anyone touching the Rugol codebase. The README is for
 users; this file is for the people building the thing.
 
 ## Stack snapshot
@@ -22,7 +22,7 @@ users; this file is for the people building the thing.
 
 ```bash
 # Backend (Python 3.12 venv)
-cd C:\Moragent\04-LAB\rogologo
+cd C:\Moragent\04-LAB\rugol
 .\.venv\Scripts\Activate.ps1
 pip install -r core/requirements.txt
 uvicorn core.main:app --host 127.0.0.1 --port 8000 --reload

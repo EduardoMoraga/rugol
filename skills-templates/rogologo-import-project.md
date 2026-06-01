@@ -1,28 +1,28 @@
 ---
-name: rogologo-import-project
-description: Import an existing Moragent project (.claude/agents, .claude/skills, .claude/agent-memory) into this Rogologo install in one command.
+name: rugol-import-project
+description: Import an existing Moragent project (.claude/agents, .claude/skills, .claude/agent-memory) into this Rugol install in one command.
 ---
 
-# /rogologo-import-project
+# /rugol-import-project
 
-Use when bringing a project built with Moragent (e.g. `hro-v2`, `philips-bi`) into a fresh or existing Rogologo install. Copies agents, skills and per-agent memory from the project's `.claude/` folder into the Rogologo workspace where the filesystem watcher will pick them up.
+Use when bringing a project built with Moragent (e.g. `hro-v2`, `philips-bi`) into a fresh or existing Rugol install. Copies agents, skills and per-agent memory from the project's `.claude/` folder into the Rugol workspace where the filesystem watcher will pick them up.
 
 ## Arguments
 
 - `source`: absolute path to the Moragent project folder (the one that contains `.claude/`).
 - `--apply`: actually copy. Without it the script runs in dry-run mode and only previews changes.
-- `--overwrite`: replace files/folders that already exist in the Rogologo install. Default is skip.
+- `--overwrite`: replace files/folders that already exist in the Rugol install. Default is skip.
 
 ## What it does
 
 1. Reads `<source>/.claude/agents/*.md`, `<source>/.claude/skills/*.md`, and each subfolder of `<source>/.claude/agent-memory/`.
-2. Plans the copy into `agents/`, `skills/`, and `agent-memory/` under the Rogologo install root.
+2. Plans the copy into `agents/`, `skills/`, and `agent-memory/` under the Rugol install root.
 3. Dry-run prints a table grouped by kind (agent / skill / memory) and action (copy / skip / overwrite). Nothing is written.
 4. With `--apply`, performs the copy. The watcher registers the new files within `DISCOVERY_INTERVAL` seconds (default 5).
 
 ## How to run
 
-From the Rogologo install root:
+From the Rugol install root:
 
 ```powershell
 # 1. Preview
@@ -49,11 +49,11 @@ python3 scripts/import_project.py --source /mnt/hro-v2 --apply
   /bind <agent-name>
   ```
   to bind your chat to one of the imported agents (e.g. `/bind hr-cv-screener`).
-- Imported skills are available to every agent that runs in this Rogologo workspace.
+- Imported skills are available to every agent that runs in this Rugol workspace.
 
 ## What is NOT imported
 
-- The project's `CLAUDE.md` (would clash with Rogologo's own).
+- The project's `CLAUDE.md` (would clash with Rugol's own).
 - Anything outside `.claude/` (data files, scripts, templates of the source project stay where they are).
 - Secrets — `.env` and credentials are never touched.
 

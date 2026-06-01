@@ -1,4 +1,4 @@
-# Rogologo — Roadmap
+# Rugol — Roadmap
 
 > Each sprint is two weeks. Goal: ship a public beta in 8 weeks.
 > Track issues with the matching label on GitHub.
@@ -52,7 +52,7 @@ and a "Run now" button. The ant-farm renders all agents as sprites.
 
 ## Sprint 3 — Distribution (week 5-6)
 
-**Goal:** A non-developer on a clean Windows 11 box can install Rogologo and
+**Goal:** A non-developer on a clean Windows 11 box can install Rugol and
 have a working dashboard in under 10 minutes.
 
 **Tickets:**

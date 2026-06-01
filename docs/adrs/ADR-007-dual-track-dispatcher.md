@@ -22,7 +22,7 @@ Kahneman's dual-process theory frames the move:
   where being wrong has real cost.
 
 A frontier agent platform should pick the right cognitive mode for the
-incoming request, not the user. Today Rogologo has `model_override`
+incoming request, not the user. Today Rugol has `model_override`
 which lets a caller force "fast" (Haiku) or "deep" (Opus), but the
 *decision* is on the caller. The platform itself is dumb.
 

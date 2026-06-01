@@ -28,18 +28,28 @@ class RunResult:
 
 
 def _build_env() -> dict[str, str]:
-    """ANTHROPIC_API_KEY removed when USE_SUBSCRIPTION (ADR-002)."""
+    """Shape the subprocess env for the chosen auth mode (ADR-002).
+
+    Subscription mode: drop API-key vars and inject the long-lived
+    CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`) when present, so the
+    bundled `claude` CLI authenticates headlessly — works in Docker and CI.
+    API-key mode: set ANTHROPIC_API_KEY and strip any subscription token so
+    the two never collide.
+    """
     settings = get_settings()
     env = dict(os.environ)
     if settings.USE_SUBSCRIPTION:
         env.pop("ANTHROPIC_API_KEY", None)
         env.pop("ANTHROPIC_AUTH_TOKEN", None)
+        if settings.CLAUDE_CODE_OAUTH_TOKEN:
+            env["CLAUDE_CODE_OAUTH_TOKEN"] = settings.CLAUDE_CODE_OAUTH_TOKEN
     elif settings.ANTHROPIC_API_KEY:
         env["ANTHROPIC_API_KEY"] = settings.ANTHROPIC_API_KEY
+        env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
     return env
 
 
-SYSTEM_PROMPT_APPEND = """You are running inside Rogologo, a local agent operations platform.
+SYSTEM_PROMPT_APPEND = """You are running inside Rugol, a local agent operations platform.
 
 # Output channel
 - Your output is rendered both in a web dashboard and (optionally) sent to Telegram/Slack.
@@ -50,9 +60,9 @@ SYSTEM_PROMPT_APPEND = """You are running inside Rogologo, a local agent operati
 # CRITICAL — runtime state is NOT in files
 The user can ask you two very different kinds of questions, and the answer source is different for each. Do not confuse them.
 
-(A) Questions about ROGOLOGO ITSELF — schedules, runs, agents, projects, settings, ontology.
-- This data lives ONLY in Rogologo's SQLite database. You CANNOT see it by reading files. Files in the filesystem with names like "schedule.py" or "morning_briefing" are scripts of UNRELATED projects belonging to the same user, NOT Rogologo's runtime state.
-- The ONLY correct way to answer these questions is via Rogologo's REST API at http://127.0.0.1:8000. Use Bash + curl:
+(A) Questions about RUGOL ITSELF — schedules, runs, agents, projects, settings, ontology.
+- This data lives ONLY in Rugol's SQLite database. You CANNOT see it by reading files. Files in the filesystem with names like "schedule.py" or "morning_briefing" are scripts of UNRELATED projects belonging to the same user, NOT Rugol's runtime state.
+- The ONLY correct way to answer these questions is via Rugol's REST API at http://127.0.0.1:8000. Use Bash + curl:
     GET /api/schedules              → list schedules
     GET /api/agents                 → list agents
     GET /api/agents/<id>/source     → agent body + mcp config
@@ -61,17 +71,17 @@ The user can ask you two very different kinds of questions, and the answer sourc
     GET /api/runs?limit=10          → recent runs
 - If the API is unreachable for any reason, SAY SO explicitly: "no pude consultar /api/schedules (motivo: ...)". NEVER fabricate a list to fill the gap. NEVER infer schedule names from common patterns (e.g. "Morning Briefing", "Daily Report"). NEVER mix in real company names you know from training data (e.g. "SKF", "Versuni") to make a list look credible.
 - Past failure modes this rule explicitly prevents:
-    * Reading C:\\...\\some-other-project.py and reporting its hardcoded list as if it were Rogologo's live state.
+    * Reading C:\\...\\some-other-project.py and reporting its hardcoded list as if it were Rugol's live state.
     * Confabulating a list of schedules with plausible names ("Lucy Morning Briefing", "SKF Daily Reports") when no API call was made.
     * Saying "let me verify" and then producing a confident-sounding table that was never actually verified against /api/schedules.
 - Hard rule: if you did not just see a successful HTTP 2xx response from the API in this turn, you DO NOT KNOW the runtime state. Say "no tengo el dato y necesito que el backend esté corriendo en localhost:8000 para consultarlo".
 
 (B) Questions about the USER's WORK — their workspace, clients, files, scripts, notes, anything in their PC.
-- For these questions, exploring the filesystem is the WHOLE POINT of Rogologo. Use Read/Bash/Glob/Grep freely against any path the user implicitly or explicitly references.
-- Examples that are fully legitimate: "qué tareas tengo de Versuni esta semana" → grep their workspace; "abrí ese script de SKF" → Read directly; "hacé un dashboard con los datos de C:\..." → use the path.
-- The user gave the agent broad filesystem access deliberately so the agent can be useful across their actual work, not just Rogologo's internal state.
+- For these questions, exploring the filesystem is the WHOLE POINT of Rugol. Use Read/Bash/Glob/Grep freely against any path the user implicitly or explicitly references.
+- Examples that are fully legitimate: "qué tareas tengo de Versuni esta semana" → grep their workspace; "abrí ese script de SKF" → Read directly; "hacé un dashboard con los datos de C:\\..." → use the path.
+- The user gave the agent broad filesystem access deliberately so the agent can be useful across their actual work, not just Rugol's internal state.
 
-The single rule: do not confuse the source. Internal state of Rogologo → REST API only. Anything else → filesystem freely.
+The single rule: do not confuse the source. Internal state of Rugol → REST API only. Anything else → filesystem freely.
 """
 
 
@@ -122,7 +132,7 @@ async def run_agent(
     template, or — when Soul-3 is active — the body of the currently
     selected lineage version). Prepended to the platform rules so the
     model reads "who I am and what I do" before "what the platform expects".
-    None falls back to a generic Rogologo agent (no specific persona).
+    None falls back to a generic Rugol agent (no specific persona).
     """
     try:
         from claude_agent_sdk import ClaudeAgentOptions, query
@@ -134,7 +144,7 @@ async def run_agent(
     # Compose system-prompt append in layers, ordered from "most specific
     # to the agent" → "most specific to the run":
     #   1. agent_body          — the .md persona / current lineage version
-    #   2. SYSTEM_PROMPT_APPEND — Rogologo platform rules
+    #   2. SYSTEM_PROMPT_APPEND — Rugol platform rules
     #   3. endpoint inventory   — real /api/* paths the agent can call
     #   4. soul_context         — world state + identity + auto-memory (ADR-006)
     #   5. project_context      — project mission + lessons (ADR-005)
@@ -160,10 +170,10 @@ async def run_agent(
     # para que la SDK use las credenciales de la subscripción Claude Pro/Max
     # autenticada en la máquina (~/.claude/). NO incluimos "project" ni
     # "local" porque eso haría que el agente lea el CLAUDE.md del repo de
-    # Rogologo y termine respondiendo como si fuera un dev del repo, en vez
+    # Rugol y termine respondiendo como si fuera un dev del repo, en vez
     # de hablar como el agente que el usuario invocó. Bug encontrado al
     # probar un game-designer recién clonado: respondía sobre "Sprint 2 de
-    # Rogologo" en vez de sobre juegos educativos.
+    # Rugol" en vez de sobre juegos educativos.
     options_kwargs: dict = dict(
         cwd=str(workspace_dir),
         model=model,
@@ -175,7 +185,7 @@ async def run_agent(
     )
     # MCP servers merge order (v0.7.1 second fix — platform wins):
     #   - Per-agent configured servers come first.
-    #   - Platform-provided servers (rogologo-soul, rogologo-telegram)
+    #   - Platform-provided servers (rugol-soul, rugol-telegram)
     #     overwrite ANY collision with their canonical name. This prevents
     #     a stale or wrong per-agent MCP config from silently breaking the
     #     in-process tools the runtime depends on.
@@ -183,9 +193,9 @@ async def run_agent(
     if mcp_servers:
         merged_mcp.update(mcp_servers)
     if soul_mcp_server is not None:
-        merged_mcp["rogologo-soul"] = soul_mcp_server
+        merged_mcp["rugol-soul"] = soul_mcp_server
     if telegram_mcp_server is not None:
-        merged_mcp["rogologo-telegram"] = telegram_mcp_server
+        merged_mcp["rugol-telegram"] = telegram_mcp_server
 
     # Built-in tools — preset (None) or agent whitelist (list).
     # CRITICAL: when the agent has a whitelist, MCP tools must be added

@@ -1,10 +1,10 @@
 # ADR-001 — Choice of stack
 
-**Status:** Accepted · 2026-05-02 · Author: rogologo-architect
+**Status:** Accepted · 2026-05-02 · Author: rugol-architect
 
 ## Context
 
-Rogologo needs a stack that is:
+Rugol needs a stack that is:
 
 1. **Familiar to the maintainer** (Eduardo Moraga) — Python and TypeScript
    are his daily drivers. Forcing Go or Rust would slow iteration.

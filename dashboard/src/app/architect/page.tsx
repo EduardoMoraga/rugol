@@ -514,7 +514,7 @@ function ReviewStage({
             <Input
               value={installAgentsDir}
               onChange={(e) => onInstallAgentsDirChange(e.target.value)}
-              placeholder={defaultAgentsDir || "C:\\Moragent\\04-LAB\\rogologo\\agents-templates"}
+              placeholder={defaultAgentsDir || "C:\\Moragent\\04-LAB\\rugol\\agents-templates"}
               className="font-mono text-[12px]"
               spellCheck={false}
             />
@@ -526,7 +526,7 @@ function ReviewStage({
             <Input
               value={installSkillsDir}
               onChange={(e) => onInstallSkillsDirChange(e.target.value)}
-              placeholder={defaultSkillsDir || "C:\\Moragent\\04-LAB\\rogologo\\skills-templates"}
+              placeholder={defaultSkillsDir || "C:\\Moragent\\04-LAB\\rugol\\skills-templates"}
               className="font-mono text-[12px]"
               spellCheck={false}
             />

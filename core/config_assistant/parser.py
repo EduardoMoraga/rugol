@@ -39,7 +39,7 @@ from core.registry.service import upsert_agent_file
 logger = logging.getLogger(__name__)
 
 
-META_PROMPT = """Eres el Config Assistant de Rogologo. Recibís un fragmento de input del usuario (JSON, .env, texto con credenciales, output de otra herramienta) y devolvés un plan estructurado de acciones que Rogologo puede ejecutar.
+META_PROMPT = """Eres el Config Assistant de Rugol. Recibís un fragmento de input del usuario (JSON, .env, texto con credenciales, output de otra herramienta) y devolvés un plan estructurado de acciones que Rugol puede ejecutar.
 
 INPUT_DEL_USUARIO:
 {user_input}
@@ -60,7 +60,7 @@ Reglas para el plan:
 - Si el input contiene OAuth client de Google (objeto `installed.client_id` + `installed.client_secret`), generá `setup_google_oauth_credentials` con el JSON entero. Esto es independiente de si después agregás `add_mcp` con preset `gmail` o `google-calendar` — la credential file tiene que existir antes de que cualquier MCP de Google funcione.
 - Si el input contiene UNA Google API Key (string `AIzaSy...`), generá `set_google_api_key`. ADEMÁS, si entre los agentes existentes hay uno que parezca dedicado a contenido / curaduría / videos / YouTube (mirá su descripción), generá también `add_mcp` con `preset_id=youtube` y `mcp_name=youtube` para ese agente (el script Python custom lee la key automáticamente del archivo guardado, no hay que pasar env). Si no hay un agente claramente apto, dejá solo `set_google_api_key` y mencionalo en `unsure`.
 - IMPORTANTE: NO devuelvas tokens en la `description`. La description debe decir "configurar X con token de Y" SIN mostrar el valor.
-- Si el input contiene varios bots Telegram (caso OpenClaw), recordá que Rogologo solo soporta UN bot Telegram a la vez. Elegí el más representativo (gugol o el del workspace) y describí qué descartaste.
+- Si el input contiene varios bots Telegram (caso OpenClaw), recordá que Rugol solo soporta UN bot Telegram a la vez. Elegí el más representativo (gugol o el del workspace) y describí qué descartaste.
 - Si el input contiene MCP servers para múltiples agentes, generá una `add_mcp` por par (agente, mcp).
 - Si el input no contiene nada accionable, devolvé `actions: []`.
 - Si tenés dudas (ej: "no sé si este token es de Slack o de algo más"), NO lo metas en actions; mejor agregá un campo `unsure` array con strings explicando qué viste y no clasificaste.
@@ -210,7 +210,7 @@ async def parse_user_input(user_input: str) -> ConfigPlan:
         system_prompt={
             "type": "preset",
             "preset": "claude_code",
-            "append": "You are the Rogologo Config Assistant. Output only the JSON object specified. Do not call tools, do not write files.",
+            "append": "You are the Rugol Config Assistant. Output only the JSON object specified. Do not call tools, do not write files.",
         },
         setting_sources=["user"],
         env=env,

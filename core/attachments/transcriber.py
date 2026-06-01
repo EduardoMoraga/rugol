@@ -17,7 +17,7 @@ the cached instance.
 Compute fallback
 ----------------
 On CPU we use int8 quantization. If the user has a GPU (CUDA), they can
-override via `ROGOLOGO_WHISPER_DEVICE=cuda` env var.
+override via `RUGOL_WHISPER_DEVICE=cuda` env var.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Modelo por default. Opciones: tiny, base, small, medium, large-v3.
 # `small` es el sweet spot para Spanish/English en CPU: ~3-5s por minuto
 # transcribido y muy buena precisión. `tiny` es 4x más rápido pero pierde
-# en español. Override con env ROGOLOGO_WHISPER_MODEL=base/medium/etc.
+# en español. Override con env RUGOL_WHISPER_MODEL=base/medium/etc.
 DEFAULT_MODEL = "small"
 
 
@@ -47,8 +47,8 @@ def _get_model() -> Any:
             "pip install faster-whisper>=1.0"
         ) from e
 
-    model_name = os.environ.get("ROGOLOGO_WHISPER_MODEL", DEFAULT_MODEL)
-    device = os.environ.get("ROGOLOGO_WHISPER_DEVICE", "cpu")
+    model_name = os.environ.get("RUGOL_WHISPER_MODEL", DEFAULT_MODEL)
+    device = os.environ.get("RUGOL_WHISPER_DEVICE", "cpu")
     compute_type = "int8" if device == "cpu" else "float16"
     logger.info(
         "loading faster-whisper model=%s device=%s compute=%s (first time can take 30-60s while downloading)",

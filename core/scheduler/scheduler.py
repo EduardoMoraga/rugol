@@ -16,7 +16,7 @@ from core.runner.orchestrator import RunRequest, get_orchestrator
 logger = logging.getLogger(__name__)
 
 
-class RogologoScheduler:
+class RugolScheduler:
     def __init__(self, jobstore_path: Path) -> None:
         jobstore_path.parent.mkdir(parents=True, exist_ok=True)
         tz = get_settings().SCHEDULER_TIMEZONE or "UTC"
@@ -114,13 +114,13 @@ async def _fire_schedule(schedule_id: int, agent_name: str, prompt: str) -> None
         logger.exception("schedule %s failed to enqueue", schedule_id)
 
 
-_scheduler_instance: RogologoScheduler | None = None
+_scheduler_instance: RugolScheduler | None = None
 
 
-def get_scheduler() -> RogologoScheduler:
+def get_scheduler() -> RugolScheduler:
     global _scheduler_instance
     if _scheduler_instance is None:
         settings = get_settings()
         repo_root = Path(__file__).resolve().parent.parent.parent
-        _scheduler_instance = RogologoScheduler(jobstore_path=repo_root / "data" / "scheduler.db")
+        _scheduler_instance = RugolScheduler(jobstore_path=repo_root / "data" / "scheduler.db")
     return _scheduler_instance

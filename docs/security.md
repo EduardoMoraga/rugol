@@ -2,7 +2,7 @@
 
 ## Reporting
 
-If you find a vulnerability, please email **security@rogologo.dev** with the
+If you find a vulnerability, please email **security@rugol.dev** with the
 following:
 
 - A clear description of the issue
@@ -23,7 +23,7 @@ Once 1.0 ships, we will support the latest minor and the previous one.
 
 ## Threat model
 
-Rogologo is designed for single-user, single-host deployment. Out of scope for
+Rugol is designed for single-user, single-host deployment. Out of scope for
 the threat model:
 
 - Multi-tenant isolation

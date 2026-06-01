@@ -1,6 +1,6 @@
 """Soul Layer — identity, proactive memory, dual-track dispatch, evolutionary archive.
 
-Every agent registered in Rogologo inherits these capabilities at run time
+Every agent registered in Rugol inherits these capabilities at run time
 without per-agent configuration. See:
 - ADR-006: Soul Layer overall.
 - ADR-007: Soul-2 dual-track dispatcher.

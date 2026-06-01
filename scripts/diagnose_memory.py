@@ -1,7 +1,7 @@
 """One-shot memory diagnostic.
 
 Run:
-    cd C:\\Moragent\\rogologo
+    cd C:\\Moragent\\rugol
     .\\.venv\\Scripts\\python.exe scripts\\diagnose_memory.py
 
 What it does:

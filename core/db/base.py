@@ -92,7 +92,7 @@ async def _ensure_workspace_project() -> None:
                 name="Workspace",
                 description="Catch-all for agents that don't belong to a named project yet.",
                 mission=(
-                    "This is the default home for any agent in your Rogologo install. "
+                    "This is the default home for any agent in your Rugol install. "
                     "When you create real projects (Personal Assistant, Marca personal, etc.) "
                     "you can move agents into them — Workspace is just where things land "
                     "before you decide."

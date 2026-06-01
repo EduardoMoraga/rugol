@@ -109,7 +109,7 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
                   the fields below — name on top, the long markdown into the body.
                 </li>
                 <li>
-                  Save here. Rogologo writes the <code className="font-mono">.md</code> into your{" "}
+                  Save here. Rugol writes the <code className="font-mono">.md</code> into your{" "}
                   <code className="font-mono">AGENTS_DIR</code>, the watcher picks it up, and the new agent
                   shows up across the dashboard.
                 </li>

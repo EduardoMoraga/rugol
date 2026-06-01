@@ -1,4 +1,4 @@
-"""Import a Moragent project's .claude/ folder into this Rogologo install."""
+"""Import a Moragent project's .claude/ folder into this Rugol install."""
 from __future__ import annotations
 
 import argparse
@@ -103,7 +103,7 @@ def main() -> None:
     ap.add_argument("--source", required=True, type=Path,
                     help="Path to the Moragent project (folder containing .claude/)")
     ap.add_argument("--dest", type=Path, default=ROOT,
-                    help="Rogologo install root (default: auto-detected)")
+                    help="Rugol install root (default: auto-detected)")
     ap.add_argument("--apply", action="store_true",
                     help="Actually perform the copy (default is dry-run)")
     ap.add_argument("--overwrite", action="store_true",

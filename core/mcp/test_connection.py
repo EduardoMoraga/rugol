@@ -6,7 +6,7 @@ tools or a structured error.
 
 Why this exists
 ---------------
-Before this module, configuring an MCP server in Rogologo was a leap of
+Before this module, configuring an MCP server in Rugol was a leap of
 faith: you pasted command/args/env in the UI, saved, and the only way to
 know if it worked was to invoke the agent and watch logs. If `npx -y
 some-pkg` failed because the package was unpublished, or env vars were
@@ -163,7 +163,7 @@ async def test_mcp_server(*, command: str, args: list[str], env: dict[str, str] 
             "params": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "rogologo-mcp-tester", "version": "0.6"},
+                "clientInfo": {"name": "rugol-mcp-tester", "version": "0.6"},
             },
         })
 

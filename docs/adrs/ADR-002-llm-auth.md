@@ -1,6 +1,6 @@
 # ADR-002 — LLM auth: subscription vs API
 
-**Status:** Accepted · 2026-05-02 · Author: rogologo-architect
+**Status:** Accepted · 2026-05-02 · Author: rugol-architect
 
 ## Context
 
@@ -45,7 +45,7 @@ gives us:
 
 ## Consequences
 
-- **Positive:** The same Rogologo binary serves a hobbyist on Pro and a team
+- **Positive:** The same Rugol binary serves a hobbyist on Pro and a team
   on the API.
 - **Positive:** Setup wizard can default to "use my subscription, no charges"
   which removes the API-billing barrier for first-time users.
@@ -60,5 +60,5 @@ gives us:
 
 - **Anthropic Python SDK direct**: simpler image, but loses the SDK runtime's
   session/resume + subagent + skill loading. We would re-implement those.
-- **OpenRouter / proxy**: would let us pretend any LLM works, but Rogologo
+- **OpenRouter / proxy**: would let us pretend any LLM works, but Rugol
   is a Claude-first product on purpose. v2 may add a generic adapter.

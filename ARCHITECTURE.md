@@ -1,4 +1,4 @@
-# Rogologo — Architecture
+# Rugol — Architecture
 
 > Audience: contributors, reviewers, and Anthropic engineers reading the repo
 > for the first time. Read this once and you will know where every byte lives.
@@ -11,7 +11,7 @@
 │                                                                              │
 │  Browser            Telegram             Slack            CLI                │
 │   ▲                   ▲                    ▲               ▲                 │
-│   │ HTTP+SSE          │ long-poll          │ events API    │ rogologo …      │
+│   │ HTTP+SSE          │ long-poll          │ events API    │ rugol …      │
 │   ▼                   ▼                    ▼               ▼                 │
 │ ┌──────────┐    ┌──────────────┐    ┌─────────────┐    ┌───────────┐         │
 │ │ Next.js  │    │ Telegram     │    │ Slack       │    │ Click CLI │         │
@@ -276,7 +276,7 @@ a vector layer for fuzzy retrieval).
 - **Telegram & Slack**: strict allowlist by user ID (Telegram) or workspace
   membership (Slack). Bots ignore messages from unknown senders.
 - **claude CLI permissions**: the subprocess inherits `permission_mode="bypassPermissions"`
-  because Rogologo is the trusted operator; the CLI's safety lives at the
+  because Rugol is the trusted operator; the CLI's safety lives at the
   agent level (each agent's `.md` declares what tools it may use).
 - **Self-improving** never auto-applies edits — proposals queue in the
   dashboard for explicit approval.

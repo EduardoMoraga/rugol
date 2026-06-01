@@ -1,6 +1,6 @@
 [project]
-name = "rogologo"
-version = "0.1.0"
+name = "rugol"
+version = "0.7.1a0"
 description = "Open-source operations center for Claude Code agents."
 readme = "README.md"
 license = { text = "MIT" }

@@ -1,6 +1,6 @@
 # ADR-004 — Ontology graph and self-improving loop
 
-**Status:** Accepted · 2026-05-02 · Author: rogologo-architect
+**Status:** Accepted · 2026-05-02 · Author: rugol-architect
 
 ## Context
 

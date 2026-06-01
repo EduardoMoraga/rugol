@@ -1,4 +1,4 @@
-"""Channel bindings — map an external chat/channel to a Rogologo agent.
+"""Channel bindings — map an external chat/channel to a Rugol agent.
 
 A binding is the contract between a Telegram chat (or Slack channel) and the
 agent that should handle messages from there. Without a binding, the adapter

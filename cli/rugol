@@ -1,0 +1,403 @@
+#!/usr/bin/env bash
+# rugol — one-command control plane for your Claude agents (Mac/Linux).
+# Native: no Docker. The backend runs on a bundled Python (uv-managed) and the
+# dashboard on a prebuilt Next.js server. All your state lives in ~/.rugol so
+# updates never touch your data. Windows users: see cli/rugol.ps1.
+set -uo pipefail
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+RUGOL_HOME="${RUGOL_HOME:-$HOME/.rugol}"
+APP_DIR="${RUGOL_APP_DIR:-$RUGOL_HOME/app}"
+ENV_FILE="$RUGOL_HOME/.env"
+DATA_DIR="$RUGOL_HOME/data"
+LOGS_DIR="$RUGOL_HOME/logs"
+AGENTS_DIR_H="$RUGOL_HOME/agents"
+SKILLS_DIR_H="$RUGOL_HOME/skills"
+RUN_DIR="$RUGOL_HOME/run"
+DASH_DIR="$APP_DIR/dashboard"
+
+# Puertos: gana la variable de entorno, si no el .env, si no el default.
+_envget() { [ -f "$ENV_FILE" ] && grep -m1 "^$1=" "$ENV_FILE" 2>/dev/null | cut -d= -f2-; }
+CORE_PORT="${CORE_PORT:-$(_envget CORE_PORT)}";          CORE_PORT="${CORE_PORT:-8000}"
+DASHBOARD_PORT="${DASHBOARD_PORT:-$(_envget DASHBOARD_PORT)}"; DASHBOARD_PORT="${DASHBOARD_PORT:-3000}"
+
+# ── Pretty output ────────────────────────────────────────────────────────────
+if [ -t 1 ]; then
+  B=$'\033[1m'; G=$'\033[32m'; Y=$'\033[33m'; R=$'\033[31m'; D=$'\033[2m'; X=$'\033[0m'
+else
+  B=""; G=""; Y=""; R=""; D=""; X=""
+fi
+ok()   { echo "  ${G}✓${X} $*"; }
+warn() { echo "  ${Y}!${X} $*"; }
+err()  { echo "  ${R}✗${X} $*" >&2; }
+say()  { echo "$*"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ── Runtime resolution ───────────────────────────────────────────────────────
+resolve_python() {
+  local c
+  for c in "${RUGOL_VENV:-}/bin/python" "$RUGOL_HOME/runtime/venv/bin/python" "$APP_DIR/.venv/bin/python"; do
+    [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
+  done
+  command -v python3 || command -v python
+}
+
+resolve_node() {
+  local c="$RUGOL_HOME/runtime/node/bin/node"
+  [ -x "$c" ] && { echo "$c"; return 0; }
+  command -v node
+}
+
+require_app() {
+  if [ ! -f "$APP_DIR/core/main.py" ]; then
+    err "No encuentro la app en $APP_DIR."
+    say "    Reinstalá:  curl -fsSL https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/install.sh | bash"
+    exit 1
+  fi
+}
+require_env() {
+  [ -f "$ENV_FILE" ] || { err "Falta configuración. Corré primero:  ${B}rugol setup${X}"; exit 1; }
+}
+
+open_url() {
+  local url="$1"
+  if   have open;     then open "$url" >/dev/null 2>&1 || true
+  elif have xdg-open; then xdg-open "$url" >/dev/null 2>&1 || true
+  fi
+}
+rand_secret() {
+  if have openssl; then openssl rand -hex 16
+  else head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32; fi
+}
+wait_for_health() {
+  local tries="${1:-30}" i=0
+  printf "  esperando al core"
+  while [ "$i" -lt "$tries" ]; do
+    if curl -fs "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then echo ""; return 0; fi
+    printf "."; sleep 1; i=$((i+1))
+  done
+  echo ""; return 1
+}
+
+# ── Process management (native, no Docker) ───────────────────────────────────
+_pid_running() { local p; p="$(cat "$1" 2>/dev/null)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
+
+start_backend() {
+  local py; py="$(resolve_python)"
+  mkdir -p "$RUN_DIR" "$LOGS_DIR"
+  # Cargar .env del usuario y apuntar el estado al home global.
+  set -a; . "$ENV_FILE"; set +a
+  export AGENTS_DIR="$AGENTS_DIR_H" SKILLS_DIR="$SKILLS_DIR_H"
+  export DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:///$DATA_DIR/rugol.db}"
+  # `exec` makes the subshell BECOME the python process, so $! is the real
+  # pid (not a wrapper). disown detaches it so it survives this script exiting.
+  ( cd "$APP_DIR"; exec "$py" -m uvicorn core.main:app --host 127.0.0.1 --port "$CORE_PORT" \
+      >"$LOGS_DIR/core.log" 2>&1 </dev/null ) &
+  local pid=$!; echo "$pid" > "$RUN_DIR/core.pid"; disown "$pid" 2>/dev/null || true
+}
+
+start_dashboard() {
+  local server="$DASH_DIR/.next/standalone/server.js" node; node="$(resolve_node)"
+  [ -f "$server" ] || { warn "Dashboard no compilado — corré 'rugol build' (o 'rugol up' lo hace)."; return 1; }
+  [ -n "$node" ] || { err "Node no disponible."; return 1; }
+  ( cd "$DASH_DIR"; export PORT="$DASHBOARD_PORT" HOSTNAME=127.0.0.1
+    exec "$node" "$server" >"$LOGS_DIR/dashboard.log" 2>&1 </dev/null ) &
+  local pid=$!; echo "$pid" > "$RUN_DIR/dashboard.pid"; disown "$pid" 2>/dev/null || true
+}
+
+build_dashboard() {
+  require_app
+  # Usar el Node embebido si existe (instalado por install.sh), si no el del sistema.
+  local nodebin="$RUGOL_HOME/runtime/node/bin"
+  [ -d "$nodebin" ] && export PATH="$nodebin:$PATH"
+  have node || { err "Node no está disponible (lo necesita el dashboard)."; return 1; }
+  have pnpm || corepack enable pnpm 2>/dev/null || { err "pnpm no está disponible."; return 1; }
+  say "Compilando el dashboard (1-2 min la primera vez)..."
+  ( cd "$DASH_DIR"
+    [ -d node_modules ] || pnpm install
+    NEXT_PUBLIC_API_URL="http://127.0.0.1:${CORE_PORT}" pnpm build ) || { err "Falló el build del dashboard."; return 1; }
+  # Next standalone necesita los estáticos al lado del server.
+  mkdir -p "$DASH_DIR/.next/standalone/.next"
+  cp -R "$DASH_DIR/.next/static" "$DASH_DIR/.next/standalone/.next/static"
+  [ -d "$DASH_DIR/public" ] && cp -R "$DASH_DIR/public" "$DASH_DIR/.next/standalone/public" 2>/dev/null
+  ok "Dashboard compilado."
+}
+
+# ── Commands ─────────────────────────────────────────────────────────────────
+cmd_setup() {
+  require_app
+  echo ""
+  echo "${B}rugol setup${X} — configuración inicial"
+  echo "${D}Enter para aceptar el valor entre [corchetes].${X}"
+  echo ""
+  mkdir -p "$RUGOL_HOME" "$DATA_DIR" "$LOGS_DIR" "$AGENTS_DIR_H" "$SKILLS_DIR_H" "$RUN_DIR"
+
+  if [ -z "$(ls -A "$AGENTS_DIR_H" 2>/dev/null)" ] && [ -d "$APP_DIR/agents-templates" ]; then
+    cp -R "$APP_DIR/agents-templates/." "$AGENTS_DIR_H/" 2>/dev/null || true
+    ok "Agentes de ejemplo copiados a $AGENTS_DIR_H"
+  fi
+  if [ -z "$(ls -A "$SKILLS_DIR_H" 2>/dev/null)" ] && [ -d "$APP_DIR/skills-templates" ]; then
+    cp -R "$APP_DIR/skills-templates/." "$SKILLS_DIR_H/" 2>/dev/null || true
+    ok "Skills de ejemplo copiadas a $SKILLS_DIR_H"
+  fi
+
+  # ── Auth ──
+  echo "${B}1) Autenticación con Claude${X}"
+  echo "   [1] Suscripción Pro/Max  ${D}(recomendado — usa tu plan, sin costo extra)${X}"
+  echo "   [2] API key de Anthropic ${D}(pay-per-use, billing aislado)${X}"
+  read -r -p "   Opción [1]: " auth_choice
+  auth_choice="${auth_choice:-1}"
+  local use_sub="true" api_key="" oauth_token=""
+  if [ "$auth_choice" = "2" ]; then
+    use_sub="false"
+    while :; do
+      read -rs -p "   ANTHROPIC_API_KEY (sk-ant-...): " api_key; echo ""
+      case "$api_key" in
+        sk-ant-*) break ;;
+        "")  warn "No puede quedar vacío." ;;
+        *)   warn "Una API key de Anthropic empieza con 'sk-ant-'. Reintentá." ;;
+      esac
+    done
+  else
+    echo ""
+    echo "   ${D}Tu suscripción se usa con un token long-lived (claude setup-token),"
+    echo "   que funciona headless. Usa tu plan, no cobra por uso.${X}"
+    if have claude; then
+      read -r -p "   ¿Generar el token ahora con 'claude setup-token'? [S/n]: " gen
+      case "${gen:-s}" in
+        s|S|y|Y) echo "   ${D}Autorizá en el navegador y copiá el token que muestra.${X}"
+                 claude setup-token || warn "No pude correr setup-token; pegá un token existente." ;;
+      esac
+    else
+      echo "   ${D}(el CLI 'claude' no está acá — generá el token donde lo tengas y pegalo)${X}"
+    fi
+    while :; do
+      read -rs -p "   Pegá tu token de suscripción: " oauth_token; echo ""
+      [ -n "$oauth_token" ] && break || warn "No puede quedar vacío."
+    done
+  fi
+
+  # ── Modelo ──
+  echo ""
+  echo "${B}2) Modelo por defecto${X} ${D}(Rugol enruta solo por tarea; este es el fallback)${X}"
+  echo "   [1] Sonnet 4.6 ${D}(recomendado — balance)${X}"
+  echo "   [2] Opus 4.8   ${D}(máxima capacidad)${X}"
+  echo "   [3] Haiku 4.5  ${D}(rápido y económico)${X}"
+  read -r -p "   Opción [1]: " model_choice
+  local model
+  case "${model_choice:-1}" in
+    2) model="claude-opus-4-8" ;;
+    3) model="claude-haiku-4-5-20251001" ;;
+    *) model="claude-sonnet-4-6" ;;
+  esac
+
+  # ── Telegram ──
+  echo ""
+  echo "${B}3) Telegram${X} ${D}(opcional — Enter para saltar)${X}"
+  read -r -p "   TELEGRAM_BOT_TOKEN: " tg_token
+  local tg_users=""
+  [ -n "$tg_token" ] && read -r -p "   User IDs permitidos (coma-separado): " tg_users
+
+  # ── Agente por defecto ──
+  echo ""
+  echo "${B}4) Agente por defecto${X} ${D}(responde al instante, sin /bind)${X}"
+  read -r -p "   Agente por defecto [assistant]: " default_agent
+  default_agent="${default_agent:-assistant}"
+
+  local secret; secret="$(rand_secret)"
+  umask 077
+  cat > "$ENV_FILE" <<EOF
+# Generado por \`rugol setup\` — $(date -u +%Y-%m-%dT%H:%M:%SZ)
+USE_SUBSCRIPTION=${use_sub}
+ANTHROPIC_API_KEY=${api_key}
+# Token long-lived de suscripción (claude setup-token) — vacío en modo API key.
+CLAUDE_CODE_OAUTH_TOKEN=${oauth_token}
+DEFAULT_MODEL=${model}
+
+TELEGRAM_BOT_TOKEN=${tg_token}
+TELEGRAM_ALLOWED_USERS=${tg_users}
+
+# Agente que responde al instante en chats sin vincular (Hermes-style).
+DEFAULT_AGENT=${default_agent}
+
+CORE_PORT=${CORE_PORT}
+DASHBOARD_PORT=${DASHBOARD_PORT}
+SESSION_SECRET=${secret}
+EOF
+  echo ""
+  ok "Configuración guardada en $ENV_FILE"
+  echo ""
+  echo "Siguiente:  ${B}rugol up${X}"
+}
+
+cmd_build() { build_dashboard; }
+
+cmd_up() {
+  require_app; require_env
+  echo ""
+  # Build dashboard on first run if needed.
+  if [ ! -f "$DASH_DIR/.next/standalone/server.js" ]; then
+    build_dashboard || { err "No pude preparar el dashboard."; exit 1; }
+  fi
+  # Backend
+  if _pid_running "$RUN_DIR/core.pid"; then
+    ok "core ya estaba corriendo"
+  else
+    say "Levantando el core..."; start_backend
+    if wait_for_health 30; then ok "core saludable en http://127.0.0.1:${CORE_PORT}"
+    else warn "El core tardó. Mirá:  ${B}rugol logs core${X}"; fi
+  fi
+  # Dashboard
+  if _pid_running "$RUN_DIR/dashboard.pid"; then
+    ok "dashboard ya estaba corriendo"
+  else
+    start_dashboard && ok "dashboard en http://127.0.0.1:${DASHBOARD_PORT}"
+  fi
+  local dash="http://127.0.0.1:${DASHBOARD_PORT}"
+  if grep -q '^TELEGRAM_BOT_TOKEN=.\+' "$ENV_FILE" 2>/dev/null; then
+    ok "Telegram conectado — escribile a tu bot."
+  fi
+  echo ""
+  echo "  ${B}Abrí:  ${dash}${X}"
+  open_url "$dash"
+  echo ""
+  echo "${D}Detener: rugol down  |  Estado: rugol status  |  Logs: rugol logs${X}"
+}
+
+_stop_pid() {
+  local f="$1" name="$2" p
+  p="$(cat "$f" 2>/dev/null)"
+  if [ -n "$p" ] && kill -0 "$p" 2>/dev/null; then kill "$p" 2>/dev/null; ok "$name detenido"; else say "  $name no estaba corriendo"; fi
+  rm -f "$f"
+}
+cmd_down() {
+  _stop_pid "$RUN_DIR/dashboard.pid" "dashboard"
+  _stop_pid "$RUN_DIR/core.pid" "core"
+}
+cmd_restart() { cmd_down; sleep 1; cmd_up; }
+
+cmd_status() {
+  echo ""
+  echo "${B}Servicios${X}"
+  _pid_running "$RUN_DIR/core.pid"      && ok "core      (pid $(cat "$RUN_DIR/core.pid"))"      || warn "core      detenido"
+  _pid_running "$RUN_DIR/dashboard.pid" && ok "dashboard (pid $(cat "$RUN_DIR/dashboard.pid"))" || warn "dashboard detenido"
+  echo ""
+  echo "${B}Salud${X}"
+  curl -fs "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1 && ok "API  → http://127.0.0.1:${CORE_PORT}" || warn "API  → no responde"
+  curl -fs "http://127.0.0.1:${DASHBOARD_PORT}/" >/dev/null 2>&1     && ok "UI   → http://127.0.0.1:${DASHBOARD_PORT}" || warn "UI   → no responde"
+  echo ""
+  echo "${B}Home${X}   $RUGOL_HOME"
+  echo "${B}Config${X} $([ -f "$ENV_FILE" ] && echo "$ENV_FILE" || echo "(falta — corré 'rugol setup')")"
+}
+
+cmd_logs() {
+  local svc="${1:-core}" f
+  case "$svc" in
+    dashboard|dash|ui) f="$LOGS_DIR/dashboard.log" ;;
+    *)                 f="$LOGS_DIR/core.log" ;;
+  esac
+  [ -f "$f" ] && tail -f -n 100 "$f" || warn "sin log todavía: $f"
+}
+
+cmd_doctor() {
+  echo ""
+  echo "${B}rugol doctor${X}"
+  local fail=0 py; py="$(resolve_python)"
+  [ -n "$py" ] && ok "python: $("$py" --version 2>&1)" || { err "no encontré Python"; fail=1; }
+  have node && ok "node: $(node --version)" || { err "node no instalado (lo necesita el dashboard)"; fail=1; }
+  have uv && ok "uv: $(uv --version 2>/dev/null)" || warn "uv no está (el instalador lo usa para aislar Python)"
+  have claude && ok "claude CLI: $(claude --version 2>/dev/null | head -1)" || warn "claude CLI no está en PATH (OK si usás API key)"
+  [ -f "$APP_DIR/core/main.py" ] && ok "app en $APP_DIR" || { err "app no encontrada en $APP_DIR"; fail=1; }
+  [ -f "$DASH_DIR/.next/standalone/server.js" ] && ok "dashboard compilado" || warn "dashboard sin compilar — 'rugol build'"
+  if [ -f "$ENV_FILE" ]; then
+    ok "config presente"
+    if grep -q '^USE_SUBSCRIPTION=true' "$ENV_FILE"; then
+      grep -q '^CLAUDE_CODE_OAUTH_TOKEN=.\+' "$ENV_FILE" && ok "auth: suscripción (token presente)" || { warn "auth: falta CLAUDE_CODE_OAUTH_TOKEN — re-corré 'rugol setup'"; fail=1; }
+    else
+      grep -q '^ANTHROPIC_API_KEY=sk-ant-' "$ENV_FILE" && ok "auth: API key (sk-ant-…)" || { warn "auth: API key inválida — re-corré 'rugol setup'"; fail=1; }
+    fi
+  else
+    warn "falta config — corré 'rugol setup'"
+  fi
+  echo ""
+  [ "$fail" -eq 0 ] && ok "Todo listo." || { err "Resolvé lo de arriba antes de 'rugol up'."; return 1; }
+}
+
+cmd_update() {
+  require_app
+  echo ""
+  if [ -d "$APP_DIR/.git" ]; then
+    say "Actualizando código..."; git -C "$APP_DIR" pull --ff-only && ok "código actualizado"
+  fi
+  local py; py="$(resolve_python)"
+  [ -x "$py" ] && ( cd "$APP_DIR" && "$py" -m pip install -q -r core/requirements.txt ) && ok "deps backend OK"
+  build_dashboard
+  cmd_restart
+  ok "rugol actualizado. Tus datos en $RUGOL_HOME quedaron intactos."
+}
+
+cmd_uninstall() {
+  echo ""
+  read -r -p "Detener rugol y ¿borrar también tus DATOS en $RUGOL_HOME? [no/sí]: " ans
+  cmd_down 2>/dev/null || true
+  if [ "$ans" = "sí" ] || [ "$ans" = "si" ] || [ "$ans" = "yes" ]; then
+    rm -rf "$RUGOL_HOME"; ok "home borrado: $RUGOL_HOME"
+  else
+    say "  Datos conservados en $RUGOL_HOME"
+  fi
+  rm -f "$HOME/.local/bin/rugol" 2>/dev/null || true
+  ok "listo."
+}
+
+cmd_open() { open_url "http://127.0.0.1:${DASHBOARD_PORT}"; say "Abriendo http://127.0.0.1:${DASHBOARD_PORT}"; }
+
+cmd_version() {
+  local v=""
+  [ -f "$APP_DIR/core/__init__.py" ] && v="$(grep -m1 '__version__' "$APP_DIR/core/__init__.py" 2>/dev/null | sed 's/.*"\(.*\)".*/\1/')"
+  echo "rugol ${v:-(desconocida)}"
+}
+
+usage() {
+  cat <<EOF
+
+${B}rugol${X} — tu orquestador de agentes Claude, en un comando. Sin Docker.
+
+${B}Uso:${X}  rugol <comando>
+
+  ${B}setup${X}        Configuración inicial (auth + modelo + Telegram)
+  ${B}up${X}           Levanta core + dashboard y abre el navegador
+  ${B}down${X}         Detiene todo
+  ${B}restart${X}      Reinicia
+  ${B}status${X}       Estado de servicios y salud
+  ${B}logs${X} [svc]   Logs en vivo (core | dashboard)
+  ${B}doctor${X}       Verifica runtime, puertos y configuración
+  ${B}build${X}        (Re)compila el dashboard
+  ${B}open${X}         Abre el dashboard
+  ${B}update${X}       Actualiza el código y reconstruye (datos intactos)
+  ${B}uninstall${X}    Quita rugol (pregunta si borrar datos)
+
+${B}Primera vez:${X}  rugol setup  →  rugol up
+${D}Home de datos: $RUGOL_HOME${X}
+EOF
+}
+
+main() {
+  local cmd="${1:-help}"; shift || true
+  case "$cmd" in
+    setup)            cmd_setup "$@" ;;
+    up|start)         cmd_up "$@" ;;
+    down|stop)        cmd_down "$@" ;;
+    restart)          cmd_restart "$@" ;;
+    status|ps)        cmd_status "$@" ;;
+    logs)             cmd_logs "$@" ;;
+    doctor)           cmd_doctor "$@" ;;
+    build)            cmd_build "$@" ;;
+    open)             cmd_open "$@" ;;
+    update|upgrade)   cmd_update "$@" ;;
+    uninstall|remove) cmd_uninstall "$@" ;;
+    version|--version|-v) cmd_version ;;
+    help|--help|-h|"") usage ;;
+    *) err "Comando desconocido: $cmd"; usage; exit 1 ;;
+  esac
+}
+main "$@"

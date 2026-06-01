@@ -1,30 +1,32 @@
 <div align="center">
 
-# Rogologo
+# Rugol
 
-**Tu sistema operativo de agentes IA, hecho para personas que piensan en proyectos, no en tecnología.**
+**Tu orquestador de agentes IA — apoyo para las decisiones que importan.**
 
-Una sala de control local donde tus equipos de agentes Claude trabajan por tú —
-tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial.
+Una sala de control local donde tus equipos de agentes Claude hacen el
+trabajo, desafían tu pensamiento y recuerdan lo que aprendiste — para que
+decidas con un mejor proceso, no solo con más información.
 
-[Quickstart](#quickstart) · [Por qué Rogologo](#por-qué-rogologo) · [Casos reales](#casos-reales) · [Cómo funciona](#cómo-funciona) · [English](README.md)
+[Quickstart](#quickstart) · [Por qué Rugol](#por-qué-rugol) · [Casos reales](#casos-reales) · [Cómo funciona](#cómo-funciona) · [English](README.md)
 
 </div>
 
 ---
 
-> **"La vida es la sumatoria de proyectos. Tú eres el CEO; ellos ejecutan."**
+> **Las buenas decisiones no son cuestión de más información, sino de un mejor proceso.**
 
-Rogologo cambia el paradigma. No pensás "qué agente creo". Pensás
-**qué proyecto necesito**: tu asistente personal, tu marca, ayudar a
-tu hija a estudiar biología jugando, tu pipeline de ventas. Cada
-proyecto se arma con su propio equipo de agentes especialistas, su
-misión escrita y sus reglas vivas. Tú eres el CEO del proyecto;
-los agentes son el departamento.
+Rugol cambia el paradigma. No pensás "qué agente creo". Pensás
+**qué querés resolver**: tu asistente personal, tu marca, ayudar a
+tu hija a estudiar biología jugando, tu pipeline de ventas. Cada uno
+se arma con su propio equipo de agentes especialistas, una misión
+escrita y reglas vivas. Los agentes hacen el trabajo y desafían tu
+pensamiento — vos te quedás con la decisión, mejor informada y con
+menos ruido.
 
 ---
 
-## Por qué Rogologo
+## Por qué Rugol
 
 ### Hecho por alguien de negocio, no por un dev
 
@@ -33,14 +35,14 @@ Vi cómo "agentic AI" estaba quedando atrapado en un lenguaje técnico
 que excluye a las personas comunes — las mismas personas para las
 que la herramienta puede cambiar la vida.
 
-Rogologo nace de esa frustración. Detrás del código (que armé con
+Rugol nace de esa frustración. Detrás del código (que armé con
 Claude Code, claro), las decisiones de producto vienen de otro lado:
 **economía conductual, problemas reales de productividad, vida
 cotidiana**.
 
 ### El paradigma project-first
 
-| Otras plataformas | Rogologo |
+| Otras plataformas | Rugol |
 |---|---|
 | Lista plana de agentes sueltos | Proyectos como departamentos con misión |
 | Tú decidís qué modelo usar (haiku/sonnet/opus) | Tú elegís el **tipo de tarea** (heurística / pensar / deliberar); el sistema rutea |
@@ -50,7 +52,7 @@ cotidiana**.
 
 ### Tres principios de economía conductual encarnados en software
 
-| Principio | Cómo aparece en Rogologo |
+| Principio | Cómo aparece en Rugol |
 |---|---|
 | **Sistema 1 vs Sistema 2** (Kahneman) | El usuario no piensa en modelos. Elige *Heurística* (haiku, rápido), *Pensar* (modelo del agente) o *Deliberar* (opus, decisiones caras de revertir). |
 | **Ruido** (Kahneman/Sunstein) | Antes de decisiones importantes, el "Abogado del diablo" (opus) cuestiona la respuesta primaria. Dos perspectivas, tú decidís. |
@@ -67,7 +69,7 @@ Mi hija de 9 años tenía prueba de biología. En 5 minutos, dos agentes
 la fotosíntesis. Sin librerías, sin instalación, doble click y a jugar.
 Ella aprendió sin darse cuenta. Estudió mientras se reía.
 
-Es un template incluido en Rogologo. Una mamá que solo usó ChatGPT puede
+Es un template incluido en Rugol. Una mamá que solo usó ChatGPT puede
 clonarlo, escribir "el tema de esta semana es células" y tener un juego
 nuevo en minutos.
 
@@ -136,7 +138,7 @@ para las decisiones que importan.
 
 ## La capa Soul (Alma)
 
-Cada agente registrado en Rogologo hereda automáticamente un stack de
+Cada agente registrado en Rugol hereda automáticamente un stack de
 capacidades que lo transforma de "un prompt con un modelo" en algo con
 continuidad. No tienes que configurarlo — es el default de la plataforma.
 
@@ -165,38 +167,80 @@ más ADR-007 y ADR-008 para los próximos sprints.
 
 ## Quickstart
 
-**Pre-requisitos**: Windows 10/11 (Mac/Linux funcionan, instaladores
-están en camino), Python 3.12+, Node 20+, Docker opcional, y haber
-corrido `claude /login` una vez para autenticar.
+**Sin requisitos previos.** El instalador trae sus propios runtimes (un
+Python aislado vía [uv](https://github.com/astral-sh/uv), y Node) — no
+necesitás tener Python, Node ni Docker instalados. Una línea, después un wizard.
+
+**Mac / Linux**
+```bash
+curl -fsSL https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/install.sh | bash
+```
+
+**Windows** (PowerShell)
+```powershell
+iwr -useb https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/install.ps1 | iex
+```
+
+Después, desde cualquier terminal:
 
 ```bash
-# Clonar
-git clone https://github.com/<tu-fork>/rogologo.git
-cd rogologo
+rugol setup      # auth + modelo + Telegram opcional (el wizard te guía)
+rugol up         # construye, levanta core + dashboard, abre el navegador
+```
 
-# Backend (Python venv)
+**El auth, de las dos formas, corre headless.** Usá tu plan **Claude
+Pro/Max** (el wizard corre `claude setup-token` y guarda un token long-lived,
+sin costo por uso), o una **API key** dedicada (billing aislado). Todo corre
+localmente bajo `~/.rugol`; nada tuyo sale de tu máquina.
+
+Eso es todo — el dashboard abre en `http://localhost:3000` con cinco
+templates de agentes listos para clonar. Todo lo que crees vive en
+`~/.rugol`, así que actualizar nunca toca tus datos.
+
+| Comando | Qué hace |
+|---------|----------|
+| `rugol setup` | Asistente inicial → escribe tu config |
+| `rugol up` / `down` | Levanta / detiene todo |
+| `rugol status` | Salud de los servicios de un vistazo |
+| `rugol logs [core\|dashboard]` | Logs en vivo |
+| `rugol doctor` | Verifica runtimes, puertos, config |
+| `rugol update` | Actualiza y reconstruye (datos intactos) |
+| `rugol uninstall` | Lo quita (pregunta antes de borrar datos) |
+
+**Chateás desde el minuto uno.** `setup` te pregunta un agente por defecto
+(`assistant`), así que si pones un token de Telegram le escribís al bot y
+responde — sin `/bind`, sin menús. ¿Querés un agente específico en ese chat
+después? `/bind <nombre>` o reasignalo en el dashboard. Token → chat, con un
+panel de control completo esperándote cuando quieras profundidad.
+
+<details>
+<summary><b>Correr desde el código fuente (para devs)</b></summary>
+
+Necesita Python 3.12+, Node 20+, y `claude /login` corrido una vez.
+
+```bash
+git clone https://github.com/EduardoMoraga/rugol.git
+cd rugol
+
+# Backend
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1     # PowerShell
-# source .venv/bin/activate     # bash
+source .venv/bin/activate          # PowerShell: .\.venv\Scripts\Activate.ps1
 pip install -r core/requirements.txt
-cp .env.example .env             # ajustá USE_SUBSCRIPTION=true si usás Pro/Max
+cp .env.example .env               # USE_SUBSCRIPTION=true si usás Pro/Max
 uvicorn core.main:app --host 127.0.0.1 --port 8000
 
 # Frontend (otra terminal)
-cd dashboard
-pnpm install
-pnpm dev
+cd dashboard && pnpm install && pnpm dev
 ```
 
-Abrí `http://localhost:3000`. Si es la primera vez, vas a ver una
-pantalla emocional con cinco templates listos. Click en uno → personalizá
-si quieres → deployá. Tu equipo ya está funcionando.
+O directamente `docker compose up --build` desde la raíz.
+</details>
 
 ---
 
 ## Las capas que ya están adentro · `v0.5.0-alpha`
 
-Rogologo se construyó en capas, cada una entregada como commit funcional
+Rugol se construyó en capas, cada una entregada como commit funcional
 y testeado end-to-end. La versión actual incluye:
 
 | Capa | Lo que aporta |

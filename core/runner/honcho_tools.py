@@ -20,7 +20,7 @@ from core.adapters import honcho
 
 logger = logging.getLogger(__name__)
 
-HONCHO_MCP_NAME = "rogologo-honcho"
+HONCHO_MCP_NAME = "rugol-honcho"
 
 HONCHO_TOOL_NAMES: tuple[str, ...] = (
     f"mcp__{HONCHO_MCP_NAME}__save_memory",

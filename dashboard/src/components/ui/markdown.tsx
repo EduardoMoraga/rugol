@@ -12,7 +12,7 @@ interface MarkdownProps {
 }
 
 /**
- * Renders agent markdown output with sane defaults for the Rogologo dashboard.
+ * Renders agent markdown output with sane defaults for the Rugol dashboard.
  *
  * - GFM: tables, task lists, autolinks.
  * - Syntax highlighting via rehype-highlight (CSS theme is in markdown.css).

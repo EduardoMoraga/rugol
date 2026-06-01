@@ -6,13 +6,16 @@ services:
     build:
       context: .
       dockerfile: ./core/Dockerfile
-    container_name: rogologo-core
-    env_file: .env
+    container_name: rugol-core
+    # Defaults keep `docker compose up` in a clone working unchanged.
+    # The `rugol` CLI exports these to point at ~/.rugol (global home),
+    # so state survives updates and reclones.
+    env_file: ${RUGOL_ENV_FILE:-.env}
     volumes:
-      - ./agents:/app/agents
-      - ./skills:/app/skills
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ${RUGOL_AGENTS:-./agents}:/app/agents
+      - ${RUGOL_SKILLS:-./skills}:/app/skills
+      - ${RUGOL_DATA:-./data}:/app/data
+      - ${RUGOL_LOGS:-./logs}:/app/logs
     ports:
       - "${CORE_PORT:-8000}:8000"
     healthcheck:
@@ -27,7 +30,7 @@ services:
     build:
       context: ./dashboard
       dockerfile: Dockerfile
-    container_name: rogologo-dashboard
+    container_name: rugol-dashboard
     environment:
       - NEXT_PUBLIC_API_URL=http://core:8000
       - NODE_ENV=production

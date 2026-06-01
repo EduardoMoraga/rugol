@@ -1,4 +1,4 @@
-"""Reset Rogologo a estado de instalación limpia.
+"""Reset Rugol a estado de instalación limpia.
 
 Borra: la DB SQLite, los .md de agentes/skills generados durante pruebas,
 los settings runtime (tokens, paths overrideados). NO toca los archivos
@@ -22,22 +22,22 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-# Skills internas del producto Rogologo — viven en el repo, NO se borran.
+# Skills internas del producto Rugol — viven en el repo, NO se borran.
 # Los templates de proyecto (Personal Assistant, Hija aprende, etc.) están
 # en core/templates/catalog.py (código Python), no en .md, así que también
 # son seguros sin necesidad de proteger nombres aquí.
 PROTECTED_SKILL_NAMES: set[str] = {
-    "rogologo-add-agent.md",
-    "rogologo-deploy.md",
-    "rogologo-schedule.md",
-    "rogologo-self-improve.md",
+    "rugol-add-agent.md",
+    "rugol-deploy.md",
+    "rugol-schedule.md",
+    "rugol-self-improve.md",
 }
 
 
 def list_targets():
     """Devuelve (db_files, runtime_files, agent_md, skill_md)."""
     db_files = [
-        REPO_ROOT / "data" / "rogologo.db",
+        REPO_ROOT / "data" / "rugol.db",
         REPO_ROOT / "data" / "scheduler.db",
     ]
     runtime_files = [
@@ -55,7 +55,7 @@ def list_targets():
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Reset Rogologo a instalación limpia")
+    ap = argparse.ArgumentParser(description="Reset Rugol a instalación limpia")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--dry-run", action="store_true", help="muestra qué se borraría")
     g.add_argument("--apply", action="store_true", help="aplica el reset")
@@ -63,7 +63,7 @@ def main() -> int:
 
     db_files, runtime_files, agent_md, skill_md = list_targets()
     total = len(db_files) + len(runtime_files) + len(agent_md) + len(skill_md)
-    print(f"Reset de Rogologo en: {REPO_ROOT}")
+    print(f"Reset de Rugol en: {REPO_ROOT}")
     print()
     print(f"Base de datos ({len(db_files)}):")
     for p in db_files:

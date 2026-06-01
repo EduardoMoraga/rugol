@@ -38,7 +38,7 @@ export default function ImprovementsPage() {
     <div className="p-8 space-y-6 max-w-5xl mx-auto">
       <PageHeader
         title="Improvements"
-        description="Self-proposed edits to agent specs. Rogologo never rewrites an agent file without explicit approval."
+        description="Self-proposed edits to agent specs. Rugol never rewrites an agent file without explicit approval."
       />
 
       <Tabs defaultValue="proposed">

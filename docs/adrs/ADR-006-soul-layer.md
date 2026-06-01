@@ -4,7 +4,7 @@
 
 ## Context
 
-Through v0.6 Rogologo grew the plumbing for agentic operations: scheduling,
+Through v0.6 Rugol grew the plumbing for agentic operations: scheduling,
 streaming, ontology, project context, and a per-agent file-based memory
 store. The memory layer was already wired to **read** before every run
 (`orchestrator.py` injects `build_memory_block` into the system prompt),
@@ -35,7 +35,7 @@ The architectural inspiration is two-fold:
 - **Darwin Gödel Machine (Zhang/Hu/Lu/Lange/Clune, arXiv:2505.22954)** —
   an open-ended self-improving agent that mutates its own code, validates
   empirically against benchmarks, and grows an evolutionary archive. Soul-3
-  ports this concept to the system prompt of every Rogologo agent.
+  ports this concept to the system prompt of every Rugol agent.
 - **Kahneman's dual-process theory (Thinking, Fast and Slow)** — System 1
   is fast, intuitive, cheap; System 2 is slow, deliberate, expensive. Soul-2
   applies this to model routing: trivial requests go to a Haiku pipeline
@@ -44,7 +44,7 @@ The architectural inspiration is two-fold:
 
 ## Decision
 
-Rogologo gains a `core/soul/` module with four sub-capabilities, delivered
+Rugol gains a `core/soul/` module with four sub-capabilities, delivered
 across three sprints. Sprint 1 ships in this ADR; Sprints 2 and 3 are
 documented in ADR-007 and ADR-008 as design skeletons before
 implementation.
@@ -65,7 +65,7 @@ Every run is bracketed by three new pieces of behaviour:
    what NOT to save, how to update vs duplicate. Modelled on the
    `# auto memory` block Anthropic ships in Claude Code itself.
 3. **`save_memory` / `list_my_memories` / `forget_memory` tools** —
-   exposed as an in-process MCP server `rogologo-soul` using
+   exposed as an in-process MCP server `rugol-soul` using
    `claude_agent_sdk.create_sdk_mcp_server`. The tools wrap the
    existing `core.memory` store. The server is constructed fresh for
    each run with the agent's name captured in closure, so cross-agent
@@ -92,7 +92,7 @@ allowed — multiple lineages can coexist.
 
 ### Positive
 
-- Cross-cutting feature: any agent registered in Rogologo inherits
+- Cross-cutting feature: any agent registered in Rugol inherits
   memory + identity without extra config.
 - Closes the "I should have been saving memory" gap permanently.
 - Hookable: anything that wants to listen on `memory:added` can do so

@@ -12,7 +12,7 @@ forgets to call `save_memory` itself.
 
 That solves "agent A remembers what agent A learned". It does not solve
 "the whole fleet learns about the same external peer". When several
-agents in the same Rogologo instance work for the same human — a morning
+agents in the same Rugol instance work for the same human — a morning
 brief, an inbox triage, a narrative writer, a slide designer — every one
 of them re-discovers basic facts about that human on its first encounter.
 A user typing "I prefer chilean Spanish" to one agent does not change
@@ -26,9 +26,9 @@ rebuild and is consultable from any future agent the user installs.
 ## Decision
 
 Add an optional integration with **Honcho** (Plastic Labs,
-[honcho.dev](https://honcho.dev)) as Rogologo's shared cross-agent memory
+[honcho.dev](https://honcho.dev)) as Rugol's shared cross-agent memory
 backend. The integration ships as a single in-process MCP server,
-`rogologo-honcho`, that exposes three tools to any agent that lists it in
+`rugol-honcho`, that exposes three tools to any agent that lists it in
 `mcp_servers`:
 
 | Tool | Purpose |
@@ -38,9 +38,9 @@ backend. The integration ships as a single in-process MCP server,
 | `search_memory(query, limit?, session_id?)` | Semantic search across raw observations — for when the agent needs verbatim wording, not a summary. |
 
 The MCP server is built lazily by the runner only when the calling agent
-declares `rogologo-honcho` in its `mcp_servers` map. The adapter
+declares `rugol-honcho` in its `mcp_servers` map. The adapter
 (`core/adapters/honcho.py`) imports the `honcho-ai` SDK lazily on first
-use so a Rogologo instance with `HONCHO_ENABLED=false` (the default) pays
+use so a Rugol instance with `HONCHO_ENABLED=false` (the default) pays
 zero cost — no extra dependency loaded, no network call, no surface area
 exposed.
 
@@ -70,7 +70,7 @@ Five settings, all under the `HONCHO_*` prefix:
 
 - `HONCHO_ENABLED` — master switch, default `false`.
 - `HONCHO_API_KEY` — required when enabled. Loaded from `.env` only.
-- `HONCHO_WORKSPACE_ID` — defaults to `rogologo-default` so two
+- `HONCHO_WORKSPACE_ID` — defaults to `rugol-default` so two
   installations do not silently share data.
 - `HONCHO_ENVIRONMENT` — defaults to `production`. Set to a Honcho dev
   environment for testing.
@@ -102,10 +102,10 @@ first-run experience zero-surprise: no cloud signup gate.
 ## Out of scope
 
 - **Bundled agent updates.** No agent in `agents-templates/` will declare
-  `rogologo-honcho` in its `mcp_servers` until we have a recipe pattern
+  `rugol-honcho` in its `mcp_servers` until we have a recipe pattern
   proven on at least two real users. The first install ships with the
   capability available but nobody using it.
-- **Multi-workspace routing.** A single Rogologo instance points at a
+- **Multi-workspace routing.** A single Rugol instance points at a
   single Honcho workspace. Tenant-style routing is deferred.
 - **Local fallback.** Honcho is intentionally cloud-only here. Users who
   want a local-only shared memory should stay on Soul or wait for an

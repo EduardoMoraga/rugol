@@ -31,8 +31,8 @@ jobs:
           file: ./core/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/rogologo-core:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/rogologo-core:latest
+            ghcr.io/${{ github.repository_owner }}/rugol-core:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/rugol-core:latest
 
       - name: Build and push dashboard image
         uses: docker/build-push-action@v6
@@ -41,8 +41,8 @@ jobs:
           file: ./dashboard/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/rogologo-dashboard:${{ github.ref_name }}
-            ghcr.io/${{ github.repository_owner }}/rogologo-dashboard:latest
+            ghcr.io/${{ github.repository_owner }}/rugol-dashboard:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/rugol-dashboard:latest
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

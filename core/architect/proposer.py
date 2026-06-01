@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 # Tight prompt — long inputs + long output + Sonnet = slow. The schema is
 # kept small; design rules are bullet-form. Bodies capped at 150-300 words.
-META_PROMPT = """You are the Rogologo Architect. Given a one-line outcome from a non-technical user, design the smallest coherent agentic system that delivers it on Rogologo (a local Claude Code agent control plane).
+META_PROMPT = """You are the Rugol Architect. Given a one-line outcome from a non-technical user, design the smallest coherent agentic system that delivers it on Rugol (a local Claude Code agent control plane).
 
-The unit of mental account in Rogologo is the PROJECT — a department with a mission and a small team of agents. Always frame your proposal as a project first, then the agents that staff it.
+The unit of mental account in Rugol is the PROJECT — a department with a mission and a small team of agents. Always frame your proposal as a project first, then the agents that staff it.
 
 IDEA: {idea}
 
@@ -273,7 +273,7 @@ async def propose(*, idea: str, constraints: str = "", workspace_dir=None) -> Pr
         system_prompt={
             "type": "preset",
             "preset": "claude_code",
-            "append": "You are the Rogologo Architect. Output only the JSON object specified. Do not call tools, do not write files.",
+            "append": "You are the Rugol Architect. Output only the JSON object specified. Do not call tools, do not write files.",
         },
         # Solo "user" — necesitamos las credenciales de subscripción
         # autenticadas en la máquina, pero NO queremos que el Architect

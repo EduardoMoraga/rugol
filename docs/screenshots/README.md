@@ -30,9 +30,9 @@ curl -X POST http://localhost:8000/api/agents/2/run -H "Content-Type: applicatio
 
 # 3. Seed the ontology with a few triples
 curl -X POST http://localhost:8000/api/ontology/triples -H "Content-Type: application/json" `
-  -d '{\"src\":\"Eduardo\",\"predicate\":\"works-on\",\"dst\":\"Rogologo\"}'
+  -d '{\"src\":\"Eduardo\",\"predicate\":\"works-on\",\"dst\":\"Rugol\"}'
 curl -X POST http://localhost:8000/api/ontology/triples -H "Content-Type: application/json" `
-  -d '{\"src\":\"Rogologo\",\"predicate\":\"uses\",\"dst\":\"FastAPI\"}'
+  -d '{\"src\":\"Rugol\",\"predicate\":\"uses\",\"dst\":\"FastAPI\"}'
 ```
 
 Save captures into this directory with the names above. The README references

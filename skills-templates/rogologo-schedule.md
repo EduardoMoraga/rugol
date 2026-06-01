@@ -1,9 +1,9 @@
 ---
-name: rogologo-schedule
+name: rugol-schedule
 description: Create or update a recurring schedule for an agent (cron expression + prompt).
 ---
 
-# /rogologo-schedule
+# /rugol-schedule
 
 ## Arguments
 - `agent`: the agent's name

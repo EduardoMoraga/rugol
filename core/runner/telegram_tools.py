@@ -23,7 +23,7 @@ from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-TELEGRAM_MCP_NAME = "rogologo-telegram"
+TELEGRAM_MCP_NAME = "rugol-telegram"
 TELEGRAM_TOOL_NAMES: tuple[str, ...] = (
     f"mcp__{TELEGRAM_MCP_NAME}__send_telegram_message",
 )
@@ -63,7 +63,7 @@ def build_telegram_mcp_server() -> McpSdkServerConfig | None:
 
     @tool(
         "send_telegram_message",
-        "Send a text message to a Telegram chat via the Rogologo bot. "
+        "Send a text message to a Telegram chat via the Rugol bot. "
         "Use `chat_id=\"default\"` to reach the user on their primary "
         "Telegram channel (the most recent binding). Markdown supported "
         "when parse_mode='Markdown'.",

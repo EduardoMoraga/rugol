@@ -14,14 +14,14 @@ benchmarks. Crucially the archive is open-ended — branches that look
 worse on the current benchmark are kept around because they may be
 stepping stones to qualitatively new strategies later.
 
-Rogologo today has a reflector (`core/improvements/reflector.py`) that
+Rugol today has a reflector (`core/improvements/reflector.py`) that
 proposes a single mutation to the agent's body after a configurable
 number of runs. The mutation is shown to the user as a diff; the user
 accepts or rejects. This is a **linear loop**: one current version,
 one proposal, accept/reject. No archive, no branches, no validation
 beyond the human eye.
 
-This ADR ports DGM-style open-ended evolution to Rogologo. The unit of
+This ADR ports DGM-style open-ended evolution to Rugol. The unit of
 evolution is the **agent's system prompt** (its `body`), not its
 Python code — that's the right surface for an LLM-driven product, and
 it sidesteps the danger of an agent rewriting its own infrastructure.
@@ -107,7 +107,7 @@ archived but kept (DGM open-endedness — stepping stones).
 ### Mutation cadence
 
 - Triggered by `is_due` (already exists) — N runs since last mutation.
-- Triggered manually from `/rogologo-self-improve <agent>`.
+- Triggered manually from `/rugol-self-improve <agent>`.
 - Triggered automatically by **regression**: if avg_cost or
   thumbs_down_pct degrades sharply, propose a rollback candidate
   immediately.

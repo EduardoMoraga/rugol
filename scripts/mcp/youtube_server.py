@@ -23,7 +23,7 @@ config-assistant's `set_google_api_key` action).
 
 Entry point
 -----------
-Run as: `<python> scripts/mcp/youtube_server.py`. The Rogologo agent
+Run as: `<python> scripts/mcp/youtube_server.py`. The Rugol agent
 uses the venv's python and the absolute path to this file.
 """
 from __future__ import annotations
@@ -339,7 +339,7 @@ def _handle_request(method: str, params: dict | None, req_id: Any) -> dict | Non
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "rogologo-youtube-mcp", "version": "0.6.1"},
+                "serverInfo": {"name": "rugol-youtube-mcp", "version": "0.6.1"},
             },
         )
 

@@ -67,7 +67,7 @@ async def propose_improvement(agent_id: int, workspace_dir: Path) -> int | None:
 
     try:
         result = await run_agent(
-            agent_name="rogologo-reflector",
+            agent_name="rugol-reflector",
             prompt=prompt,
             workspace_dir=workspace_dir,
             model=agent.model,

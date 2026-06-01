@@ -28,6 +28,7 @@ from telegram.error import Conflict, NetworkError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from core import runtime_state
+from core.config import get_settings
 from core.adapters.base import Adapter
 from core.adapters import session_store, telegram_wizards as wizards
 from core.attachments import classify_path, extract_text
@@ -148,7 +149,7 @@ class TelegramAdapter(Adapter):
         if not self._is_authorized(update):
             return
         chat_id = update.effective_chat.id
-        bound = await _lookup_binding(str(chat_id))
+        bound = await _resolve_binding_or_default(str(chat_id))
         if bound:
             await update.message.reply_text(
                 f"Hola. Este chat está vinculado a *{bound['agent_name']}*. "
@@ -398,7 +399,7 @@ class TelegramAdapter(Adapter):
                 )
             return
 
-        bound = await _lookup_binding(str(chat_id))
+        bound = await _resolve_binding_or_default(str(chat_id))
         if not bound:
             await update.message.reply_text(
                 f"Este chat (`{chat_id}`) no está vinculado. Usa `/bind <agente>` o `/agents`.",
@@ -787,6 +788,48 @@ async def _lookup_binding(chat_id_str: str) -> dict | None:
         if agent is None:
             return None
         return {"agent_name": agent.name, "agent_id": agent.id, "binding_id": b.id}
+
+
+async def _resolve_binding_or_default(chat_id_str: str) -> dict | None:
+    """Return the agent this chat talks to.
+
+    If there's an explicit binding, use it. Otherwise, if DEFAULT_AGENT is set,
+    auto-bind this chat to it so messaging the bot "just works" on first
+    contact (Hermes-style: token -> chat, no /bind). The auto-created binding
+    persists and shows up in the dashboard, where the user can reassign it.
+    When DEFAULT_AGENT is empty, returns None (strict fleet model).
+    """
+    bound = await _lookup_binding(chat_id_str)
+    if bound:
+        return bound
+
+    default_name = get_settings().DEFAULT_AGENT.strip()
+    if not default_name:
+        return None
+
+    async with async_session_factory() as session:
+        agent = (await session.execute(
+            select(Agent).where(Agent.name == default_name)
+        )).scalar_one_or_none()
+        if agent is None:
+            logger.warning(
+                "DEFAULT_AGENT '%s' not found — falling back to /bind prompt",
+                default_name,
+            )
+            return None
+        binding = ChannelBinding(
+            channel_type="telegram",
+            external_id=chat_id_str,
+            agent_id=agent.id,
+        )
+        session.add(binding)
+        await session.commit()
+        await session.refresh(binding)
+        logger.info(
+            "auto-bound telegram chat %s to default agent '%s'",
+            chat_id_str, default_name,
+        )
+        return {"agent_name": agent.name, "agent_id": agent.id, "binding_id": binding.id}
 
 
 def _trim_for_telegram(text: str, max_len: int = 3800) -> str:

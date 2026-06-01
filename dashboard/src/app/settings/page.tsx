@@ -318,7 +318,7 @@ function RegistrySection({ settings, status, qc }: SectionProps<any, any>) {
       <SectionHeader
         icon={<FolderOpen size={14} />}
         title="Agents folder"
-        body="Point Rogologo at any folder of .md files. The watcher hot-reloads on save. Default is the bundled agents-templates."
+        body="Point Rugol at any folder of .md files. The watcher hot-reloads on save. Default is the bundled agents-templates."
         status={
           <Badge tone={status.running ? "running" : "warn"}>
             {status.running ? "watching" : "not watching"}

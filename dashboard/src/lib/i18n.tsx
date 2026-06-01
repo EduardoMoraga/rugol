@@ -29,7 +29,7 @@ import {
 
 export type Locale = "es" | "en";
 
-const STORAGE_KEY = "rogologo.locale";
+const STORAGE_KEY = "rugol.locale";
 
 type Dict = Record<string, string>;
 
@@ -51,7 +51,7 @@ const ES: Dict = {
   // ---- Projects home ----
   "projects.title": "Proyectos",
   "projects.description":
-    "Cada proyecto es un departamento con misión propia y un equipo de agentes que trabaja en él. Tú eres el CEO; ellos ejecutan.",
+    "Cada proyecto reúne un equipo de agentes con una misión propia. Ellos hacen el trabajo y desafían tu pensamiento; vos te quedás con la decisión.",
   "projects.designWithArchitect": "Diseñar con Architect",
   "projects.newProject": "Nuevo proyecto",
   "projects.activeStat": "Proyectos activos",
@@ -65,11 +65,11 @@ const ES: Dict = {
     "Empieza describiendo una idea — Architect propone el equipo, las skills y los rituales — o crea un proyecto manualmente.",
 
   // ---- Onboarding hero ----
-  "onboarding.tag": "Bienvenida a Rogologo",
-  "onboarding.headline": "La vida es la sumatoria de proyectos.",
-  "onboarding.headlineHighlight": "Tú eres el CEO; ellos ejecutan.",
+  "onboarding.tag": "Bienvenida a Rugol",
+  "onboarding.headline": "Tu orquestador de agentes.",
+  "onboarding.headlineHighlight": "Apoyo para las decisiones que importan.",
   "onboarding.pitch":
-    "Rogologo es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué proyecto necesito\": tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial. El equipo de agentes se arma alrededor de eso.",
+    "Rugol es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué quiero resolver\": tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial. El equipo de agentes hace el trabajo y desafía tu pensamiento; vos decidís con un mejor proceso, no solo con más información.",
   "onboarding.question": "¿Por dónde te gustaría empezar?",
   "onboarding.seeTemplates": "Ver los 5 templates",
   "onboarding.orArchitect": "o descríbelo en una línea con Architect →",
@@ -191,7 +191,7 @@ const ES: Dict = {
   // ---- Architect ----
   "architect.title": "Architect",
   "architect.description":
-    "Describe el resultado que quieres. Rogologo propone un equipo pequeño de agentes, las skills que comparten, los schedules que los disparan y las semillas de ontología que los conectan. Revisa cada pieza, edita lo que quieras, y deploya.",
+    "Describe el resultado que quieres. Rugol propone un equipo pequeño de agentes, las skills que comparten, los schedules que los disparan y las semillas de ontología que los conectan. Revisa cada pieza, edita lo que quieras, y deploya.",
   "architect.startOver": "Empezar de nuevo",
   "architect.idea": "Tu idea",
   "architect.ideaHint": "una o dos oraciones en lenguaje cotidiano",
@@ -225,7 +225,7 @@ const EN: Dict = {
   // ---- Projects home ----
   "projects.title": "Projects",
   "projects.description":
-    "Each project is a department with its own mission and a team of agents that work on it. You're the CEO; they execute.",
+    "Each project brings together a team of agents with its own mission. They do the work and challenge your thinking; you keep the decision.",
   "projects.designWithArchitect": "Design with Architect",
   "projects.newProject": "New project",
   "projects.activeStat": "Active projects",
@@ -239,11 +239,11 @@ const EN: Dict = {
     "Start by describing an idea — Architect proposes the team, the skills and the rituals — or create a project manually.",
 
   // ---- Onboarding hero ----
-  "onboarding.tag": "Welcome to Rogologo",
-  "onboarding.headline": "Life is the sum of projects.",
-  "onboarding.headlineHighlight": "You're the CEO; they execute.",
+  "onboarding.tag": "Welcome to Rugol",
+  "onboarding.headline": "Your agent orchestrator.",
+  "onboarding.headlineHighlight": "Support for the decisions that matter.",
   "onboarding.pitch":
-    "Rogologo is your agent control room. You don't think \"which agent should I create\" — you think \"which project do I need\": your brand, your day-to-day, helping your daughter study, your sales pipeline. The agent team forms around that.",
+    "Rugol is your agent control room. You don't think \"which agent should I create\" — you think \"what do I want to get done\": your brand, your day-to-day, helping your daughter study, your sales pipeline. The agent team does the work and challenges your thinking; you decide with a better process, not just more information.",
   "onboarding.question": "Where would you like to start?",
   "onboarding.seeTemplates": "See the 5 templates",
   "onboarding.orArchitect": "or describe it in one line with Architect →",
@@ -366,7 +366,7 @@ const EN: Dict = {
   // ---- Architect ----
   "architect.title": "Architect",
   "architect.description":
-    "Describe the outcome you want. Rogologo proposes a small team of agents, the skills they share, the schedules that drive them, and the ontology seeds that connect them. Review every piece, edit anything you want, and deploy.",
+    "Describe the outcome you want. Rugol proposes a small team of agents, the skills they share, the schedules that drive them, and the ontology seeds that connect them. Review every piece, edit anything you want, and deploy.",
   "architect.startOver": "Start over",
   "architect.idea": "Your idea",
   "architect.ideaHint": "one or two sentences in plain language",

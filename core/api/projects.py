@@ -1,4 +1,4 @@
-"""Projects CRUD — the unit of mental account in Rogologo (ADR-005).
+"""Projects CRUD — the unit of mental account in Rugol (ADR-005).
 
 Projects group teams of agents around a shared mission. Every agent belongs
 to exactly one project (Workspace by default). Deleting a project requires

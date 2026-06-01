@@ -1,6 +1,6 @@
 # ADR-003 — The ant-farm visualization
 
-**Status:** Accepted · 2026-05-02 · Author: rogologo-architect
+**Status:** Accepted · 2026-05-02 · Author: rugol-architect
 
 ## Context
 

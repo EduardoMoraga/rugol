@@ -22,11 +22,21 @@ class Settings(BaseSettings):
     # LLM auth
     USE_SUBSCRIPTION: bool = True
     ANTHROPIC_API_KEY: str = ""
+    # Long-lived subscription token from `claude setup-token` (Pro/Max).
+    # Lets the bundled `claude` CLI authenticate headlessly — inside Docker
+    # or CI — without the interactive login or the macOS Keychain. Used only
+    # when USE_SUBSCRIPTION is true; ignored in API-key mode.
+    CLAUDE_CODE_OAUTH_TOKEN: str = ""
     DEFAULT_MODEL: str = "claude-sonnet-4-6"  # core.llm_models.SONNET
 
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_ALLOWED_USERS: str = ""
+
+    # Default agent — when a chat (e.g. Telegram) has no explicit binding,
+    # messages auto-route to this agent so "token -> chat" works instantly,
+    # Hermes-style. Empty keeps the strict fleet model (must /bind first).
+    DEFAULT_AGENT: str = ""
 
     # Slack
     SLACK_BOT_TOKEN: str = ""
@@ -34,7 +44,7 @@ class Settings(BaseSettings):
     SLACK_APP_TOKEN: str = ""
 
     # DB
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{REPO_ROOT / 'data' / 'rogologo.db'}"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{REPO_ROOT / 'data' / 'rugol.db'}"
 
     # Server
     CORE_HOST: str = "0.0.0.0"
@@ -99,12 +109,12 @@ class Settings(BaseSettings):
 
     # Honcho — ADR-009 shared cross-agent memory.
     # Opt-in: when false (default), the honcho-ai SDK is never imported and
-    # the rogologo-honcho MCP server is not built. The Soul Layer keeps
+    # the rugol-honcho MCP server is not built. The Soul Layer keeps
     # working unchanged. Enable to give your agents a Plastic-Labs-backed
     # shared knowledge graph over external peers (users, clients).
     HONCHO_ENABLED: bool = False
     HONCHO_API_KEY: str = ""
-    HONCHO_WORKSPACE_ID: str = "rogologo-default"
+    HONCHO_WORKSPACE_ID: str = "rugol-default"
     HONCHO_ENVIRONMENT: str = "production"
     # If empty, the adapter uses today's ISO date as session id, so
     # observations naturally group per day. Override for stable sessions.

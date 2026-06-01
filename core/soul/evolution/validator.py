@@ -180,7 +180,7 @@ async def validate_candidate(
 
     try:
         result = await run_agent(
-            agent_name="rogologo-validator",
+            agent_name="rugol-validator",
             prompt=prompt,
             workspace_dir=workspace_dir,
             model=OPUS,

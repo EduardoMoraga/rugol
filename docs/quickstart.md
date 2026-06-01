@@ -1,15 +1,15 @@
 # Quickstart
 
-> Get Rogologo running on a fresh Windows PC in under 10 minutes.
+> Get Rugol running on a fresh Windows PC in under 10 minutes.
 
 ## 1. Download
 
 ```powershell
-git clone https://github.com/eduardomoraga/rogologo.git
-cd rogologo
+git clone https://github.com/eduardomoraga/rugol.git
+cd rugol
 ```
 
-If you don't have Git, download a ZIP from the [latest release](https://github.com/eduardomoraga/rogologo/releases).
+If you don't have Git, download a ZIP from the [latest release](https://github.com/eduardomoraga/rugol/releases).
 
 ## 2. Run the wizard
 

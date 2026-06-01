@@ -27,7 +27,7 @@ def _now() -> dt.datetime:
 class Project(Base):
     """A project groups a team of agents around a shared mission.
 
-    The unit of mental account in Rogologo is the project, not the agent
+    The unit of mental account in Rugol is the project, not the agent
     (see ADR-005). Each project carries its own mission text, its own
     visual identity (color + lucide icon name), and (Capa 3) a living
     list of "lessons" — bias corrections, decisions, or domain facts the

@@ -1,4 +1,4 @@
-# Instalar Rogologo en una PC limpia
+# Instalar Rugol en una PC limpia
 
 Guía pensada para llevar la app a otro computador sin arrastrar tus
 pruebas anteriores. Funciona en Windows 10/11 (Mac/Linux similar pero
@@ -17,8 +17,8 @@ Antes de copiar nada:
 ## Opción A — Clonar desde Git (recomendado)
 
 ```powershell
-git clone <tu-fork-de-rogologo> C:\Rogologo
-cd C:\Rogologo
+git clone <tu-fork-de-rugol> C:\Rugol
+cd C:\Rugol
 
 # Backend
 python -m venv .venv
@@ -41,18 +41,18 @@ todo lo demás está vacío.
 
 Si no quieres clonar y prefieres copiar la carpeta entera desde tu PC actual:
 
-1. Copiá la carpeta `C:\Moragent\04-LAB\rogologo` a la PC nueva
+1. Copiá la carpeta `C:\Moragent\04-LAB\rugol` a la PC nueva
 2. **EN LA PC NUEVA, antes de arrancar:**
    ```powershell
-   cd C:\Rogologo
+   cd C:\Rugol
    .\.venv\Scripts\Activate.ps1   # o crea venv nuevo si Python distinto
    python scripts/reset.py --apply
    ```
    Esto borra:
-   - `data/rogologo.db` y `data/scheduler.db` (toda la DB)
+   - `data/rugol.db` y `data/scheduler.db` (toda la DB)
    - `data/settings.json` (tokens guardados, paths overrideados)
    - `agents-templates/*.md` (todos los agentes generados)
-   - `skills-templates/*.md` excepto las internas de Rogologo
+   - `skills-templates/*.md` excepto las internas de Rugol
 3. Arrancá backend + frontend como en la opción A.
 
 ## Opción C — Reset desde el dashboard (sin tocar terminal)

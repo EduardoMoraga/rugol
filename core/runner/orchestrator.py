@@ -182,7 +182,7 @@ class RuntimeOrchestrator:
         soul_mcp_server = build_soul_mcp_server(agent_name_snapshot)
 
         # Telegram MCP server — None when no bot token is configured. When
-        # present, the agent gains an `mcp__rogologo-telegram__send_telegram_message`
+        # present, the agent gains an `mcp__rugol-telegram__send_telegram_message`
         # tool it can call directly (no Bash, no telegram_send.py script).
         telegram_mcp_server = build_telegram_mcp_server()
 

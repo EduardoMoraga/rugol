@@ -22,8 +22,8 @@ que falta cuando no logra importarse, en vez del genérico
 
 ## Aplicar el upgrade en tu PC
 
-Asume que ya tienes Rogologo corriendo y conectado al repo en
-`C:\Moragent\rogologo`. Si arrancas desde cero, primero seguí
+Asume que ya tienes Rugol corriendo y conectado al repo en
+`C:\Moragent\rugol`. Si arrancas desde cero, primero seguí
 [`docs/install-on-new-pc.md`](install-on-new-pc.md).
 
 ### Paso 1 — Apaga ambos servidores
@@ -38,7 +38,7 @@ No cierres las ventanas; las vamos a reusar.
 En la terminal del backend:
 
 ```powershell
-cd C:\Moragent\rogologo
+cd C:\Moragent\rugol
 git pull
 ```
 
@@ -69,7 +69,7 @@ INFO:     Application startup complete.
 En la otra terminal:
 
 ```powershell
-cd C:\Moragent\rogologo\dashboard
+cd C:\Moragent\rugol\dashboard
 pnpm install
 pnpm dev
 ```
@@ -106,7 +106,7 @@ Abrí `http://localhost:3000` y validá uno por uno:
 
 #### D) Wizard Telegram (Sprint 4)
 
-En el chat con tu bot Rogologo (Telegram):
+En el chat con tu bot Rugol (Telegram):
 
 ```
 /setup_mcp
@@ -152,7 +152,7 @@ Otros comandos:
 
 El JSON `openclaw.fixed.json` que ya tenés contiene:
 
-- 4 bot tokens de Telegram (gugol, rogologo, delichul, chikilfumi)
+- 4 bot tokens de Telegram (gugol, rugol, delichul, chikilfumi)
 - 1 bot token + app token de Slack
 - Notion token
 - API keys de Anthropic, OpenRouter, Google AI Studio
@@ -168,7 +168,7 @@ algo así:
 ```
 
 Más una sección "El asistente vio cosas que no clasificó" con los 3 bots
-extra de Telegram (porque Rogologo soporta UN bot por instancia, los otros
+extra de Telegram (porque Rugol soporta UN bot por instancia, los otros
 quedan documentados como 'no aplicado').
 
 Marcá las acciones que querés, dale Aplicar. Reiniciá el backend.
@@ -179,11 +179,11 @@ Marcá las acciones que querés, dale Aplicar. Reiniciá el backend.
 
 ```powershell
 # Backend
-cd C:\Moragent\rogologo
+cd C:\Moragent\rugol
 .\.venv\Scripts\python.exe -m uvicorn core.main:app --host 127.0.0.1 --port 8000 --reload
 
 # Frontend (otra terminal)
-cd C:\Moragent\rogologo\dashboard
+cd C:\Moragent\rugol\dashboard
 pnpm dev
 ```
 
@@ -215,7 +215,7 @@ entregó al usuario como verdad.
 Causa raíz: combinación de tres factores:
 1. `permission_mode="bypassPermissions"` + Read tool = el agente puede
    leer cualquier archivo de la máquina, incluso fuera del workspace.
-2. NO existe tool que liste el estado real de Rogologo (schedules,
+2. NO existe tool que liste el estado real de Rugol (schedules,
    runs, agents) — solo la base de SQLite, que el agente no consulta
    directamente.
 3. Sin instrucciones explícitas anti-alucinación, el modelo confía en
@@ -226,7 +226,7 @@ Causa raíz: combinación de tres factores:
 El system prompt que recibe cada agente ahora incluye dos secciones nuevas:
 
 - **CRITICAL — anti-hallucination rule**: enseña explícitamente que el
-  estado runtime de Rogologo NO está en archivos. Le pasa al agente
+  estado runtime de Rugol NO está en archivos. Le pasa al agente
   los endpoints REST exactos (`GET /api/schedules`, `GET /api/agents`,
   `GET /api/runs`, etc.) que puede consultar con `curl` cuando el
   usuario le pregunte por ese estado. Si la API no responde, debe
@@ -412,8 +412,8 @@ normal (~5 segundos para una nota de 30s).
 Para usar otro modelo (más rápido o más preciso):
 
 ```powershell
-$env:ROGOLOGO_WHISPER_MODEL = "tiny"     # más rápido, menos preciso (~75 MB)
-$env:ROGOLOGO_WHISPER_MODEL = "medium"   # más preciso, más lento (~1.5 GB)
+$env:RUGOL_WHISPER_MODEL = "tiny"     # más rápido, menos preciso (~75 MB)
+$env:RUGOL_WHISPER_MODEL = "medium"   # más preciso, más lento (~1.5 GB)
 ```
 
 (Configurar **antes** de levantar uvicorn.)
@@ -442,7 +442,7 @@ $env:ROGOLOGO_WHISPER_MODEL = "medium"   # más preciso, más lento (~1.5 GB)
 Esa carpeta NO se borra automáticamente. Si querés barrerla:
 
 ```powershell
-Remove-Item -Recurse -Force C:\Moragent\rogologo\data\uploads
+Remove-Item -Recurse -Force C:\Moragent\rugol\data\uploads
 ```
 
 Los archivos están en `.gitignore` (toda `data/` lo está).
@@ -504,7 +504,7 @@ autorizar). Los MCP servers de Google (`@gongrzhe/server-gmail-autoauth-mcp`,
 
 4. Marcá las que querés y **Aplicar**.
 
-5. **Paso manual una sola vez** (esto Rogologo no lo puede hacer porque
+5. **Paso manual una sola vez** (esto Rugol no lo puede hacer porque
    necesita un browser interactivo):
    ```powershell
    npx -y @gongrzhe/server-gmail-autoauth-mcp auth
@@ -537,8 +537,8 @@ Solo falta agregar el MCP al agente:
 
 1. `/agents/<id>` → MCP → Agregar:
    - Nombre: `youtube`
-   - Comando: ruta absoluta del Python del venv (ej: `C:\Moragent\rogologo\.venv\Scripts\python.exe`)
-   - Args: ruta absoluta al script (ej: `C:\Moragent\rogologo\scripts\mcp\youtube_server.py`)
+   - Comando: ruta absoluta del Python del venv (ej: `C:\Moragent\rugol\.venv\Scripts\python.exe`)
+   - Args: ruta absoluta al script (ej: `C:\Moragent\rugol\scripts\mcp\youtube_server.py`)
    - Env: vacío (el script lee la key del archivo automáticamente)
 2. Save → click **Probar** → debería devolver verde con tools `search_videos`, `get_channel_recent`, `get_video_details`.
 

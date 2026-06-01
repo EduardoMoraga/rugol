@@ -4,15 +4,15 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: rogologo-db
+    container_name: rugol-db
     environment:
-      POSTGRES_USER: rogologo
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rogologo}
-      POSTGRES_DB: rogologo
+      POSTGRES_USER: rugol
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rugol}
+      POSTGRES_DB: rugol
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U rogologo"]
+      test: ["CMD-SHELL", "pg_isready -U rugol"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -20,7 +20,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: rogologo-redis
+    container_name: rugol-redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -30,7 +30,7 @@ services:
 
   core:
     environment:
-      - DATABASE_URL=postgresql+asyncpg://rogologo:${POSTGRES_PASSWORD:-rogologo}@db:5432/rogologo
+      - DATABASE_URL=postgresql+asyncpg://rugol:${POSTGRES_PASSWORD:-rugol}@db:5432/rugol
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:

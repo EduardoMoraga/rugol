@@ -1,10 +1,10 @@
 # ADR-005 — Project-first model
 
-**Status:** Accepted · 2026-05-03 · Author: rogologo-architect (paradigm shift requested by Eduardo Moraga)
+**Status:** Accepted · 2026-05-03 · Author: rugol-architect (paradigm shift requested by Eduardo Moraga)
 
 ## Context
 
-Rogologo until v0.3 modeled the world as a flat list of **agents**. The dashboard
+Rugol until v0.3 modeled the world as a flat list of **agents**. The dashboard
 home was a list of agents, the Architect produced agents, the ontology lived
 globally, schedules pointed at agents. This is what every other agent platform
 does today.
@@ -12,8 +12,9 @@ does today.
 The product owner observed — correctly — that this is the wrong unit of
 account for the audience we want to reach. **People do not think in agents.
 People think in projects.** A project is a piece of life or work that has a
-goal, a team, a cadence, and a memory. Agents are the staff that the project
-hires. The CEO of a life is the human; agents are department employees.
+goal, a team, a cadence, and a memory. Agents are the staff the project
+relies on. The human sets the direction and keeps every decision; the
+agents do the work and surface a second perspective.
 
 Examples the user gave that drove the change:
 

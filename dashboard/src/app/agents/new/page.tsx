@@ -8,7 +8,7 @@ export default function NewAgentPage() {
     <AgentForm
       mode="create"
       title="New agent"
-      description="Define the spec; Rogologo writes the markdown to your agents folder and registers it."
+      description="Define the spec; Rugol writes the markdown to your agents folder and registers it."
       onSubmit={createAgent}
       redirectTo={(id) => `/agents/${id}`}
     />

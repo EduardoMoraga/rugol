@@ -26,7 +26,7 @@ from core.llm_models import HAIKU
 logger = logging.getLogger(__name__)
 
 
-_CLASSIFIER_SYSTEM_PROMPT = """You are Rogologo's dispatcher. You classify ONE incoming request into S1 or S2.
+_CLASSIFIER_SYSTEM_PROMPT = """You are Rugol's dispatcher. You classify ONE incoming request into S1 or S2.
 
 S1 (System 1 — fast, intuitive, cheap):
 - Greetings, casual chat, status questions, acknowledgements.

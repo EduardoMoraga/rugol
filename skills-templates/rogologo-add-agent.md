@@ -1,9 +1,9 @@
 ---
-name: rogologo-add-agent
-description: Register a new agent in Rogologo — scaffold the .md, place it under agents/, and verify it appears in the dashboard.
+name: rugol-add-agent
+description: Register a new agent in Rugol — scaffold the .md, place it under agents/, and verify it appears in the dashboard.
 ---
 
-# /rogologo-add-agent
+# /rugol-add-agent
 
 ## Arguments
 - `name`: kebab-case agent name (e.g. `pricing-analyst`)
@@ -24,7 +24,7 @@ description: Register a new agent in Rogologo — scaffold the .md, place it und
 3. The watcher detects the new file within `DISCOVERY_INTERVAL` seconds and
    upserts the row. Verify the dashboard shows the agent.
 4. Suggest the next steps: enrich the body, schedule a recurring run,
-   or invoke `/rogologo-self-improve` after a few real runs.
+   or invoke `/rugol-self-improve` after a few real runs.
 
 ## Output
 

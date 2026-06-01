@@ -7,7 +7,7 @@ import { NavRail } from "@/components/dashboard/nav-rail";
 import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
-  title: "Rogologo — Agent Operations Center",
+  title: "Rugol — Agent Operations Center",
   description: "Open-source operations center for Claude Code agents.",
 };
 

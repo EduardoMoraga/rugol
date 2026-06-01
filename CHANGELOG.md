@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Rogologo are documented here, following
+All notable changes to Rugol are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.7.1-alpha] — 2026-05-11
@@ -29,9 +29,9 @@ nunca más inventa endpoints REST que no existen.
   reventaba el subprocess CLI por largo de command line en Windows.
 
 ### Added (P1 — calidad)
-- **MCP server in-process `rogologo-telegram`** (`core/runner/telegram_tools.py`).
+- **MCP server in-process `rugol-telegram`** (`core/runner/telegram_tools.py`).
   Cada agente recibe automáticamente la tool
-  `mcp__rogologo-telegram__send_telegram_message`. Soporta `chat_id="default"`
+  `mcp__rugol-telegram__send_telegram_message`. Soporta `chat_id="default"`
   que resuelve al binding de Telegram más reciente del usuario. Solo
   se construye si `TELEGRAM_BOT_TOKEN` está configurado.
 - **Suite de tests smoke para la API REST** (`tests/test_api_smoke.py`).
@@ -94,7 +94,7 @@ Stabilises v0.7.0 after Eduardo hit two crashes on real Telegram traffic:
 
 ## [0.7.0-alpha] — 2026-05-10
 
-**The Soul Layer release.** Every agent registered in Rogologo now inherits
+**The Soul Layer release.** Every agent registered in Rugol now inherits
 identity, proactive memory, dual-track dispatch, and an evolutionary archive
 of its own system prompt — without per-agent configuration. Inspired by the
 Darwin Gödel Machine (Zhang/Hu/Lu/Lange/Clune, arXiv:2505.22954) and
@@ -108,7 +108,7 @@ Kahneman's dual-process theory.
   every run. Four memory kinds with examples: `user`, `feedback`,
   `project`, `reference`. Includes the "what NOT to save" rules and the
   `Why:`/`How to apply:` structure for feedback/project entries.
-- `core/soul/tools.py` — in-process MCP server `rogologo-soul` exposing
+- `core/soul/tools.py` — in-process MCP server `rugol-soul` exposing
   `save_memory`, `list_my_memories`, `forget_memory`. The `agent_name` is
   captured in closure for each run, so an agent can never write into
   another agent's memory.
@@ -153,7 +153,7 @@ Kahneman's dual-process theory.
 - `agent_body` (the `.md` body that defines the agent's persona) is now
   actually injected into the system prompt. Until v0.6 it was persisted
   in the DB but never reached the model — the agent ran with the
-  Claude Code preset only. This was masked because Rogologo's bundled
+  Claude Code preset only. This was masked because Rugol's bundled
   templates happen to be short. Soul-3 needed this fixed to be coherent
   (the body is the unit of evolution).
 - `core/runner/claude_runner.py` system-prompt composition now layers:
@@ -191,7 +191,7 @@ proposer fires.
 
 ## [0.5.0-alpha] — 2026-05-04
 
-**Primer release coherente, instalable y demostrable en una PC limpia.** Pasamos de "scaffold con dashboard" a "sistema operativo de agentes" con paradigma project-first, lecciones vivas, sistema 1/2 explícito, devil's advocate, y templates listos para clonar en un click.
+**Primer release coherente, instalable y demostrable en una PC limpia.** Pasamos de "scaffold con dashboard" a "orquestador de agentes para decisiones" con paradigma project-first, lecciones vivas, sistema 1/2 explícito, devil's advocate, y templates listos para clonar en un click.
 
 ### 15 capas entregadas en este ciclo
 
@@ -206,7 +206,7 @@ proposer fires.
 | 7 | **Promote-to-lesson**. Cierre del loop pedagógico: cualquier respuesta del agente o crítica del advocate se promueve a lección del proyecto con un click. |
 | 8 | **MCP servers por agente**. Configuración stdio/sse/http per-agent. UI para agregar/quitar. Conectar Asana, Notion, Slack al agente sin tocar el `.env` global. |
 | 9 | **Ant farm con clusters**. Visualización HTML5 Canvas que agrupa agentes por proyecto. Halo del color del proyecto, dot del color del status. |
-| 10 | **Onboarding emocional**. Hero de primer-uso con la cita "La vida es la sumatoria de proyectos. Tú eres el CEO; ellos ejecutan." Desaparece al primer proyecto real. |
+| 10 | **Onboarding emocional**. Hero de primer-uso con la propuesta de valor (orquestador de agentes para decidir mejor). Desaparece al primer proyecto real. |
 | 11 | **Health check extendido + DEVELOPMENT.md**. `/api/health/full` reporta schema y actividad 24h. Documentación interna para devs + workaround del bug Next 15+pnpm en Windows. |
 | 12 | **READMEs reescritos**. EN+ES desde cero, paradigma project-first como entrada, casos reales (incluyendo el de la hija), 5 templates listados con descripción concreta. |
 | 13 | **Channel bindings (Telegram/Slack)**. Tabla `channel_bindings`, comandos `/bind`, `/whoami`, `/agents` en bot. Reply-on-completion vía bus subscriber. Sin binding → mensaje de ayuda, nunca dispatch a agente equivocado. |
@@ -215,7 +215,7 @@ proposer fires.
 
 ### Fixes notables
 
-- **`setting_sources=["user"]`** en el SDK: los agentes ya no leen el `CLAUDE.md` del repo. Antes respondían "te ayudo con Rogologo Sprint 2" — ahora cada agente responde según su template y el proyecto en el que vive.
+- **`setting_sources=["user"]`** en el SDK: los agentes ya no leen el `CLAUDE.md` del repo. Antes respondían "te ayudo con Rugol Sprint 2" — ahora cada agente responde según su template y el proyecto en el que vive.
 - **Mojibake fix**: `scripts/fix_mojibake.py` repara doble-encoding UTF-8→Latin-1 en `.md` corruptos por tests con PowerShell.
 - **Polling fallback** en agent-chat: si la SSE se desconecta (ej. backend restart), un poll cada 4s al `/api/runs/{id}` hidrata el turno desde el `final_text` persistido.
 - **Backend resiliente al startup**: si Telegram/Slack falla, se loguea y el resto de la app sigue.
@@ -298,7 +298,7 @@ end inside the dashboard.
 ### Sprint 3 — Real product (DONE, 2026-05-02)
 
 The "navigable scaffold" feedback was correct. This release fixes the bugs,
-gives Rogologo a real visual identity, and turns the dashboard into something
+gives Rugol a real visual identity, and turns the dashboard into something
 you actually *operate* the system from — not just look at.
 
 **Fixed**
@@ -324,10 +324,10 @@ you actually *operate* the system from — not just look at.
 
 **Real product features**
 - `/agents/new` and `/agents/[id]/edit`: full UI to define an agent (name,
-  model, description, body) — Rogologo writes the markdown to your AGENTS_DIR
+  model, description, body) — Rugol writes the markdown to your AGENTS_DIR
   and the watcher picks it up. Validates name format and model whitelist.
 - "Scaffold with Moragent" dialog inside the agent form, documenting the
-  Moragent → Rogologo handoff.
+  Moragent → Rugol handoff.
 - `/settings`: real form for Telegram + Slack tokens, allowed user IDs, and
   the agents/skills folder paths. Saving **hot-restarts the affected adapter
   or watcher** with no backend bounce. Live status pills indicate whether
@@ -374,7 +374,7 @@ you actually *operate* the system from — not just look at.
 - Windows installer (`install.bat` + `wizard.ps1`)
 - GitHub Actions CI + Release workflows
 - Bundled agent templates (brand-architect, daily-digest, inbox-watcher, maintenance)
-- Bundled skill templates (rogologo-deploy, -add-agent, -schedule)
+- Bundled skill templates (rugol-deploy, -add-agent, -schedule)
 
 ### Fixed (Sprint 1 verification — 2026-05-02)
 - `core/runner/orchestrator.py`: `run:completed` and terminal events now carry the

@@ -65,7 +65,7 @@ export function NavRail() {
             R
           </div>
           <div>
-            <div className="text-base font-semibold tracking-tight">Rogologo</div>
+            <div className="text-base font-semibold tracking-tight">Rugol</div>
             <div className="text-[10px] text-[--color-fg-muted] uppercase tracking-widest">
               {versionLabel}
             </div>

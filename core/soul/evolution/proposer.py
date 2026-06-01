@@ -136,7 +136,7 @@ async def propose_mutations(
 
     try:
         result = await run_agent(
-            agent_name="rogologo-proposer",
+            agent_name="rugol-proposer",
             prompt=prompt,
             workspace_dir=workspace_dir,
             model=OPUS,

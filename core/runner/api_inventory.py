@@ -61,7 +61,7 @@ def render_endpoint_block(max_lines: int = 80) -> str:
         _rendered_cache = ""
         return ""
     lines: list[str] = [
-        "## REST endpoints disponibles en Rogologo (lista cerrada)",
+        "## REST endpoints disponibles en Rugol (lista cerrada)",
         "Estos son los **únicos** paths bajo `/api` que existen. "
         "Si necesitas algo que NO está acá, NO lo inventes — dilo abiertamente.",
         "",

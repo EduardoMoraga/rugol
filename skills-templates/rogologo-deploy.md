@@ -1,9 +1,9 @@
 ---
-name: rogologo-deploy
-description: End-to-end deploy / update of a Rogologo instance on a clean Windows PC.
+name: rugol-deploy
+description: End-to-end deploy / update of a Rugol instance on a clean Windows PC.
 ---
 
-# /rogologo-deploy
+# /rugol-deploy
 
 Use when starting fresh or upgrading an existing install.
 

@@ -1,11 +1,11 @@
-# Rogologo v0.6 — Roadmap
+# Rugol v0.6 — Roadmap
 
-> Capturado en sesión 2026-05-05 después de instalar Rogologo desde cero
+> Capturado en sesión 2026-05-05 después de instalar Rugol desde cero
 > en un PC Windows 11 limpio + intentar replicar el equipo Gugol que
 > Eduardo Moraga ya tiene operativo en OpenClaw.
 >
 > Esta sesión dejó al descubierto bugs reales, gaps de UX que separan a
-> Rogologo de "herramienta para humanos no técnicos", y un mapa concreto
+> Rugol de "herramienta para humanos no técnicos", y un mapa concreto
 > de skills pendientes para alcanzar paridad con OpenClaw.
 
 ---
@@ -130,7 +130,7 @@ escribir skills custom Python que vivan en `core/skills/builtin/`:
 
 #### asana
 - Asana V2 oficial (cloud-hosted): `https://mcp.asana.com/v2/mcp`.
-- Transport HTTP/SSE, no stdio. Rogologo soporta solo stdio hoy
+- Transport HTTP/SSE, no stdio. Rugol soporta solo stdio hoy
   (línea 338 de `dashboard/src/app/agents/[id]/page.tsx`,
   `type: "stdio"` hardcoded).
 - Para soportar Asana hay que extender el tipo en la UI y en el
@@ -215,7 +215,7 @@ Reemplazos seguros (con espacios):
 **Pedido del usuario (2026-05-05)**: en OpenClaw el setup de MCPs y
 agentes se puede hacer desde Telegram en formato conversacional. El
 bot pide los tokens cuando los necesita, te explica de dónde sacarlos,
-y guarda al final. Que Rogologo soporte lo mismo.
+y guarda al final. Que Rugol soporte lo mismo.
 
 **Propuesta — comandos del bot (Telegram + Slack):**
 
@@ -296,14 +296,14 @@ solo en los lugares correctos, y pida solo lo que falte.
 - Textarea grande donde el usuario pega lo que sea (JSON, texto, env,
   link).
 - Un agente meta (modelo opus, system prompt especializado en
-  config Rogologo) lee el contenido y devuelve un plan estructurado:
+  config Rugol) lee el contenido y devuelve un plan estructurado:
   - "Detecté un Notion token y un Slack bot token."
   - "Voy a configurar Notion en gugol y chikilfumi (los agentes con
     rol de investigación). ¿Confirmas?"
   - "El Slack bot token lo pego en Settings → Slack."
   - "Falta el SLACK_APP_TOKEN para Socket Mode — ¿lo tienes?"
 - Botón "Aplicar plan" que ejecuta los cambios via las APIs internas
-  de Rogologo (`update_settings`, `update_agent_mcp_servers`, etc).
+  de Rugol (`update_settings`, `update_agent_mcp_servers`, etc).
 - Tokens nunca se persisten en el chat ni en logs; solo se aplican a
   runtime_state.
 
@@ -367,7 +367,7 @@ coordinadora orquesta sub-agentes especialistas.
 
 | # | Skill | Esfuerzo | Bloquea |
 |---|---|---|---|
-| 1 | Asana MCP V2 (cloud) | extender Rogologo para soportar HTTP/SSE transport | brief diario de gugol con pendientes BI reales |
+| 1 | Asana MCP V2 (cloud) | extender Rugol para soportar HTTP/SSE transport | brief diario de gugol con pendientes BI reales |
 | 2 | Gmail-read | OAuth flow + MCP gongrzhe | gugol vea inbox personal |
 | 3 | Gmail-send | OAuth flow + MCP gongrzhe (cuenta bot dedicada) | gugol responda emails con confirmación |
 | 4 | Calendar-read | OAuth flow + MCP cocal | brief diario con agenda real |
@@ -381,7 +381,7 @@ coordinadora orquesta sub-agentes especialistas.
   Prueba @bot bind <agente> o usa el dashboard.` — verificar que el
   comando `bind` realmente funcione vía mention. En la sesión de hoy
   el adapter aceptó `bind gugol` por DM pero el flujo en canal con
-  `@Rogologo bind gugol` quedó silencioso (probablemente porque event
+  `@Rugol bind gugol` quedó silencioso (probablemente porque event
   subscriptions no incluían lo necesario hasta el reinstall).
 - El instalador `installer/wizard.ps1` agrega tokens al `.env` directo.
   Cuando Settings UI tenga Status visible (Sprint E), el wizard

@@ -6,7 +6,7 @@ and agents through a chat conversation, without ever touching the dashboard.
 Why this exists
 ---------------
 OpenClaw has a similar onboarding wizard that walks the user through setup
-from inside Telegram. v0.5 of Rogologo required jumping into the dashboard
+from inside Telegram. v0.5 of Rugol required jumping into the dashboard
 for every config change — a hard ask for users who already operate from a
 phone. The wizard closes that gap.
 
@@ -97,7 +97,7 @@ CATALOG: list[McpPreset] = [
         token_help=(
             "Para Notion necesito un Internal Integration Token.\n\n"
             "1. Andá a https://www.notion.so/profile/integrations\n"
-            "2. Click *New integration* → ponele un nombre (ej: Rogologo)\n"
+            "2. Click *New integration* → ponele un nombre (ej: Rugol)\n"
             "3. Copiá el secret que empieza con `ntn_...`\n"
             "4. Volvé y pegámelo acá\n\n"
             "Después tenés que darle acceso a las páginas/databases que querés "
@@ -189,7 +189,7 @@ CATALOG: list[McpPreset] = [
     ),
     McpPreset(
         id="youtube",
-        label="YouTube Data API (custom Rogologo, solo necesita API key)",
+        label="YouTube Data API (custom Rugol, solo necesita API key)",
         package="scripts/mcp/youtube_server.py",  # repo-relative; build_mcp_config resolves
         env_keys=["YOUTUBE_API_KEY"],
         token_help=(

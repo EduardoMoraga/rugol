@@ -16,7 +16,7 @@ from core.memory import add_memory, delete_memory, list_memories
 
 logger = logging.getLogger(__name__)
 
-SOUL_MCP_NAME = "rogologo-soul"
+SOUL_MCP_NAME = "rugol-soul"
 
 # Allow-listed names the runner must include in `allowed_tools` so the
 # agent can actually invoke these. Format matches the SDK convention

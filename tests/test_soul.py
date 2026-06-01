@@ -75,13 +75,13 @@ def test_soul_context_composes_identity_and_rules():
 def test_soul_tool_names_match_mcp_convention():
     assert len(SOUL_TOOL_NAMES) == 3
     for name in SOUL_TOOL_NAMES:
-        assert name.startswith("mcp__rogologo-soul__")
+        assert name.startswith("mcp__rugol-soul__")
 
 
 def test_soul_mcp_server_structure():
     server = build_soul_mcp_server(AGENT)
     assert server["type"] == "sdk"
-    assert server["name"] == "rogologo-soul"
+    assert server["name"] == "rugol-soul"
     assert server["instance"] is not None
 
 

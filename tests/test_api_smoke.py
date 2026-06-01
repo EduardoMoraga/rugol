@@ -40,7 +40,7 @@ def client() -> TestClient:
     # The line above is a no-op marker; the actual init happens via the
     # fixture below when needed. We keep init_db importable.
 
-    app = FastAPI(title="Rogologo Core (test)", version=__version__, lifespan=_noop_lifespan)
+    app = FastAPI(title="Rugol Core (test)", version=__version__, lifespan=_noop_lifespan)
     app.include_router(health.router, prefix="/api")
     app.include_router(projects.router, prefix="/api")
     app.include_router(templates.router, prefix="/api")

@@ -1,13 +1,13 @@
-# Rogologo — Open-Source Agentic Operations Platform
+# Rugol — Open-Source Agentic Operations Platform
 
-> **Vision:** Rogologo is the control plane every Claude developer wishes existed.
+> **Vision:** Rugol is the control plane every Claude developer wishes existed.
 > Drop it on a Windows PC, point it at your `.claude/agents/`, and watch your agents
 > work — schedule them, chat with them from Telegram/Slack, and see them as living
 > sprites in a 2D ant-farm. Open source, MIT, ready for a Show-HN moment.
 
 ## Identity
 
-You are working on **Rogologo**, an open-source orchestration & observability layer
+You are working on **Rugol**, an open-source orchestration & observability layer
 for Claude Code agents. The product fuses two ideas Eduardo Moraga already
 prototyped:
 
@@ -16,7 +16,7 @@ prototyped:
 2. **EduAgent Gateway** (`04-LAB/eduagent-gateway/`) — a Telegram-to-Claude-Agent-SDK
    bridge that lets you operate the workspace from a phone.
 
-Rogologo is the **next step**: a self-contained product (Docker Compose, Windows
+Rugol is the **next step**: a self-contained product (Docker Compose, Windows
 installer, Next.js dashboard, FastAPI core) that turns a single PC into an
 **agent operations center**. Multi-channel chat ops + recurring schedules +
 visual fleet view + shared ontology + self-improving loop.
@@ -44,26 +44,26 @@ The end goal is a project worth showing publicly — and worth Anthropic noticin
 
 | Agent | Model | Owns |
 |-------|-------|------|
-| `rogologo-architect` | opus | Architecture decisions, ADRs, security, cross-stack coherence |
-| `rogologo-backend` | sonnet | FastAPI core, scheduler, adapters, ontology, self-improving |
-| `rogologo-frontend` | sonnet | Next.js dashboard, panels, ant-farm visualization |
-| `rogologo-devops` | sonnet | Docker, GitHub Actions, releases, Windows installer |
-| `rogologo-docs` | haiku | Bilingual docs (EN/ES), README, screenshots, promo material |
+| `rugol-architect` | opus | Architecture decisions, ADRs, security, cross-stack coherence |
+| `rugol-backend` | sonnet | FastAPI core, scheduler, adapters, ontology, self-improving |
+| `rugol-frontend` | sonnet | Next.js dashboard, panels, ant-farm visualization |
+| `rugol-devops` | sonnet | Docker, GitHub Actions, releases, Windows installer |
+| `rugol-docs` | haiku | Bilingual docs (EN/ES), README, screenshots, promo material |
 
 When the user asks for cross-cutting changes, **delegate to the right agent**.
-When in doubt, ask `rogologo-architect` first.
+When in doubt, ask `rugol-architect` first.
 
 ## Skills
 
-- `/rogologo-deploy` — End-to-end deploy on a clean Windows PC
-- `/rogologo-add-agent` — Register a new agent in DB + dashboard
-- `/rogologo-schedule` — Create a recurring schedule for an agent
-- `/rogologo-self-improve` — Run the reflection loop on an agent
+- `/rugol-deploy` — End-to-end deploy on a clean Windows PC
+- `/rugol-add-agent` — Register a new agent in DB + dashboard
+- `/rugol-schedule` — Create a recurring schedule for an agent
+- `/rugol-self-improve` — Run the reflection loop on an agent
 
 ## Layout
 
 ```
-04-LAB/rogologo/
+04-LAB/rugol/
 ├── CLAUDE.md                 (this file)
 ├── README.md                 (English)
 ├── README.es.md              (Spanish)

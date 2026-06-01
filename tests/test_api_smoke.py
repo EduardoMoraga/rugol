@@ -35,10 +35,10 @@ def client() -> TestClient:
     from core.db import init_db
     import asyncio
 
-    # Make sure the DB schema is present.
-    asyncio.get_event_loop().run_until_complete(init_db()) if False else None
-    # The line above is a no-op marker; the actual init happens via the
-    # fixture below when needed. We keep init_db importable.
+    # Make sure the DB schema is present (idempotent: creates tables if the
+    # DB is empty, e.g. a fresh CI checkout). Without this the smoke tests
+    # fail with "no such table: agents" on a clean machine.
+    asyncio.run(init_db())
 
     app = FastAPI(title="Rugol Core (test)", version=__version__, lifespan=_noop_lifespan)
     app.include_router(health.router, prefix="/api")

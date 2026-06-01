@@ -78,7 +78,7 @@ async def propose(agent_id: int, max_candidates: int = 2) -> dict:
 async def validate(
     agent_id: int,
     version_id: str,
-    payload: dict | None = Body(default=None),
+    payload: dict | None = Body(default=None),  # noqa: B008  (FastAPI dependency pattern)
 ) -> dict:
     """Score a proposed version. Result is informational; humans decide."""
     agent_name = await _resolve_agent_name(agent_id)

@@ -6,10 +6,10 @@ proposes a list of actions Rugol should take. The user reviews and
 applies. Tokens never get echoed back in the response.
 """
 from core.config_assistant.parser import (
-    ConfigPlan,
     ConfigAction,
-    parse_user_input,
+    ConfigPlan,
     apply_plan,
+    parse_user_input,
 )
 
 __all__ = ["ConfigPlan", "ConfigAction", "parse_user_input", "apply_plan"]

@@ -76,7 +76,7 @@ async def list_schedules() -> list[ScheduleDTO]:
         if runtime_trig and s.cron_expr:
             db_fields = s.cron_expr.split()
             field_names = ["minute", "hour", "day", "month", "day_of_week"]
-            for name, val in zip(field_names, db_fields):
+            for name, val in zip(field_names, db_fields, strict=False):
                 if val == "*":
                     continue
                 if f"{name}='{val}'" not in runtime_trig:
@@ -235,7 +235,7 @@ async def resync_schedules() -> dict:
             try:
                 sched.add_cron(s.id, agent.name, s.prompt, s.cron_expr)
                 fixed.append(s.id)
-            except Exception as e:
+            except Exception:
                 logger.exception("resync: failed to add schedule %s", s.id)
     # Remove orphan jobs in APScheduler whose schedule_id is no longer in DB.
     for job in sched.list_jobs():

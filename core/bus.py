@@ -9,8 +9,9 @@ import asyncio
 import fnmatch
 import time
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 
 @dataclass
@@ -41,7 +42,7 @@ class Bus:
     async def publish(self, topic: str, data: dict[str, Any] | None = None) -> None:
         evt = Event(topic=topic, data=data or {})
         async with self._lock:
-            for pattern, subs in list(self._subs.items()):
+            for _pattern, subs in list(self._subs.items()):
                 for sub in subs:
                     if sub.matches(topic):
                         try:

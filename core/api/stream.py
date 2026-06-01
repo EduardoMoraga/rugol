@@ -50,7 +50,7 @@ async def stream(
                         "event": "message",
                         "data": json.dumps({"topic": evt.topic, "data": evt.data, "ts": evt.ts}),
                     }
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield {"event": "ping", "data": "{}"}
         finally:
             for t in tasks:

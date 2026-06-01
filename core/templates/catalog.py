@@ -11,7 +11,7 @@ that slug already exists).
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 
 from core.architect.proposer import (
     Proposal,

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import re
 
-
 _WRAPPER_TEMPLATE = """You are handling a deliberate (System 2) request. Before answering, you will think aloud in a short, structured way so the user can audit your reasoning.
 
 Produce three sections **in this order, with these exact headings**:

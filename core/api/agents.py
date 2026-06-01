@@ -72,7 +72,8 @@ class AgentSpec(BaseModel):
     def to_markdown(self) -> str:
         # Build deterministic, valid YAML frontmatter.
         import json
-        esc = lambda s: s.replace("\\", "\\\\").replace('"', '\\"')
+        def esc(s):
+            return s.replace("\\", "\\\\").replace('"', '\\"')
         lines = ["---", f"name: {self.name}", f"model: {self.model}"]
         if self.project_slug:
             lines.append(f"project: {self.project_slug.strip().lower()}")

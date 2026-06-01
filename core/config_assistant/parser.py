@@ -33,8 +33,7 @@ from sqlalchemy import select
 from core import runtime_state
 from core.config import get_settings
 from core.db import async_session_factory
-from core.db.models import Agent, Project
-from core.registry.service import upsert_agent_file
+from core.db.models import Agent
 
 logger = logging.getLogger(__name__)
 
@@ -246,7 +245,7 @@ async def parse_user_input(user_input: str) -> ConfigPlan:
 
     try:
         await asyncio.wait_for(_drain(), timeout=PARSE_TIMEOUT_S)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         raise ValueError(
             f"El Config Assistant no respondió en {PARSE_TIMEOUT_S}s. Probá con un input más corto."
         )
@@ -327,9 +326,9 @@ async def _apply_one(action: ConfigAction) -> str:
 
     if action.type == "add_mcp":
         from core.adapters.telegram_wizards import (
+            _patch_agent_mcp,
             build_mcp_config,
             find_preset,
-            _patch_agent_mcp,
         )
 
         preset_id = str(action.payload.get("preset_id", "")).strip()
@@ -389,9 +388,6 @@ async def _apply_one(action: ConfigAction) -> str:
             raise ValueError("missing key")
         # Persist under the workspace's data dir so it survives restarts and
         # is reachable by future MCP customs (YouTube etc).
-        from core.config import get_settings
-
-        settings = get_settings()
         # data/ is gitignored (see .gitignore)
         target = (
             Path(__file__).resolve().parent.parent.parent

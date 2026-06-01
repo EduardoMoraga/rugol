@@ -18,7 +18,11 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "ASYNC", "UP", "N"]
-ignore = ["E501"]  # line length handled by formatter
+ignore = [
+  "E501",      # line length handled by formatter
+  "ASYNC240",  # Path methods in async fns — harmless for a local single-host app
+  "B904",      # raise-without-from — stylistic; not enforced at this stage
+]
 
 [tool.mypy]
 python_version = "3.12"

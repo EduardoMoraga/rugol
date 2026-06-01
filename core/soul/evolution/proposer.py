@@ -120,7 +120,6 @@ async def propose_mutations(
             for r in last_runs
         ) or "(no past runs)"
         agent_name = agent.name
-        agent_model = agent.model
         agent_body = agent.body or ""
 
     # Make sure the archive exists so proposals attach to a parent.

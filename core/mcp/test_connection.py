@@ -22,7 +22,6 @@ import asyncio
 import json
 import logging
 import os
-import sys
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -74,7 +73,7 @@ async def _read_until_response(stream: asyncio.StreamReader, target_id: int, dea
             return None
         try:
             line = await asyncio.wait_for(stream.readline(), timeout=remaining)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return None
         if not line:
             return None  # EOF
@@ -97,7 +96,7 @@ async def _drain_stderr(proc: asyncio.subprocess.Process, max_bytes: int = 4096)
         while total < max_bytes:
             try:
                 chunk = await asyncio.wait_for(proc.stderr.read(1024), timeout=0.05)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break
             if not chunk:
                 break
@@ -129,7 +128,7 @@ async def test_mcp_server(*, command: str, args: list[str], env: dict[str, str] 
             stderr=asyncio.subprocess.PIPE,
             env=full_env,
         )
-    except FileNotFoundError as e:
+    except FileNotFoundError:
         return McpTestResult(
             ok=False,
             error_kind="spawn_failed",
@@ -251,7 +250,7 @@ async def test_mcp_server(*, command: str, args: list[str], env: dict[str, str] 
                 proc.terminate()
                 try:
                     await asyncio.wait_for(proc.wait(), timeout=KILL_GRACE_S)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     proc.kill()
                     await proc.wait()
             except ProcessLookupError:

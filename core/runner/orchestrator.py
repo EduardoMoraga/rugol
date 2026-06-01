@@ -19,6 +19,10 @@ from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.memory import build_memory_block
 from core.runner.claude_runner import run_agent
+from core.runner.telegram_tools import (
+    TELEGRAM_TOOL_NAMES,
+    build_telegram_mcp_server,
+)
 from core.soul import (
     SOUL_TOOL_NAMES,
     build_soul_context,
@@ -31,13 +35,10 @@ from core.soul import (
 )
 from core.soul.evolution import (
     current_body as evolution_current_body,
-    load_lineage,
+)
+from core.soul.evolution import (
     pick_version_for_run,
     record_metrics,
-)
-from core.runner.telegram_tools import (
-    TELEGRAM_TOOL_NAMES,
-    build_telegram_mcp_server,
 )
 
 logger = logging.getLogger(__name__)
@@ -58,11 +59,11 @@ def _build_project_context(project: Project) -> str | None:
     lessons = project.lessons or []
     if lessons:
         rendered = []
-        for l in lessons:
-            if not isinstance(l, dict):
+        for lesson in lessons:
+            if not isinstance(lesson, dict):
                 continue
-            text = str(l.get("text") or "").strip()
-            kind = str(l.get("kind") or "lesson").strip().upper()
+            text = str(lesson.get("text") or "").strip()
+            kind = str(lesson.get("kind") or "lesson").strip().upper()
             if text:
                 rendered.append(f"- [{kind}] {text}")
         if rendered:
@@ -151,7 +152,7 @@ class RuntimeOrchestrator:
             await session.flush()
             run_id = run.id
             agent.status = "running"
-            agent.last_run_at = dt.datetime.now(dt.timezone.utc)
+            agent.last_run_at = dt.datetime.now(dt.UTC)
             agent_name_snapshot = agent.name
             agent_description_snapshot = agent.description or ""
             agent_default_model_snapshot = agent.model
@@ -463,8 +464,8 @@ class RuntimeOrchestrator:
     async def _maybe_reflect(self, agent_id: int, agent_name: str) -> None:
         """If the agent is due for reflection, spawn it. Errors are swallowed."""
         try:
-            from core.improvements.trigger import is_due
             from core.improvements.reflector import propose_improvement
+            from core.improvements.trigger import is_due
             if not await is_due(agent_id):
                 return
             logger.info("reflection due for agent %s — spawning", agent_name)
@@ -483,7 +484,7 @@ class RuntimeOrchestrator:
             if run is None:
                 return
             run.status = "completed"
-            run.ended_at = dt.datetime.now(dt.timezone.utc)
+            run.ended_at = dt.datetime.now(dt.UTC)
             run.input_tokens = result.input_tokens
             run.output_tokens = result.output_tokens
             run.cost_usd = result.cost_usd
@@ -512,7 +513,7 @@ class RuntimeOrchestrator:
             if run is None:
                 return
             run.status = status
-            run.ended_at = dt.datetime.now(dt.timezone.utc)
+            run.ended_at = dt.datetime.now(dt.UTC)
             run.error_message = error or None
             agent = await session.get(Agent, run.agent_id)
             if agent:

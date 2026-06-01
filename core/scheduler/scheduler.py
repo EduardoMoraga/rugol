@@ -1,7 +1,6 @@
 """APScheduler wrapper. Persists jobs to SQLite (separate DB to avoid lock contention)."""
 from __future__ import annotations
 
-import asyncio
 import logging
 from pathlib import Path
 
@@ -120,7 +119,6 @@ _scheduler_instance: RugolScheduler | None = None
 def get_scheduler() -> RugolScheduler:
     global _scheduler_instance
     if _scheduler_instance is None:
-        settings = get_settings()
         repo_root = Path(__file__).resolve().parent.parent.parent
         _scheduler_instance = RugolScheduler(jobstore_path=repo_root / "data" / "scheduler.db")
     return _scheduler_instance

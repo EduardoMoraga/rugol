@@ -39,6 +39,7 @@ async def _resolve_default_chat_id() -> str | None:
     """When chat_id='default', try the most recent Telegram channel binding."""
     try:
         from sqlalchemy import desc, select
+
         from core.db import async_session_factory
         from core.db.models import ChannelBinding
         async with async_session_factory() as session:

@@ -78,7 +78,7 @@ def extract_text(path: Path) -> str | None:
                     cells = [c.text.strip() for c in row.cells]
                     paras.append(" | ".join(cells))
             return "\n".join(paras)
-        except Exception as e:
+        except Exception:
             logger.exception("docx extraction failed for %s", path)
             return None
 
@@ -100,7 +100,7 @@ def extract_text(path: Path) -> str | None:
                         chunks.append(" | ".join(cells))
                 chunks.append("")
             return "\n".join(chunks)
-        except Exception as e:
+        except Exception:
             logger.exception("xlsx extraction failed for %s", path)
             return None
 
@@ -121,7 +121,7 @@ def extract_text(path: Path) -> str | None:
                         chunks.append(text)
                 chunks.append("")
             return "\n".join(chunks)
-        except Exception as e:
+        except Exception:
             logger.exception("pptx extraction failed for %s", path)
             return None
 

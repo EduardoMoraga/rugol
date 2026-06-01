@@ -31,10 +31,9 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +133,7 @@ def add_memory(
     """Append a new memory file and update MEMORY.md."""
     d = memory_dir(agent_name)
     d.mkdir(parents=True, exist_ok=True)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     base = f"{now.strftime('%Y%m%d')}-{_slug(name)}"
     # Avoid collisions if same slug used twice in one day.
     out = d / f"{base}.md"

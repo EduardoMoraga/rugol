@@ -2,12 +2,10 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from sqlalchemy import select
-
-import re
 
 from core import runtime_state
 from core.bus import bus
@@ -16,7 +14,6 @@ from core.db.models import Agent, Project, Schedule
 from core.ontology import get_ontology
 from core.registry.service import upsert_agent_file, upsert_skill_file
 from core.scheduler import get_scheduler
-from sqlalchemy import select
 
 from .proposer import Proposal, ProposalProject
 

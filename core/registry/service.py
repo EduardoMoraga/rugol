@@ -8,7 +8,6 @@ from sqlalchemy import select
 
 from core import runtime_state
 from core.bus import bus
-from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Skill
 from core.registry.loader import load_agent_file, load_skill_file

@@ -25,7 +25,6 @@ from typing import Any
 
 from sqlalchemy import select
 
-from core import runtime_state
 from core.db import async_session_factory
 from core.db.models import Agent, Project
 from core.mcp import test_mcp_server
@@ -57,7 +56,7 @@ class McpPreset:
     requires_extra_arg: bool = False
 
 
-def build_mcp_config(preset: "McpPreset", env: dict[str, str], extra_args: list[str] | None = None) -> dict[str, Any]:
+def build_mcp_config(preset: McpPreset, env: dict[str, str], extra_args: list[str] | None = None) -> dict[str, Any]:
     """Build the {type, command, args, env} dict that gets stored on the agent.
 
     Honors is_python: if True, command becomes the current Python interpreter

@@ -7,7 +7,6 @@ Code itself uses internally, adapted for the Rugol per-agent store.
 """
 from __future__ import annotations
 
-
 AUTO_MEMORY_RULES = """## Cómo usar tu memoria persistente
 
 Tienes tres herramientas MCP que el sistema te da gratis:

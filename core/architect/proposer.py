@@ -141,7 +141,7 @@ class Proposal:
         }
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "Proposal":
+    def from_dict(cls, d: dict[str, Any]) -> Proposal:
         proj_raw = d.get("project")
         project = None
         if isinstance(proj_raw, dict) and proj_raw.get("name"):
@@ -305,7 +305,7 @@ async def propose(*, idea: str, constraints: str = "", workspace_dir=None) -> Pr
 
     try:
         await asyncio.wait_for(_drain(), timeout=PROPOSE_TIMEOUT_SECONDS)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         raise ValueError(
             f"Architect did not finish within {PROPOSE_TIMEOUT_SECONDS}s. "
             f"Tighten the idea or shorten the constraints — the model is taking too long. "

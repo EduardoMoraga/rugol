@@ -9,7 +9,6 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import AsyncIterator
 
 from core.bus import bus
 from core.config import get_settings

@@ -27,7 +27,7 @@ async def health() -> dict:
 async def health_full() -> dict:
     """Extended health: counts across the schema, last-24h run stats,
     flags whether the user actually has anything real yet (Capa 11)."""
-    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
+    since = dt.datetime.now(dt.UTC) - dt.timedelta(hours=24)
     async with async_session_factory() as session:
         projects = (await session.execute(select(func.count(Project.id)))).scalar_one()
         named_projects = (await session.execute(

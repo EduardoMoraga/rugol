@@ -7,7 +7,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import async_session_factory
 from core.db.models import OntologyEdge, OntologyNode

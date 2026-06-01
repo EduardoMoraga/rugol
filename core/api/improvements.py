@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import datetime as dt
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import desc, select
 
 from core.db import async_session_factory
-from core.db.models import Agent, Improvement
+from core.db.models import Improvement
 
 router = APIRouter(prefix="/improvements", tags=["improvements"])
 
@@ -39,7 +38,7 @@ async def approve(improvement_id: int) -> dict:
         if imp is None:
             raise HTTPException(status_code=404, detail="improvement not found")
         imp.status = "approved"
-        imp.reviewed_at = dt.datetime.now(dt.timezone.utc)
+        imp.reviewed_at = dt.datetime.now(dt.UTC)
         await session.commit()
     return {"status": "approved"}
 
@@ -51,7 +50,7 @@ async def reject(improvement_id: int, reason: str = "") -> dict:
         if imp is None:
             raise HTTPException(status_code=404, detail="improvement not found")
         imp.status = "rejected"
-        imp.reviewed_at = dt.datetime.now(dt.timezone.utc)
+        imp.reviewed_at = dt.datetime.now(dt.UTC)
         imp.rationale = (imp.rationale or "") + f"\n\nRejected: {reason}" if reason else imp.rationale
         await session.commit()
     return {"status": "rejected"}

@@ -18,9 +18,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 from sqlalchemy import select
 from telegram import Update
@@ -28,11 +27,12 @@ from telegram.error import Conflict, NetworkError
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
 from core import runtime_state
-from core.config import get_settings
+from core.adapters import session_store
+from core.adapters import telegram_wizards as wizards
 from core.adapters.base import Adapter
-from core.adapters import session_store, telegram_wizards as wizards
 from core.attachments import classify_path, extract_text
 from core.bus import bus
+from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, ChannelBinding
 from core.memory import add_memory, list_memories
@@ -444,7 +444,7 @@ class TelegramAdapter(Adapter):
         repo_root = Path(__file__).resolve().parent.parent.parent
         out_dir = repo_root / "data" / "uploads" / str(chat_id)
         out_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         clean_name = (suggested_name or "file.bin").replace("/", "_").replace("\\", "_")
         out_path = out_dir / f"{ts}-{clean_name}"
         tg_file = await ctx.bot.get_file(file_id)
@@ -536,7 +536,7 @@ class TelegramAdapter(Adapter):
                 prompt = (
                     (f"{caption}\n\n" if caption else "")
                     + f"El usuario te envió el archivo {local_path.name}. "
-                    + f"No pude extraer texto automáticamente. Usá Read si querés inspeccionarlo. "
+                    + "No pude extraer texto automáticamente. Usá Read si querés inspeccionarlo. "
                     + f"Path: {local_path}"
                 )
             else:
@@ -545,7 +545,7 @@ class TelegramAdapter(Adapter):
                 prompt = (
                     (f"{caption}\n\n" if caption else "")
                     + f"El usuario te envió el archivo {local_path.name}. "
-                    + f"Acá va el contenido extraído (delimitado por triple guión):\n\n"
+                    + "Acá va el contenido extraído (delimitado por triple guión):\n\n"
                     + f"---\n{snippet}\n---\n\n"
                     + "Respondé al usuario sobre este contenido."
                 )
@@ -561,7 +561,7 @@ class TelegramAdapter(Adapter):
             prompt = (
                 (f"{caption}\n\n" if caption else "")
                 + f"El usuario te envió un archivo de tipo desconocido: {local_path.name}. "
-                + f"Probá con tu herramienta Read; si no podés leerlo, decile al usuario qué tipo de archivo te sirve.\n\n"
+                + "Probá con tu herramienta Read; si no podés leerlo, decile al usuario qué tipo de archivo te sirve.\n\n"
                 + f"Path absoluto: {local_path}"
             )
 

@@ -32,8 +32,9 @@ async def init_db() -> None:
     SQLite file does not need to wipe it.
     """
     # Import models so they register on Base.metadata
-    from core.db import models  # noqa: F401
     from sqlalchemy import inspect, text
+
+    from core.db import models  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -80,6 +81,7 @@ async def _ensure_workspace_project() -> None:
     already exists.
     """
     from sqlalchemy import select, update
+
     from core.db.models import Agent, Project
 
     async with async_session_factory() as session:

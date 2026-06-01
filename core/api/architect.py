@@ -8,7 +8,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from core import runtime_state
-from core.architect import Proposal, deploy as deploy_proposal, propose
+from core.architect import Proposal, propose
+from core.architect import deploy as deploy_proposal
 
 logger = logging.getLogger(__name__)
 

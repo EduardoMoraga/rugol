@@ -21,7 +21,7 @@ from core.db.base import Base
 
 
 def _now() -> dt.datetime:
-    return dt.datetime.now(dt.timezone.utc)
+    return dt.datetime.now(dt.UTC)
 
 
 class Project(Base):
@@ -53,7 +53,7 @@ class Project(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
-    agents: Mapped[list["Agent"]] = relationship(back_populates="project")
+    agents: Mapped[list[Agent]] = relationship(back_populates="project")
 
 
 class Agent(Base):
@@ -83,9 +83,9 @@ class Agent(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
-    project: Mapped["Project | None"] = relationship(back_populates="agents")
-    runs: Mapped[list["Run"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
-    schedules: Mapped[list["Schedule"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
+    project: Mapped[Project | None] = relationship(back_populates="agents")
+    runs: Mapped[list[Run]] = relationship(back_populates="agent", cascade="all, delete-orphan")
+    schedules: Mapped[list[Schedule]] = relationship(back_populates="agent", cascade="all, delete-orphan")
 
 
 class Skill(Base):
@@ -145,7 +145,7 @@ class Run(Base):
     agent_version_id: Mapped[str | None] = mapped_column(String(32), default=None)
 
     agent: Mapped[Agent] = relationship(back_populates="runs")
-    messages: Mapped[list["Message"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+    messages: Mapped[list[Message]] = relationship(back_populates="run", cascade="all, delete-orphan")
 
 
 class Message(Base):

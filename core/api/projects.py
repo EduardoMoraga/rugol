@@ -14,7 +14,6 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, select
-from sqlalchemy.orm import selectinload
 
 from core.bus import bus
 from core.db import async_session_factory
@@ -112,7 +111,7 @@ async def _aggregate(session, project_id: int) -> tuple[int, int, float]:
     agent_count = (await session.execute(
         select(func.count(Agent.id)).where(Agent.project_id == project_id)
     )).scalar_one() or 0
-    since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
+    since = dt.datetime.now(dt.UTC) - dt.timedelta(hours=24)
     runs_q = (
         select(func.count(Run.id), func.coalesce(func.sum(Run.cost_usd), 0.0))
         .join(Agent, Agent.id == Run.agent_id)
@@ -255,7 +254,7 @@ async def add_lesson(id_or_slug: str, body: LessonAdd) -> ProjectDTO:
             "kind": body.kind,
             "text": body.text.strip(),
             "source": "user",
-            "added_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "added_at": dt.datetime.now(dt.UTC).isoformat(),
         }
         current = list(p.lessons or [])
         current.append(item)

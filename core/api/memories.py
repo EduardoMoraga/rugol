@@ -5,7 +5,6 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
 from core.db import async_session_factory
 from core.db.models import Agent

@@ -11,7 +11,7 @@ Backed by the `chat_sessions` table (see core/db/models.py::ChatSession).
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select
 
@@ -47,7 +47,7 @@ async def save(channel_type: str, external_id: str, session_id: str) -> None:
         ).scalar_one_or_none()
         if existing is not None:
             existing.session_id = session_id
-            existing.last_used_at = datetime.now(timezone.utc)
+            existing.last_used_at = datetime.now(UTC)
         else:
             session.add(
                 ChatSession(

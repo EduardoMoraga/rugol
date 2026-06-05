@@ -200,7 +200,12 @@ CORE_PORT=$CorePort
 DASHBOARD_PORT=$DashPort
 SESSION_SECRET=$secret
 "@ | Set-Content -Path $EnvFile -Encoding UTF8
-    Write-Host ""; Ok "Configuración guardada en $EnvFile"; Write-Host ""; Write-Host "Siguiente:  rugol up"
+    Write-Host ""; Ok "Configuración guardada en $EnvFile"
+    # Si ya estaba corriendo, reiniciamos para aplicar la nueva config al instante
+    # (el .env solo se lee al arrancar).
+    if ((Pid-Running (Join-Path $RunDir "core.pid")) -or (Pid-Running (Join-Path $RunDir "dashboard.pid"))) {
+        Write-Host ""; Write-Host "Rugol estaba corriendo — lo reinicio para aplicar la nueva configuración..."; Cmd-Restart
+    } else { Write-Host ""; Write-Host "Siguiente:  rugol up" }
 }
 
 function Cmd-Build { Build-Dashboard | Out-Null }

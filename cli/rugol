@@ -224,8 +224,19 @@ SESSION_SECRET=${secret}
 EOF
   echo ""
   ok "Configuración guardada en $ENV_FILE"
-  echo ""
-  echo "Siguiente:  ${B}rugol up${X}"
+
+  # Si Rugol ya estaba corriendo, el proceso vivo tiene la config VIEJA en
+  # memoria (el .env solo se lee al arrancar). Reiniciamos para que lo nuevo
+  # —token de Telegram, modelo, auth— tome efecto al instante, sin que el
+  # usuario tenga que tocar nada más.
+  if _pid_running "$RUN_DIR/core.pid" || _pid_running "$RUN_DIR/dashboard.pid"; then
+    echo ""
+    say "Rugol estaba corriendo — lo reinicio para aplicar la nueva configuración..."
+    cmd_restart
+  else
+    echo ""
+    echo "Siguiente:  ${B}rugol up${X}"
+  fi
 }
 
 cmd_build() { build_dashboard; }

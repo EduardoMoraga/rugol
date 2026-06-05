@@ -47,7 +47,7 @@ if (-not (Have "uv")) {
 if (-not (Have "uv")) { Die "uv no quedó disponible" }
 Ok "uv: $(uv --version)"
 Write-Host "  creando entorno Python aislado + dependencias del backend..."
-uv venv "$RT\venv" --python 3.12 | Out-Null
+uv venv "$RT\venv" --python 3.12 --clear | Out-Null
 uv pip install --python "$RT\venv\Scripts\python.exe" -q -r "$AppDir\core\requirements.txt"
 Ok "backend listo"
 

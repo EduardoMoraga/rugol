@@ -54,7 +54,7 @@ have uv || die "uv no quedó en PATH"
 ok "uv: $(uv --version 2>/dev/null)"
 
 echo "  creando entorno Python aislado + dependencias del backend..."
-uv venv "$RT/venv" --python 3.12 >/dev/null 2>&1 || die "uv venv falló"
+uv venv "$RT/venv" --python 3.12 --clear >/dev/null 2>&1 || die "uv venv falló"
 uv pip install --python "$RT/venv/bin/python" -q -r "$APP_DIR/core/requirements.txt" || die "falló la instalación de deps"
 ok "backend listo ($("$RT/venv/bin/python" --version 2>&1))"
 

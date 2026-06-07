@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,9 @@ SETTINGS_PATH = REPO_ROOT / "data" / "settings.json"
 class RuntimeSettings:
     telegram_bot_token: str = ""
     telegram_allowed_users: str = ""
+    # Multi-bot: list of {token, agent, users, label}. When non-empty this
+    # is the source of truth and the single token above is ignored.
+    telegram_bots: list = field(default_factory=list)
     slack_bot_token: str = ""
     slack_signing_secret: str = ""
     slack_app_token: str = ""
@@ -40,6 +43,15 @@ class RuntimeSettings:
             "telegram_bot_token_set": bool(self.telegram_bot_token),
             "telegram_bot_token_hint": mask(self.telegram_bot_token),
             "telegram_allowed_users": self.telegram_allowed_users,
+            "telegram_bots": [
+                {
+                    "key": (str(b.get("token", "")).split(":", 1)[0] or "?"),
+                    "agent": b.get("agent", ""),
+                    "label": b.get("label", ""),
+                    "token_hint": mask(str(b.get("token", ""))),
+                }
+                for b in (self.telegram_bots or [])
+            ],
             "slack_bot_token_set": bool(self.slack_bot_token),
             "slack_bot_token_hint": mask(self.slack_bot_token),
             "slack_signing_secret_set": bool(self.slack_signing_secret),
@@ -98,6 +110,70 @@ def telegram_allowed_user_ids() -> set[int]:
     if not raw:
         return set()
     return {int(x.strip()) for x in raw.split(",") if x.strip().lstrip("-").isdigit()}
+
+
+def _parse_user_set(raw: Any) -> set[int]:
+    """Accept a comma-string, a list, or None → set of int user ids."""
+    if raw is None:
+        return set()
+    items = raw if isinstance(raw, (list, set, tuple)) else str(raw).split(",")
+    out: set[int] = set()
+    for x in items:
+        x = str(x).strip()
+        if x.lstrip("-").isdigit():
+            out.add(int(x))
+    return out
+
+
+def telegram_bots() -> list[dict]:
+    """Normalized list of every configured Telegram bot.
+
+    Source precedence:
+      1. runtime_state.telegram_bots  (dashboard / multi-bot wizard)
+      2. .env TELEGRAM_BOTS           (JSON list)
+      3. legacy single bot: settings.json token, else .env TELEGRAM_BOT_TOKEN
+
+    Each entry: {token, key, agent, users:set[int], label}. `key` is the
+    bot's numeric id (token before ':') — unique per bot — used to namespace
+    chat bindings/sessions so multiple bots never cross wires. Falling back
+    to .env here is also what makes `rugol setup` (which writes .env) take
+    effect without anyone touching the dashboard.
+    """
+    from core.config import get_settings
+    s = load()
+    cfg = get_settings()
+
+    raw_list = list(s.telegram_bots or [])
+    if not raw_list and getattr(cfg, "TELEGRAM_BOTS", None):
+        raw_list = list(cfg.TELEGRAM_BOTS)
+    if not raw_list:
+        token = (s.telegram_bot_token or cfg.TELEGRAM_BOT_TOKEN or "").strip()
+        if token:
+            raw_list = [{
+                "token": token,
+                "agent": cfg.DEFAULT_AGENT,
+                "users": s.telegram_allowed_users or cfg.TELEGRAM_ALLOWED_USERS,
+                "label": "",
+            }]
+
+    out: list[dict] = []
+    seen: set[str] = set()
+    for b in raw_list:
+        token = str(b.get("token") or "").strip()
+        if not token or ":" not in token:
+            continue
+        key = token.split(":", 1)[0]
+        if key in seen:
+            continue  # same bot twice → would Conflict on polling
+        seen.add(key)
+        out.append({
+            "token": token,
+            "key": key,
+            "agent": str(b.get("agent") or cfg.DEFAULT_AGENT or "").strip(),
+            "users": _parse_user_set(b.get("users")),
+            "label": str(b.get("label") or "").strip(),
+        })
+    return out
 
 
 def slack_tokens() -> tuple[str, str, str]:

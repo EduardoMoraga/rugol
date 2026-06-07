@@ -44,10 +44,16 @@ async def status(request: Request) -> dict[str, Any]:
     slack = getattr(request.app.state, "slack", None)
     watcher = getattr(request.app.state, "watcher", None)
     s = runtime_state.load()
+    bots = runtime_state.telegram_bots()
     return {
         "telegram": {
-            "configured": bool(s.telegram_bot_token),
+            "configured": bool(bots),
             "running": bool(telegram and getattr(telegram, "_app", None)),
+            "bot_count": len(bots),
+            "bots": [
+                {"key": b["key"], "agent": b["agent"], "label": b["label"]}
+                for b in bots
+            ],
             "allowed_user_ids": sorted(runtime_state.telegram_allowed_user_ids()),
         },
         "slack": {

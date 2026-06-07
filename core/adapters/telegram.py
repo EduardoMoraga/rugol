@@ -32,7 +32,6 @@ from core.adapters import telegram_wizards as wizards
 from core.adapters.base import Adapter
 from core.attachments import classify_path, extract_text
 from core.bus import bus
-from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, ChannelBinding
 from core.memory import add_memory, list_memories
@@ -54,17 +53,44 @@ _PENDING: dict[int, dict] = {}
 _CHAT_SESSIONS: dict[str, str] = {}
 
 
-class TelegramAdapter(Adapter):
+class _TelegramBot:
+    """A single Telegram bot pinned to one default agent / project.
+
+    Multiple bots run side by side (one long-poller each). Chat bindings and
+    conversational sessions are namespaced by `key` — the bot's numeric id
+    (the part of the token before ':'). This matters because a Telegram
+    user's private chat_id is IDENTICAL across every bot, so without the
+    namespace two bots talking to the same person would share the same
+    binding and route to the same agent. The namespace is what makes each
+    project's bot truly independent.
+    """
     name = "telegram"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        token: str,
+        key: str,
+        default_agent: str = "",
+        allowed_users: set[int] | None = None,
+        label: str = "",
+    ) -> None:
+        self.token = token
+        self.key = key
+        self.default_agent = (default_agent or "").strip()
+        self.allowed_users: set[int] = allowed_users or set()
+        self.label = label or key
         self._app: Application | None = None
         self._bus_task: asyncio.Task | None = None
 
+    def _chat_key(self, chat_id: object) -> str:
+        """Namespace a chat by this bot so bindings/sessions never collide
+        across bots (private chat_id is the same for all bots)."""
+        return f"{self.key}:{chat_id}"
+
     async def start(self) -> None:
-        token = runtime_state.telegram_token()
+        token = self.token
         if not token:
-            logger.info("telegram disabled (no token)")
+            logger.info("telegram bot disabled (no token)")
             return
 
         # v0.6.x — warm up the in-memory session cache from DB so that
@@ -105,7 +131,10 @@ class TelegramAdapter(Adapter):
         await app.initialize()
         await app.start()
         await app.updater.start_polling(drop_pending_updates=True)
-        logger.info("telegram adapter started (allowed=%s)", runtime_state.telegram_allowed_user_ids())
+        logger.info(
+            "telegram bot '%s' started (key=%s, agent=%s, allowed=%s)",
+            self.label, self.key, self.default_agent or "-", self.allowed_users or "{}",
+        )
 
         # Subscribe to run completion events and reply to the originating chat.
         self._bus_task = asyncio.create_task(self._consume_bus())
@@ -135,7 +164,7 @@ class TelegramAdapter(Adapter):
     # Authorization ----------------------------------------------------------
 
     def _is_authorized(self, update: Update) -> bool:
-        allowed = runtime_state.telegram_allowed_user_ids()
+        allowed = self.allowed_users
         user = update.effective_user
         if not user:
             return False
@@ -149,7 +178,7 @@ class TelegramAdapter(Adapter):
         if not self._is_authorized(update):
             return
         chat_id = update.effective_chat.id
-        bound = await _resolve_binding_or_default(str(chat_id))
+        bound = await _resolve_binding_or_default(self._chat_key(chat_id), self.default_agent)
         if bound:
             await update.message.reply_text(
                 f"Hola. Este chat está vinculado a *{bound['agent_name']}*. "
@@ -210,7 +239,7 @@ class TelegramAdapter(Adapter):
             )
             return
         agent_name = ctx.args[0].strip()
-        chat_id = str(update.effective_chat.id)
+        chat_id = self._chat_key(update.effective_chat.id)
         async with async_session_factory() as session:
             agent = (await session.execute(
                 select(Agent).where(Agent.name == agent_name)
@@ -276,7 +305,7 @@ class TelegramAdapter(Adapter):
         """Forget the conversational context for this chat — next message starts fresh."""
         if not self._is_authorized(update):
             return
-        chat_id = str(update.effective_chat.id)
+        chat_id = self._chat_key(update.effective_chat.id)
         had_mem = _CHAT_SESSIONS.pop(chat_id, None)
         had_db = False
         try:
@@ -303,7 +332,7 @@ class TelegramAdapter(Adapter):
         if not self._is_authorized(update):
             return
         chat_id = update.effective_chat.id
-        bound = await _lookup_binding(str(chat_id))
+        bound = await _lookup_binding(self._chat_key(chat_id))
         if not bound:
             await update.message.reply_text(
                 "Antes de recordar algo, vinculá el chat a un agente con /bind."
@@ -339,7 +368,7 @@ class TelegramAdapter(Adapter):
         if not self._is_authorized(update):
             return
         chat_id = update.effective_chat.id
-        bound = await _lookup_binding(str(chat_id))
+        bound = await _lookup_binding(self._chat_key(chat_id))
         if not bound:
             await update.message.reply_text(
                 "Antes de listar memorias, vinculá el chat a un agente con /bind."
@@ -399,7 +428,7 @@ class TelegramAdapter(Adapter):
                 )
             return
 
-        bound = await _resolve_binding_or_default(str(chat_id))
+        bound = await _resolve_binding_or_default(self._chat_key(chat_id), self.default_agent)
         if not bound:
             await update.message.reply_text(
                 f"Este chat (`{chat_id}`) no está vinculado. Usa `/bind <agente>` o `/agents`.",
@@ -409,7 +438,7 @@ class TelegramAdapter(Adapter):
         placeholder = await update.message.reply_text(f"⏳ {bound['agent_name']} pensando…")
         # v0.6 — thread conversational context: pass the previous turn's
         # session_id so claude-agent-sdk continues the same session.
-        session_id = _CHAT_SESSIONS.get(str(chat_id))
+        session_id = _CHAT_SESSIONS.get(self._chat_key(chat_id))
         try:
             run_id = await get_orchestrator().enqueue(RunRequest(
                 agent_name=bound["agent_name"],
@@ -419,6 +448,7 @@ class TelegramAdapter(Adapter):
                 metadata={"chat_id": chat_id, "placeholder_msg_id": placeholder.message_id},
             ))
             _PENDING[run_id] = {
+                "bot_key": self.key,
                 "chat_id": chat_id,
                 "placeholder_msg_id": placeholder.message_id,
             }
@@ -458,7 +488,7 @@ class TelegramAdapter(Adapter):
         prompt: str,
     ) -> None:
         """Dispatch an enriched prompt to the bound agent. Mirrors _handle's tail."""
-        bound = await _lookup_binding(str(chat_id))
+        bound = await _resolve_binding_or_default(self._chat_key(chat_id), self.default_agent)
         if not bound:
             await update.message.reply_text(
                 f"Este chat ({chat_id}) no está vinculado. Usá /bind <agente> o /agents.",
@@ -467,7 +497,7 @@ class TelegramAdapter(Adapter):
         placeholder = await update.message.reply_text(
             f"⏳ {bound['agent_name']} procesando…"
         )
-        session_id = _CHAT_SESSIONS.get(str(chat_id))
+        session_id = _CHAT_SESSIONS.get(self._chat_key(chat_id))
         try:
             run_id = await get_orchestrator().enqueue(RunRequest(
                 agent_name=bound["agent_name"],
@@ -477,6 +507,7 @@ class TelegramAdapter(Adapter):
                 metadata={"chat_id": chat_id, "placeholder_msg_id": placeholder.message_id},
             ))
             _PENDING[run_id] = {
+                "bot_key": self.key,
                 "chat_id": chat_id,
                 "placeholder_msg_id": placeholder.message_id,
             }
@@ -657,19 +688,23 @@ class TelegramAdapter(Adapter):
                     run_id = evt.data.get("run_id")
                     if run_id is None:
                         continue
-                    pend = _PENDING.pop(run_id, None)
+                    # Peek — do NOT pop yet. With multiple bots every bot's
+                    # consumer receives this event (the bus fans out), but
+                    # only the bot that dispatched the run owns the
+                    # placeholder. A non-owner must leave _PENDING intact so
+                    # the owner's consumer can claim it.
+                    pend = _PENDING.get(run_id)
                     if not pend:
-                        # Could be a scheduled run (no Telegram placeholder)
-                        # or an event whose placeholder was already consumed.
-                        # Log at debug-level so we keep visibility without
-                        # spamming. If a Telegram-sourced run loses its
-                        # placeholder, the backend log + dashboard still
-                        # show the result.
+                        # Scheduled run (no Telegram placeholder) or already
+                        # delivered. Dashboard + log still show the result.
                         logger.debug(
                             "telegram: no pending placeholder for run %s (topic=%s)",
                             run_id, topic,
                         )
                         continue
+                    if pend.get("bot_key") != self.key:
+                        continue  # belongs to another bot — let its consumer handle it
+                    _PENDING.pop(run_id, None)
                     await self._deliver_terminal_event(topic, run_id, evt.data, pend)
             except asyncio.CancelledError:
                 raise
@@ -706,7 +741,7 @@ class TelegramAdapter(Adapter):
             suffix = f"\n\n_run #{run_id} · ${cost:.4f}_"
             new_session = data.get("session_id")
             if new_session:
-                chat_key = str(chat_id)
+                chat_key = self._chat_key(chat_id)
                 _CHAT_SESSIONS[chat_key] = new_session
                 try:
                     await session_store.save("telegram", chat_key, new_session)
@@ -772,6 +807,65 @@ class TelegramAdapter(Adapter):
         logger.exception("telegram unhandled error", exc_info=err)
 
 
+class TelegramAdapter(Adapter):
+    """Manager that runs ONE _TelegramBot per configured bot.
+
+    Public interface unchanged (start/stop/publish + a truthy `_app` while
+    running) so core.main and the hot-restart in core/api/settings.py keep
+    working without changes. Reads runtime_state.telegram_bots() — which
+    falls back to .env — so both the wizard and the dashboard configure it.
+    """
+    name = "telegram"
+
+    def __init__(self) -> None:
+        self._bots: list[_TelegramBot] = []
+        self._app: object | None = None  # truthy marker for /settings status
+
+    async def start(self) -> None:
+        bots_cfg = runtime_state.telegram_bots()
+        if not bots_cfg:
+            logger.info("telegram disabled (no token)")
+            return
+        for bc in bots_cfg:
+            bot = _TelegramBot(
+                token=bc["token"],
+                key=bc["key"],
+                default_agent=bc["agent"],
+                allowed_users=bc["users"],
+                label=bc["label"],
+            )
+            try:
+                await bot.start()
+                self._bots.append(bot)
+            except Exception:
+                logger.exception("telegram bot %s failed to start", bc.get("key"))
+        self._app = self if self._bots else None
+        if self._bots:
+            logger.info("telegram manager up with %d bot(s)", len(self._bots))
+
+    async def stop(self) -> None:
+        for bot in self._bots:
+            try:
+                await bot.stop()
+            except Exception:
+                logger.exception("error stopping telegram bot %s", bot.key)
+        self._bots = []
+        self._app = None
+
+    async def publish(self, channel_id: str, text: str) -> None:
+        """Send to a chat. channel_id may be "<bot_key>:<chat_id>" to target a
+        specific bot, or a bare chat_id (uses the first bot)."""
+        cid = str(channel_id)
+        if ":" in cid:
+            key, chat = cid.split(":", 1)
+            for b in self._bots:
+                if b.key == key:
+                    await b.publish(chat, text)
+                    return
+        if self._bots:
+            await self._bots[0].publish(cid, text)
+
+
 # Helpers --------------------------------------------------------------------
 
 async def _lookup_binding(chat_id_str: str) -> dict | None:
@@ -790,20 +884,22 @@ async def _lookup_binding(chat_id_str: str) -> dict | None:
         return {"agent_name": agent.name, "agent_id": agent.id, "binding_id": b.id}
 
 
-async def _resolve_binding_or_default(chat_id_str: str) -> dict | None:
+async def _resolve_binding_or_default(chat_id_str: str, default_name: str = "") -> dict | None:
     """Return the agent this chat talks to.
 
-    If there's an explicit binding, use it. Otherwise, if DEFAULT_AGENT is set,
-    auto-bind this chat to it so messaging the bot "just works" on first
-    contact (Hermes-style: token -> chat, no /bind). The auto-created binding
-    persists and shows up in the dashboard, where the user can reassign it.
-    When DEFAULT_AGENT is empty, returns None (strict fleet model).
+    If there's an explicit binding, use it. Otherwise, if this bot has a
+    default agent, auto-bind this chat to it so messaging the bot "just
+    works" on first contact (Hermes-style: token -> chat, no /bind). The
+    auto-created binding persists and shows up in the dashboard, where the
+    user can reassign it. With no default agent, returns None (strict fleet
+    model). `chat_id_str` is the bot-namespaced key (see _TelegramBot._chat_key)
+    so each bot's auto-binding is independent.
     """
     bound = await _lookup_binding(chat_id_str)
     if bound:
         return bound
 
-    default_name = get_settings().DEFAULT_AGENT.strip()
+    default_name = (default_name or "").strip()
     if not default_name:
         return None
 

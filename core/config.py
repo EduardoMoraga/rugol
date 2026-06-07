@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_ALLOWED_USERS: str = ""
+    # Multi-bot: a JSON list lets you run several bots at once, one per
+    # project, each pinned to its own default agent. Example .env value:
+    #   TELEGRAM_BOTS=[{"token":"123:abc","agent":"ventas","users":"42","label":"Ventas"}]
+    # When empty, the single TELEGRAM_BOT_TOKEN above is used (back-compat).
+    TELEGRAM_BOTS: list[dict] = []
 
     # Default agent — when a chat (e.g. Telegram) has no explicit binding,
     # messages auto-route to this agent so "token -> chat" works instantly,

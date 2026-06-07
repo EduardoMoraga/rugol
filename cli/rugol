@@ -189,18 +189,41 @@ cmd_setup() {
     *) model="claude-sonnet-4-6" ;;
   esac
 
-  # ── Telegram ──
-  echo ""
-  echo "${B}3) Telegram${X} ${D}(opcional — Enter para saltar)${X}"
-  read -r -p "   TELEGRAM_BOT_TOKEN: " tg_token
-  local tg_users=""
-  [ -n "$tg_token" ] && read -r -p "   User IDs permitidos (coma-separado): " tg_users
-
   # ── Agente por defecto ──
   echo ""
-  echo "${B}4) Agente por defecto${X} ${D}(responde al instante, sin /bind)${X}"
+  echo "${B}3) Agente por defecto${X} ${D}(responde al instante, sin /bind)${X}"
   read -r -p "   Agente por defecto [assistant]: " default_agent
   default_agent="${default_agent:-assistant}"
+
+  # ── Telegram (multi-bot) ──
+  # Podés conectar VARIOS bots, uno por proyecto. Cada bot sale como un
+  # contacto distinto en Telegram y está pegado a su propio agente. El
+  # primero usa los campos legacy TELEGRAM_BOT_TOKEN/USERS; si agregás más,
+  # se escribe además TELEGRAM_BOTS (JSON) que el backend prioriza.
+  echo ""
+  echo "${B}4) Telegram${X} ${D}(opcional — Enter para saltar)${X}"
+  echo "   ${D}Creá cada bot con @BotFather (/newbot). Podés conectar varios, uno por proyecto.${X}"
+  local tg_token tg_users=""
+  read -r -p "   Token del bot 1 (Enter = saltar Telegram): " tg_token
+  local bots_json=""
+  if [ -n "$tg_token" ]; then
+    read -r -p "   User IDs permitidos (coma-separado): " tg_users
+    local b_agent
+    read -r -p "   Agente para este bot [${default_agent}]: " b_agent
+    b_agent="${b_agent:-$default_agent}"
+    bots_json="{\"token\":\"${tg_token}\",\"agent\":\"${b_agent}\",\"users\":\"${tg_users}\",\"label\":\"Bot 1\"}"
+    local n=2
+    while true; do
+      local more=""
+      read -r -p "   ¿Conectar otro bot? Pegá su token (Enter = listo): " more
+      [ -z "$more" ] && break
+      local ma
+      read -r -p "   Agente para el bot ${n} [${default_agent}]: " ma
+      ma="${ma:-$default_agent}"
+      bots_json="${bots_json},{\"token\":\"${more}\",\"agent\":\"${ma}\",\"users\":\"${tg_users}\",\"label\":\"Bot ${n}\"}"
+      n=$((n+1))
+    done
+  fi
 
   local secret; secret="$(rand_secret)"
   umask 077
@@ -212,8 +235,11 @@ ANTHROPIC_API_KEY=${api_key}
 CLAUDE_CODE_OAUTH_TOKEN=${oauth_token}
 DEFAULT_MODEL=${model}
 
+# Bot principal (legacy / un solo bot). Si conectás varios, manda TELEGRAM_BOTS.
 TELEGRAM_BOT_TOKEN=${tg_token}
 TELEGRAM_ALLOWED_USERS=${tg_users}
+# Varios bots, uno por proyecto (JSON). El backend lo prioriza si no está vacío.
+TELEGRAM_BOTS=[${bots_json}]
 
 # Agente que responde al instante en chats sin vincular (Hermes-style).
 DEFAULT_AGENT=${default_agent}

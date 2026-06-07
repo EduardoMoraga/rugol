@@ -4,6 +4,8 @@
 # Provisions its OWN runtimes (Python via uv, Node pinned) — nothing preinstalled needed.
 # Env overrides: RUGOL_HOME, RUGOL_SRC (install from a local dir), RUGOL_REPO, RUGOL_REF
 $ErrorActionPreference = "Stop"
+# UTF-8 en la consola para que los acentos (código, próximos) no salgan como "??".
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 $HomeDir = if ($env:RUGOL_HOME) { $env:RUGOL_HOME } else { Join-Path $HOME ".rugol" }
 $AppDir  = Join-Path $HomeDir "app"
@@ -54,8 +56,12 @@ Ok "backend listo"
 # ── 3) Node (sistema si >=18, si no lo bajamos) ──────────────────────────────
 $needNode = $true
 if (Have "node") {
-    $maj = (node -p 'process.versions.node.split(".")[0]')
-    if ([int]$maj -ge 18) { $needNode = $false; Ok "node del sistema: $(node --version)" }
+    # OJO: no pasar JS con comillas a 'node -p' desde PowerShell (las come y rompe).
+    # 'node --version' devuelve algo como v24.15.0 — parseamos el major con regex.
+    $nv = (& node --version) 2>$null
+    if ($nv -match '^v(\d+)\.') {
+        if ([int]$Matches[1] -ge 18) { $needNode = $false; Ok "node del sistema: $nv" }
+    }
 }
 if ($needNode) {
     $arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
@@ -79,16 +85,19 @@ New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 Copy-Item (Join-Path $AppDir "cli\rugol.ps1") $BinDir -Force
 Copy-Item (Join-Path $AppDir "cli\rugol.cmd") $BinDir -Force
 Ok "launcher instalado en $BinDir"
+# Persistir en el PATH del usuario (terminales futuras)...
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 if ($userPath -notlike "*$BinDir*") {
     [Environment]::SetEnvironmentVariable("Path", "$userPath;$BinDir", "User")
-    Warn "Agregué $BinDir al PATH. Abrí una terminal nueva para que tome efecto."
 }
+# ...y agregarlo a ESTA sesión, así 'rugol' funciona acá mismo sin reabrir nada.
+if (";$env:PATH;" -notlike "*;$BinDir;*") { $env:PATH = "$env:PATH;$BinDir" }
+Ok "'rugol' ya está disponible en esta terminal (y en las nuevas)"
 
 # ── 5) Compilar dashboard ────────────────────────────────────────────────────
-Write-Host "  compilando el dashboard..."
-& "$BinDir\rugol.cmd" build | Out-Null
-if (Test-Path (Join-Path $AppDir "dashboard\.next\standalone\server.js")) { Ok "dashboard compilado" } else { Warn "el dashboard no compiló — corré 'rugol build'" }
+Write-Host "  compilando el dashboard (1-2 min la primera vez)..."
+& "$BinDir\rugol.cmd" build
+if (Test-Path (Join-Path $AppDir "dashboard\.next\standalone\server.js")) { Ok "dashboard compilado" } else { Warn "el dashboard no compiló (mirá el detalle arriba) — reintentá con 'rugol build'" }
 
 Write-Host ""
 Write-Host "Listo - sin Docker. Próximos pasos:" -ForegroundColor Green

@@ -35,6 +35,13 @@ de un comando; y crear un bot de Telegram por proyecto es nativo.
   vacío. (Raíz del viejo "telegram disabled (no token)".)
 - **`rugol setup` reinicia los servicios vivos** para aplicar config nueva.
 - **Instalador idempotente**: `uv venv --clear` no se traba en reintentos.
+- **Windows (primer test en máquina real):** consola en UTF-8 (acentos ya no
+  salen como `??`); detección de Node sin pasar JS con comillas a `node -p`
+  (rompía y bajaba Node de más); `rugol` queda disponible en la misma
+  terminal del instalador (se agrega al PATH de la sesión); el build del
+  dashboard ya no traga el error y cae a `npm` si no hay `pnpm`. Los comandos
+  `bot`/`vault`/`evolve` ahora también están en el launcher de Windows
+  (paridad con Mac). Ambos `.ps1` parse-checkeados con PowerShell 7.
 
 ## [0.7.1-alpha] — 2026-05-11
 

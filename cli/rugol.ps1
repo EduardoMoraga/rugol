@@ -7,6 +7,8 @@ param(
     [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$Rest
 )
 $ErrorActionPreference = "Stop"
+# UTF-8 en consola para que los acentos no salgan como "??".
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
 # ── Paths ────────────────────────────────────────────────────────────────────
 $HomeDir = if ($env:RUGOL_HOME) { $env:RUGOL_HOME } else { Join-Path $HOME ".rugol" }
@@ -105,24 +107,40 @@ function Stop-One($pidfile, $name) {
     } else { Write-Host "  $name no estaba corriendo" }
 }
 function Build-Dashboard {
+    # Señaliza el resultado por script-scope ($script:BuildOk) en vez de
+    # devolver un booleano: así la salida de npm/pnpm fluye a la consola en
+    # vez de quedar capturada por un pipe del caller (la causa de "no compiló"
+    # sin ningún detalle). Los callers leen $script:BuildOk.
+    $script:BuildOk = $false
     Require-App
     $nodebin = "$RT\node"
     if (Test-Path $nodebin) { $env:PATH = "$nodebin;$env:PATH" }
-    if (-not (Have "node")) { Err "Node no disponible (lo necesita el dashboard)."; return $false }
-    if (-not (Have "pnpm")) { corepack enable pnpm 2>$null }
-    Write-Host "Compilando el dashboard (1-2 min la primera vez)..."
+    if (-not (Have "node")) { Err "Node no disponible (lo necesita el dashboard)."; return }
+    # Elegir gestor de paquetes: pnpm si está (o se puede habilitar con corepack),
+    # si no npm (siempre viene con Node). Esto evita que un Windows sin pnpm
+    # deje el dashboard sin compilar.
+    if (-not (Have "pnpm")) { corepack enable pnpm 2>$null | Out-Null }
+    $pm = if (Have "pnpm") { "pnpm" } else { "npm" }
+    Write-Host "Compilando el dashboard con $pm (1-2 min la primera vez)..."
     Push-Location $DashDir
+    $built = $false
     try {
-        if (-not (Test-Path "node_modules")) { pnpm install }
         $env:NEXT_PUBLIC_API_URL = "http://127.0.0.1:$CorePort"
-        pnpm build
+        if (-not (Test-Path "node_modules")) {
+            & $pm install
+            if ($LASTEXITCODE -ne 0) { Err "'$pm install' falló (código $LASTEXITCODE)."; return }
+        }
+        if ($pm -eq "pnpm") { pnpm build } else { npm run build }
+        $built = ($LASTEXITCODE -eq 0)
+        if (-not $built) { Err "'$pm build' falló (código $LASTEXITCODE)." }
     } finally { Pop-Location }
+    if (-not $built) { return }
     $sa = Join-Path $DashDir ".next\standalone\.next"
     New-Item -ItemType Directory -Force -Path $sa | Out-Null
     Copy-Item (Join-Path $DashDir ".next\static") (Join-Path $sa "static") -Recurse -Force
     if (Test-Path (Join-Path $DashDir "public")) { Copy-Item (Join-Path $DashDir "public") (Join-Path $DashDir ".next\standalone\public") -Recurse -Force }
     Ok "Dashboard compilado."
-    return $true
+    $script:BuildOk = $true
 }
 
 # ── Commands ─────────────────────────────────────────────────────────────────
@@ -208,12 +226,12 @@ SESSION_SECRET=$secret
     } else { Write-Host ""; Write-Host "Siguiente:  rugol up" }
 }
 
-function Cmd-Build { Build-Dashboard | Out-Null }
+function Cmd-Build { Build-Dashboard }
 
 function Cmd-Up {
     Require-App; Require-Env
     Write-Host ""
-    if (-not (Test-Path (Join-Path $DashDir ".next\standalone\server.js"))) { if (-not (Build-Dashboard)) { Err "No pude preparar el dashboard."; exit 1 } }
+    if (-not (Test-Path (Join-Path $DashDir ".next\standalone\server.js"))) { Build-Dashboard; if (-not $script:BuildOk) { Err "No pude preparar el dashboard."; exit 1 } }
     if (Pid-Running (Join-Path $RunDir "core.pid")) { Ok "core ya estaba corriendo" }
     else { Write-Host "Levantando el core..."; Start-Backend; if (Wait-Health 30) { Ok "core saludable en http://127.0.0.1:$CorePort" } else { Warn "El core tardó. Mirá: rugol logs core" } }
     if (Pid-Running (Join-Path $RunDir "dashboard.pid")) { Ok "dashboard ya estaba corriendo" }
@@ -267,7 +285,7 @@ function Cmd-Update {
     if (Test-Path (Join-Path $AppDir ".git")) { git -C $AppDir pull --ff-only; Ok "código actualizado" }
     $py = Resolve-Python
     if ($py) { Push-Location $AppDir; & $py -m pip install -q -r core/requirements.txt; Pop-Location; Ok "deps backend OK" }
-    Build-Dashboard | Out-Null
+    Build-Dashboard
     Cmd-Restart
     Ok "rugol actualizado. Tus datos en $HomeDir quedaron intactos."
 }
@@ -282,6 +300,83 @@ function Cmd-Version {
     if (Test-Path $initf) { $m = Select-String -Path $initf -Pattern '__version__\s*=\s*"([^"]+)"' | Select-Object -First 1; if ($m) { $v = $m.Matches[0].Groups[1].Value } }
     Write-Host "rugol $($v ?? '(desconocida)')"
 }
+function Cmd-Bot {
+    Require-App; Require-Env
+    $py = Resolve-Python
+    $sub = if ($Rest -and $Rest.Count -gt 0) { $Rest[0].ToLower() } else { "list" }
+    Load-DotEnv $EnvFile
+    Push-Location $AppDir
+    try {
+        if ($sub -in @("list", "ls")) {
+            & $py "cli\rugol-botctl.py" list
+        } elseif ($sub -eq "add") {
+            Write-Host ""
+            Write-Host "Conectar un bot de Telegram a un proyecto" -ForegroundColor White
+            Write-Host "  Crea el bot en @BotFather (/newbot) y pega su token."
+            $token = Read-Host "  Token del bot"
+            if (-not $token) { Err "Sin token, cancelo."; return }
+            $agent = Read-Host "  Agente que responde [assistant]"
+            if (-not $agent) { $agent = "assistant" }
+            $label = Read-Host "  Nombre/etiqueta (ej. Ventas)"
+            $users = Read-Host "  User IDs permitidos (coma-sep, Enter = reusar los del bot 1)"
+            & $py "cli\rugol-botctl.py" add "$token" "$agent" "$label" "$users"
+        } elseif ($sub -in @("remove", "rm")) {
+            $key = if ($Rest.Count -gt 1) { $Rest[1] } else { "" }
+            if (-not $key) { Err "Uso: rugol bot remove <key>  (ver 'rugol bot list')"; return }
+            & $py "cli\rugol-botctl.py" remove "$key"
+        } else { Err "Subcomando desconocido. Uso: rugol bot [list|add|remove <key>]" }
+    } finally { Pop-Location }
+    if ($sub -in @("add", "remove", "rm")) {
+        if (Pid-Running (Join-Path $RunDir "core.pid")) { Write-Host "Reinicio el core para aplicar el cambio..."; Cmd-Restart }
+    }
+}
+
+function Cmd-Vault {
+    Require-App
+    $memRoot = Join-Path $AppDir "agent-memory"
+    if (-not (Test-Path $memRoot) -or -not (Get-ChildItem $memRoot -ErrorAction SilentlyContinue)) {
+        Warn "Todavía no hay memorias. Hablá con un agente (Telegram o dashboard) y volvé."; return
+    }
+    $target = $memRoot
+    if ($Rest -and $Rest.Count -gt 0) {
+        $slug = ($Rest[0].ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
+        if (Test-Path (Join-Path $memRoot $slug)) { $target = Join-Path $memRoot $slug }
+        else { Warn "No hay memorias para '$($Rest[0])' — abro el vault completo." }
+    }
+    Write-Host ""
+    Write-Host "Vault de memoria: $target" -ForegroundColor White
+    Start-Process explorer.exe $target
+    Write-Host "  Para ver el grafo: abrí Obsidian -> 'Open folder as vault' -> esa carpeta -> Graph view." -ForegroundColor DarkGray
+    Write-Host "  Si no tenés Obsidian: instalalo gratis en https://obsidian.md" -ForegroundColor DarkGray
+}
+
+function Cmd-Evolve {
+    Require-App
+    $agent = if ($Rest -and $Rest.Count -gt 0) { $Rest[0] } else { "" }
+    if (-not $agent) { Err "Uso: rugol evolve <agente>   (ej. rugol evolve assistant)"; return }
+    $base = "http://127.0.0.1:$CorePort"
+    try { Invoke-RestMethod "$base/api/health" -TimeoutSec 3 | Out-Null } catch { Err "El core no responde. Corré 'rugol up' primero."; return }
+    try { $agents = Invoke-RestMethod "$base/api/agents" } catch { Err "No pude listar los agentes."; return }
+    $a = $agents | Where-Object { $_.name -eq $agent } | Select-Object -First 1
+    if (-not $a) { Err "No existe el agente '$agent'. Mirá la lista en el dashboard."; return }
+    $aid = $a.id
+    Write-Host ""
+    Write-Host "Self-improving — '$agent' propone mejoras a su propio prompt..." -ForegroundColor White
+    Write-Host "  (usa Opus; puede tardar ~20-40s)" -ForegroundColor DarkGray
+    try { $r = Invoke-RestMethod -Method Post "$base/api/agents/$aid/evolution/propose?max_candidates=2" } catch { Err "La propuesta falló."; return }
+    $ids = $r.proposed_version_ids
+    if (-not $ids -or $ids.Count -eq 0) { Write-Host ""; Ok "El agente no propuso cambios (su prompt ya está sólido, o faltan corridas)."; return }
+    Write-Host ""; Ok "Propuestas generadas: $($ids -join ', ')"
+    try {
+        $ev = Invoke-RestMethod "$base/api/agents/$aid/evolution"
+        foreach ($v in $ev.versions) { if ($v.status -eq "proposed") { Write-Host ("  - " + $v.id + "  -  " + $v.hypothesis) } }
+    } catch {}
+    Write-Host ""
+    Write-Host "Vos decidís. Revisá, validá y aceptá/rechazá en:" -ForegroundColor White
+    Write-Host "  http://127.0.0.1:$DashPort/agents/$aid/evolution"
+    Write-Host "  Nada se aplica solo: el humano siempre tiene la decisión final." -ForegroundColor DarkGray
+}
+
 function Show-Usage {
 @"
 
@@ -301,6 +396,11 @@ Uso:  rugol <comando>
   update       Actualiza el código y reconstruye (datos intactos)
   uninstall    Quita rugol (pregunta si borrar datos)
 
+Agentes y memoria:
+  bot [list|add|remove]  Bots de Telegram por proyecto (uno por agente)
+  vault [agente]         Abre la memoria como vault de Obsidian
+  evolve <agente>        Self-improving: el agente propone mejorar su prompt
+
 Primera vez:  rugol setup  ->  rugol up
 Home de datos: $HomeDir
 "@ | Write-Host
@@ -317,7 +417,10 @@ switch ($Command.ToLower()) {
     "build"   { Cmd-Build }
     "open"    { Cmd-Open }
     { $_ -in @("update", "upgrade") }   { Cmd-Update }
-    { $_ -in @("uninstall", "remove") } { Cmd-Uninstall }
+    "uninstall" { Cmd-Uninstall }
+    { $_ -in @("bot", "bots") }         { Cmd-Bot }
+    { $_ -in @("vault", "memory", "mem") } { Cmd-Vault }
+    { $_ -in @("evolve", "improve") }   { Cmd-Evolve }
     { $_ -in @("version", "--version", "-v") } { Cmd-Version }
     default   { Show-Usage }
 }

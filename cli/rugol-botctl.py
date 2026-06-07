@@ -13,8 +13,13 @@ Usage (called by the `rugol` launcher, not by humans directly):
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
-from core import runtime_state as rs
+# Make `core` importable no matter the cwd: this file lives at <app>/cli/,
+# so the app root (which contains the `core` package) is its parent's parent.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from core import runtime_state as rs  # noqa: E402  (after sys.path bootstrap)
 
 
 def _current() -> list[dict]:

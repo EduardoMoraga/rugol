@@ -402,16 +402,23 @@ cmd_vault() {
   fi
   echo ""
   say "${B}Vault de memoria:${X} $target"
-  if [ -d "/Applications/Obsidian.app" ]; then
-    open -a Obsidian "$target" 2>/dev/null || open "$target" 2>/dev/null || true
-    echo ""
+  local opened=0
+  if have open; then
+    # macOS: 'open -a Obsidian' usa Launch Services (encuentra la app esté
+    # donde esté, no solo en /Applications).
+    if open -a Obsidian "$target" 2>/dev/null; then opened=1; fi
+  elif have obsidian; then
+    obsidian "$target" >/dev/null 2>&1 && opened=1
+  fi
+  echo ""
+  if [ "$opened" -eq 1 ]; then
     say "${D}Primera vez: en Obsidian → 'Open folder as vault' → elegí esa carpeta.${X}"
-    say "${D}Después abrí el Graph view (ícono de grafo, ⌘G) para ver la red de memorias.${X}"
+    say "${D}Después abrí el Graph view (⌘G) para ver la red de memorias.${X}"
   else
     open_url "$target" 2>/dev/null || true
-    echo ""
-    warn "No vi Obsidian instalado."
-    say "  Instalalo gratis: ${B}https://obsidian.md${X}  y abrí esa carpeta como vault."
+    warn "No pude abrir Obsidian automáticamente."
+    say "  Si lo tenés: abrí Obsidian → 'Open folder as vault' → $target"
+    say "  Si no: instalalo gratis en ${B}https://obsidian.md${X} (la carpeta ya quedó abierta en Finder)."
   fi
 }
 

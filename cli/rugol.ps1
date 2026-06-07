@@ -1,4 +1,4 @@
-# rugol — control plane for your Claude agents (Windows). Native, no Docker.
+# rugol - control plane for your Claude agents (Windows). Native, no Docker.
 # Mirrors cli/rugol (bash): backend on a uv-managed Python, dashboard on a
 # prebuilt Next.js server, both as plain processes. State lives in %USERPROFILE%\.rugol.
 [CmdletBinding()]
@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 # UTF-8 en consola para que los acentos no salgan como "??".
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-# ── Paths ────────────────────────────────────────────────────────────────────
+# __ Paths ____________________________________________________________________
 $HomeDir = if ($env:RUGOL_HOME) { $env:RUGOL_HOME } else { Join-Path $HOME ".rugol" }
 $AppDir  = if ($env:RUGOL_APP_DIR) { $env:RUGOL_APP_DIR } else { Join-Path $HomeDir "app" }
 $EnvFile = Join-Path $HomeDir ".env"
@@ -28,7 +28,7 @@ function Warn($m) { Write-Host "  [!] $m"  -ForegroundColor Yellow }
 function Err($m)  { Write-Host "  [X] $m"  -ForegroundColor Red }
 function Have($c) { return [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 
-# ── Runtime resolution ───────────────────────────────────────────────────────
+# __ Runtime resolution _______________________________________________________
 function Resolve-Python {
     foreach ($c in @("$RT\venv\Scripts\python.exe", "$AppDir\.venv\Scripts\python.exe")) {
         if (Test-Path $c) { return $c }
@@ -50,10 +50,10 @@ function Load-DotEnv($file) {
 }
 function Require-App {
     if (-not (Test-Path (Join-Path $AppDir "core\main.py"))) {
-        Err "No encuentro la app en $AppDir. Reinstalá con el one-liner del README."; exit 1
+        Err "No encuentro la app en $AppDir. Reinstala con el one-liner del README."; exit 1
     }
 }
-function Require-Env { if (-not (Test-Path $EnvFile)) { Err "Falta config. Corré primero:  rugol setup"; exit 1 } }
+function Require-Env { if (-not (Test-Path $EnvFile)) { Err "Falta config. Corre primero:  rugol setup"; exit 1 } }
 
 function Wait-Health([int]$Tries = 30) {
     Write-Host -NoNewline "  esperando al core"
@@ -70,7 +70,7 @@ function Pid-Running($file) {
     return [bool](Get-Process -Id $procId -ErrorAction SilentlyContinue)
 }
 
-# ── Process control ──────────────────────────────────────────────────────────
+# __ Process control __________________________________________________________
 function Start-Backend {
     $py = Resolve-Python
     New-Item -ItemType Directory -Force -Path $RunDir, $LogsDir | Out-Null
@@ -91,7 +91,7 @@ function Start-Backend {
 function Start-Dashboard {
     $node = Resolve-Node
     $server = Join-Path $DashDir ".next\standalone\server.js"
-    if (-not (Test-Path $server)) { Warn "Dashboard no compilado — corré 'rugol build'."; return }
+    if (-not (Test-Path $server)) { Warn "Dashboard no compilado - corre 'rugol build'."; return }
     $env:PORT = "$DashPort"; $env:HOSTNAME = "127.0.0.1"
     $p = Start-Process -FilePath $node -ArgumentList @($server) `
         -WorkingDirectory $DashDir -WindowStyle Hidden -PassThru `
@@ -107,16 +107,16 @@ function Stop-One($pidfile, $name) {
     } else { Write-Host "  $name no estaba corriendo" }
 }
 function Build-Dashboard {
-    # Señaliza el resultado por script-scope ($script:BuildOk) en vez de
-    # devolver un booleano: así la salida de npm/pnpm fluye a la consola en
-    # vez de quedar capturada por un pipe del caller (la causa de "no compiló"
-    # sin ningún detalle). Los callers leen $script:BuildOk.
+    # Senaliza el resultado por script-scope ($script:BuildOk) en vez de
+    # devolver un booleano: asi la salida de npm/pnpm fluye a la consola en
+    # vez de quedar capturada por un pipe del caller (la causa de "no compilo"
+    # sin ningun detalle). Los callers leen $script:BuildOk.
     $script:BuildOk = $false
     Require-App
     $nodebin = "$RT\node"
     if (Test-Path $nodebin) { $env:PATH = "$nodebin;$env:PATH" }
     if (-not (Have "node")) { Err "Node no disponible (lo necesita el dashboard)."; return }
-    # Elegir gestor de paquetes: pnpm si está (o se puede habilitar con corepack),
+    # Elegir gestor de paquetes: pnpm si esta (o se puede habilitar con corepack),
     # si no npm (siempre viene con Node). Esto evita que un Windows sin pnpm
     # deje el dashboard sin compilar.
     if (-not (Have "pnpm")) { corepack enable pnpm 2>$null | Out-Null }
@@ -128,11 +128,11 @@ function Build-Dashboard {
         $env:NEXT_PUBLIC_API_URL = "http://127.0.0.1:$CorePort"
         if (-not (Test-Path "node_modules")) {
             & $pm install
-            if ($LASTEXITCODE -ne 0) { Err "'$pm install' falló (código $LASTEXITCODE)."; return }
+            if ($LASTEXITCODE -ne 0) { Err "'$pm install' fallo (codigo $LASTEXITCODE)."; return }
         }
         if ($pm -eq "pnpm") { pnpm build } else { npm run build }
         $built = ($LASTEXITCODE -eq 0)
-        if (-not $built) { Err "'$pm build' falló (código $LASTEXITCODE)." }
+        if (-not $built) { Err "'$pm build' fallo (codigo $LASTEXITCODE)." }
     } finally { Pop-Location }
     if (-not $built) { return }
     $sa = Join-Path $DashDir ".next\standalone\.next"
@@ -143,11 +143,11 @@ function Build-Dashboard {
     $script:BuildOk = $true
 }
 
-# ── Commands ─────────────────────────────────────────────────────────────────
+# __ Commands _________________________________________________________________
 function Cmd-Setup {
     Require-App
     Write-Host ""
-    Write-Host "rugol setup — configuración inicial" -ForegroundColor White
+    Write-Host "rugol setup - configuracion inicial" -ForegroundColor White
     Write-Host ""
     foreach ($d in @($HomeDir, $DataDir, $LogsDir, $RunDir, (Join-Path $HomeDir "agents"), (Join-Path $HomeDir "skills"))) {
         New-Item -ItemType Directory -Force -Path $d | Out-Null
@@ -157,10 +157,10 @@ function Cmd-Setup {
     if ((Test-Path $atpl) -and -not (Get-ChildItem $agD -ErrorAction SilentlyContinue)) { Copy-Item "$atpl\*" $agD -Recurse -Force; Ok "Agentes de ejemplo copiados" }
     if ((Test-Path $stpl) -and -not (Get-ChildItem $skD -ErrorAction SilentlyContinue)) { Copy-Item "$stpl\*" $skD -Recurse -Force; Ok "Skills de ejemplo copiadas" }
 
-    Write-Host "1) Autenticación con Claude"
-    Write-Host "   [1] Suscripción Pro/Max  (recomendado - usa tu plan, sin costo extra)"
+    Write-Host "1) Autenticacion con Claude"
+    Write-Host "   [1] Suscripcion Pro/Max  (recomendado - usa tu plan, sin costo extra)"
     Write-Host "   [2] API key de Anthropic (pay-per-use, billing aislado)"
-    $authChoice = Read-Host "   Opción [1]"; if (-not $authChoice) { $authChoice = "1" }
+    $authChoice = Read-Host "   Opcion [1]"; if (-not $authChoice) { $authChoice = "1" }
     $useSub = "true"; $apiKey = ""; $oauthToken = ""
     if ($authChoice -eq "2") {
         $useSub = "false"
@@ -170,29 +170,29 @@ function Cmd-Setup {
             if ($apiKey -notlike "sk-ant-*") { Warn "Una API key empieza con 'sk-ant-'." }
         } while ($apiKey -notlike "sk-ant-*")
     } else {
-        Write-Host "   Tu suscripción se usa con un token long-lived (claude setup-token), headless."
+        Write-Host "   Tu suscripcion se usa con un token long-lived (claude setup-token), headless."
         if (Have "claude") {
-            $gen = Read-Host "   ¿Generar el token ahora con 'claude setup-token'? [S/n]"
+            $gen = Read-Host "   Generar el token ahora con 'claude setup-token'? [S/n]"
             if ($gen -in @("", "s", "S", "y", "Y")) {
-                Write-Host "   Autorizá en el navegador y copiá el token que muestra."
-                try { claude setup-token } catch { Warn "No pude correr setup-token; pegá un token existente." }
+                Write-Host "   Autoriza en el navegador y copia el token que muestra."
+                try { claude setup-token } catch { Warn "No pude correr setup-token; pega un token existente." }
             }
-        } else { Write-Host "   (el CLI 'claude' no está acá — generá el token donde lo tengas y pegalo)" }
+        } else { Write-Host "   (el CLI 'claude' no esta aca - genera el token donde lo tengas y pegalo)" }
         do {
-            $sec = Read-Host "   Pegá tu token de suscripción" -AsSecureString
+            $sec = Read-Host "   Pega tu token de suscripcion" -AsSecureString
             $oauthToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-            if (-not $oauthToken) { Warn "No puede quedar vacío." }
+            if (-not $oauthToken) { Warn "No puede quedar vacio." }
         } while (-not $oauthToken)
     }
 
     Write-Host ""
     Write-Host "2) Modelo por defecto (Rugol enruta solo por tarea; este es el fallback)"
     Write-Host "   [1] Sonnet 4.6 (recomendado)   [2] Opus 4.8   [3] Haiku 4.5"
-    $modelChoice = Read-Host "   Opción [1]"
+    $modelChoice = Read-Host "   Opcion [1]"
     switch ($modelChoice) { "2" { $model = "claude-opus-4-8" } "3" { $model = "claude-haiku-4-5-20251001" } default { $model = "claude-sonnet-4-6" } }
 
     Write-Host ""
-    Write-Host "3) Telegram (opcional — Enter para saltar)"
+    Write-Host "3) Telegram (opcional - Enter para saltar)"
     $tgToken = Read-Host "   TELEGRAM_BOT_TOKEN"
     $tgUsers = ""; if ($tgToken) { $tgUsers = Read-Host "   User IDs permitidos (coma-separado)" }
 
@@ -203,7 +203,7 @@ function Cmd-Setup {
     $secret = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
     $stamp  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     @"
-# Generado por ``rugol setup`` — $stamp
+# Generado por ``rugol setup`` - $stamp
 USE_SUBSCRIPTION=$useSub
 ANTHROPIC_API_KEY=$apiKey
 CLAUDE_CODE_OAUTH_TOKEN=$oauthToken
@@ -218,11 +218,11 @@ CORE_PORT=$CorePort
 DASHBOARD_PORT=$DashPort
 SESSION_SECRET=$secret
 "@ | Set-Content -Path $EnvFile -Encoding UTF8
-    Write-Host ""; Ok "Configuración guardada en $EnvFile"
+    Write-Host ""; Ok "Configuracion guardada en $EnvFile"
     # Si ya estaba corriendo, reiniciamos para aplicar la nueva config al instante
     # (el .env solo se lee al arrancar).
     if ((Pid-Running (Join-Path $RunDir "core.pid")) -or (Pid-Running (Join-Path $RunDir "dashboard.pid"))) {
-        Write-Host ""; Write-Host "Rugol estaba corriendo — lo reinicio para aplicar la nueva configuración..."; Cmd-Restart
+        Write-Host ""; Write-Host "Rugol estaba corriendo - lo reinicio para aplicar la nueva configuracion..."; Cmd-Restart
     } else { Write-Host ""; Write-Host "Siguiente:  rugol up" }
 }
 
@@ -233,12 +233,12 @@ function Cmd-Up {
     Write-Host ""
     if (-not (Test-Path (Join-Path $DashDir ".next\standalone\server.js"))) { Build-Dashboard; if (-not $script:BuildOk) { Err "No pude preparar el dashboard."; exit 1 } }
     if (Pid-Running (Join-Path $RunDir "core.pid")) { Ok "core ya estaba corriendo" }
-    else { Write-Host "Levantando el core..."; Start-Backend; if (Wait-Health 30) { Ok "core saludable en http://127.0.0.1:$CorePort" } else { Warn "El core tardó. Mirá: rugol logs core" } }
+    else { Write-Host "Levantando el core..."; Start-Backend; if (Wait-Health 30) { Ok "core saludable en http://127.0.0.1:$CorePort" } else { Warn "El core tardo. Mira: rugol logs core" } }
     if (Pid-Running (Join-Path $RunDir "dashboard.pid")) { Ok "dashboard ya estaba corriendo" }
     else { Start-Dashboard; Ok "dashboard en http://127.0.0.1:$DashPort" }
     $dash = "http://127.0.0.1:$DashPort"
-    if ((Get-Content $EnvFile -ErrorAction SilentlyContinue) -match '^TELEGRAM_BOT_TOKEN=.+') { Ok "Telegram conectado — escribile a tu bot." }
-    Write-Host ""; Write-Host "  Abrí:  $dash" -ForegroundColor White
+    if ((Get-Content $EnvFile -ErrorAction SilentlyContinue) -match '^TELEGRAM_BOT_TOKEN=.+') { Ok "Telegram conectado - escribile a tu bot." }
+    Write-Host ""; Write-Host "  Abri:  $dash" -ForegroundColor White
     Start-Process $dash
     Write-Host ""; Write-Host "Detener: rugol down  |  Estado: rugol status  |  Logs: rugol logs"
 }
@@ -250,39 +250,39 @@ function Cmd-Status {
     if (Pid-Running (Join-Path $RunDir "core.pid")) { Ok "core      (pid $(Get-Content (Join-Path $RunDir 'core.pid')))" } else { Warn "core      detenido" }
     if (Pid-Running (Join-Path $RunDir "dashboard.pid")) { Ok "dashboard (pid $(Get-Content (Join-Path $RunDir 'dashboard.pid')))" } else { Warn "dashboard detenido" }
     Write-Host ""; Write-Host "Salud" -ForegroundColor White
-    try { Invoke-RestMethod "http://127.0.0.1:$CorePort/api/health" -TimeoutSec 2 | Out-Null; Ok "API → :$CorePort" } catch { Warn "API → no responde" }
-    try { Invoke-WebRequest "http://127.0.0.1:$DashPort/" -TimeoutSec 2 -UseBasicParsing | Out-Null; Ok "UI  → :$DashPort" } catch { Warn "UI  → no responde" }
+    try { Invoke-RestMethod "http://127.0.0.1:$CorePort/api/health" -TimeoutSec 2 | Out-Null; Ok "API -> :$CorePort" } catch { Warn "API -> no responde" }
+    try { Invoke-WebRequest "http://127.0.0.1:$DashPort/" -TimeoutSec 2 -UseBasicParsing | Out-Null; Ok "UI  -> :$DashPort" } catch { Warn "UI  -> no responde" }
     Write-Host ""; Write-Host "Home   $HomeDir"
 }
 function Cmd-Logs {
     $svc = if ($Rest -and $Rest.Count -gt 0) { $Rest[0] } else { "core" }
     $f = if ($svc -in @("dashboard", "dash", "ui")) { Join-Path $LogsDir "dashboard.out.log" } else { Join-Path $LogsDir "core.err.log" }
-    if (Test-Path $f) { Get-Content $f -Tail 100 -Wait } else { Warn "sin log todavía: $f" }
+    if (Test-Path $f) { Get-Content $f -Tail 100 -Wait } else { Warn "sin log todavia: $f" }
 }
 function Cmd-Doctor {
     Write-Host ""; Write-Host "rugol doctor" -ForegroundColor White
     $fail = 0; $py = Resolve-Python; $node = Resolve-Node
-    if ($py) { Ok "python: $(& $py --version 2>&1)" } else { Err "no encontré Python"; $fail = 1 }
+    if ($py) { Ok "python: $(& $py --version 2>&1)" } else { Err "no encontre Python"; $fail = 1 }
     if ($node) { Ok "node: $(& $node --version)" } else { Err "node no disponible"; $fail = 1 }
-    if (Have "uv") { Ok "uv presente" } else { Warn "uv no está (el instalador lo usa)" }
-    if (Have "claude") { Ok "claude CLI presente" } else { Warn "claude CLI no está en PATH (OK si usás API key)" }
+    if (Have "uv") { Ok "uv presente" } else { Warn "uv no esta (el instalador lo usa)" }
+    if (Have "claude") { Ok "claude CLI presente" } else { Warn "claude CLI no esta en PATH (OK si usas API key)" }
     if (Test-Path (Join-Path $AppDir "core\main.py")) { Ok "app en $AppDir" } else { Err "app no encontrada"; $fail = 1 }
-    if (Test-Path (Join-Path $DashDir ".next\standalone\server.js")) { Ok "dashboard compilado" } else { Warn "dashboard sin compilar — 'rugol build'" }
+    if (Test-Path (Join-Path $DashDir ".next\standalone\server.js")) { Ok "dashboard compilado" } else { Warn "dashboard sin compilar - 'rugol build'" }
     if (Test-Path $EnvFile) {
         Ok "config presente"
         $envc = Get-Content $EnvFile
         if ($envc -match '^USE_SUBSCRIPTION=true') {
-            if ($envc -match '^CLAUDE_CODE_OAUTH_TOKEN=.+') { Ok "auth: suscripción (token presente)" } else { Warn "auth: falta CLAUDE_CODE_OAUTH_TOKEN — re-corré 'rugol setup'"; $fail = 1 }
+            if ($envc -match '^CLAUDE_CODE_OAUTH_TOKEN=.+') { Ok "auth: suscripcion (token presente)" } else { Warn "auth: falta CLAUDE_CODE_OAUTH_TOKEN - re-corre 'rugol setup'"; $fail = 1 }
         } else {
-            if ($envc -match '^ANTHROPIC_API_KEY=sk-ant-') { Ok "auth: API key" } else { Warn "auth: API key inválida — re-corré 'rugol setup'"; $fail = 1 }
+            if ($envc -match '^ANTHROPIC_API_KEY=sk-ant-') { Ok "auth: API key" } else { Warn "auth: API key invalida - re-corre 'rugol setup'"; $fail = 1 }
         }
-    } else { Warn "falta config — corré 'rugol setup'" }
+    } else { Warn "falta config - corre 'rugol setup'" }
     Write-Host ""
-    if ($fail -eq 0) { Ok "Todo listo." } else { Err "Resolvé lo de arriba antes de 'rugol up'." }
+    if ($fail -eq 0) { Ok "Todo listo." } else { Err "Resolve lo de arriba antes de 'rugol up'." }
 }
 function Cmd-Update {
     Require-App
-    if (Test-Path (Join-Path $AppDir ".git")) { git -C $AppDir pull --ff-only; Ok "código actualizado" }
+    if (Test-Path (Join-Path $AppDir ".git")) { git -C $AppDir pull --ff-only; Ok "codigo actualizado" }
     $py = Resolve-Python
     if ($py) { Push-Location $AppDir; & $py -m pip install -q -r core/requirements.txt; Pop-Location; Ok "deps backend OK" }
     Build-Dashboard
@@ -290,15 +290,16 @@ function Cmd-Update {
     Ok "rugol actualizado. Tus datos en $HomeDir quedaron intactos."
 }
 function Cmd-Uninstall {
-    $ans = Read-Host "Detener rugol y ¿borrar también tus DATOS en $HomeDir? [no/si]"
+    $ans = Read-Host "Detener rugol y borrar tambien tus DATOS en $HomeDir? [no/si]"
     Cmd-Down
-    if ($ans -in @("si", "sí", "yes")) { Remove-Item -Recurse -Force $HomeDir; Ok "home borrado" } else { Write-Host "  Datos conservados en $HomeDir" }
+    if ($ans -in @("si", "si", "yes")) { Remove-Item -Recurse -Force $HomeDir; Ok "home borrado" } else { Write-Host "  Datos conservados en $HomeDir" }
 }
 function Cmd-Open { Start-Process "http://127.0.0.1:$DashPort" }
 function Cmd-Version {
     $v = $null; $initf = Join-Path $AppDir "core\__init__.py"
     if (Test-Path $initf) { $m = Select-String -Path $initf -Pattern '__version__\s*=\s*"([^"]+)"' | Select-Object -First 1; if ($m) { $v = $m.Matches[0].Groups[1].Value } }
-    Write-Host "rugol $($v ?? '(desconocida)')"
+    if (-not $v) { $v = "(desconocida)" }
+    Write-Host "rugol $v"
 }
 function Cmd-Bot {
     Require-App; Require-Env
@@ -335,19 +336,19 @@ function Cmd-Vault {
     Require-App
     $memRoot = Join-Path $AppDir "agent-memory"
     if (-not (Test-Path $memRoot) -or -not (Get-ChildItem $memRoot -ErrorAction SilentlyContinue)) {
-        Warn "Todavía no hay memorias. Hablá con un agente (Telegram o dashboard) y volvé."; return
+        Warn "Todavia no hay memorias. Habla con un agente (Telegram o dashboard) y volve."; return
     }
     $target = $memRoot
     if ($Rest -and $Rest.Count -gt 0) {
         $slug = ($Rest[0].ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
         if (Test-Path (Join-Path $memRoot $slug)) { $target = Join-Path $memRoot $slug }
-        else { Warn "No hay memorias para '$($Rest[0])' — abro el vault completo." }
+        else { Warn "No hay memorias para '$($Rest[0])' - abro el vault completo." }
     }
     Write-Host ""
     Write-Host "Vault de memoria: $target" -ForegroundColor White
     Start-Process explorer.exe $target
-    Write-Host "  Para ver el grafo: abrí Obsidian -> 'Open folder as vault' -> esa carpeta -> Graph view." -ForegroundColor DarkGray
-    Write-Host "  Si no tenés Obsidian: instalalo gratis en https://obsidian.md" -ForegroundColor DarkGray
+    Write-Host "  Para ver el grafo: abri Obsidian -> 'Open folder as vault' -> esa carpeta -> Graph view." -ForegroundColor DarkGray
+    Write-Host "  Si no tenes Obsidian: instalalo gratis en https://obsidian.md" -ForegroundColor DarkGray
 }
 
 function Cmd-Evolve {
@@ -355,45 +356,45 @@ function Cmd-Evolve {
     $agent = if ($Rest -and $Rest.Count -gt 0) { $Rest[0] } else { "" }
     if (-not $agent) { Err "Uso: rugol evolve <agente>   (ej. rugol evolve assistant)"; return }
     $base = "http://127.0.0.1:$CorePort"
-    try { Invoke-RestMethod "$base/api/health" -TimeoutSec 3 | Out-Null } catch { Err "El core no responde. Corré 'rugol up' primero."; return }
+    try { Invoke-RestMethod "$base/api/health" -TimeoutSec 3 | Out-Null } catch { Err "El core no responde. Corre 'rugol up' primero."; return }
     try { $agents = Invoke-RestMethod "$base/api/agents" } catch { Err "No pude listar los agentes."; return }
     $a = $agents | Where-Object { $_.name -eq $agent } | Select-Object -First 1
-    if (-not $a) { Err "No existe el agente '$agent'. Mirá la lista en el dashboard."; return }
+    if (-not $a) { Err "No existe el agente '$agent'. Mira la lista en el dashboard."; return }
     $aid = $a.id
     Write-Host ""
-    Write-Host "Self-improving — '$agent' propone mejoras a su propio prompt..." -ForegroundColor White
+    Write-Host "Self-improving - '$agent' propone mejoras a su propio prompt..." -ForegroundColor White
     Write-Host "  (usa Opus; puede tardar ~20-40s)" -ForegroundColor DarkGray
-    try { $r = Invoke-RestMethod -Method Post "$base/api/agents/$aid/evolution/propose?max_candidates=2" } catch { Err "La propuesta falló."; return }
+    try { $r = Invoke-RestMethod -Method Post "$base/api/agents/$aid/evolution/propose?max_candidates=2" } catch { Err "La propuesta fallo."; return }
     $ids = $r.proposed_version_ids
-    if (-not $ids -or $ids.Count -eq 0) { Write-Host ""; Ok "El agente no propuso cambios (su prompt ya está sólido, o faltan corridas)."; return }
+    if (-not $ids -or $ids.Count -eq 0) { Write-Host ""; Ok "El agente no propuso cambios (su prompt ya esta solido, o faltan corridas)."; return }
     Write-Host ""; Ok "Propuestas generadas: $($ids -join ', ')"
     try {
         $ev = Invoke-RestMethod "$base/api/agents/$aid/evolution"
         foreach ($v in $ev.versions) { if ($v.status -eq "proposed") { Write-Host ("  - " + $v.id + "  -  " + $v.hypothesis) } }
     } catch {}
     Write-Host ""
-    Write-Host "Vos decidís. Revisá, validá y aceptá/rechazá en:" -ForegroundColor White
+    Write-Host "Vos decidis. Revisa, valida y acepta/rechaza en:" -ForegroundColor White
     Write-Host "  http://127.0.0.1:$DashPort/agents/$aid/evolution"
-    Write-Host "  Nada se aplica solo: el humano siempre tiene la decisión final." -ForegroundColor DarkGray
+    Write-Host "  Nada se aplica solo: el humano siempre tiene la decision final." -ForegroundColor DarkGray
 }
 
 function Show-Usage {
 @"
 
-rugol — tu orquestador de agentes Claude, en un comando. Sin Docker.
+rugol - tu orquestador de agentes Claude, en un comando. Sin Docker.
 
 Uso:  rugol <comando>
 
-  setup        Configuración inicial (auth + modelo + Telegram)
+  setup        Configuracion inicial (auth + modelo + Telegram)
   up           Levanta core + dashboard y abre el navegador
   down         Detiene todo
   restart      Reinicia
   status       Estado de servicios y salud
   logs [svc]   Logs en vivo (core | dashboard)
-  doctor       Verifica runtime, puertos y configuración
+  doctor       Verifica runtime, puertos y configuracion
   build        (Re)compila el dashboard
   open         Abre el dashboard
-  update       Actualiza el código y reconstruye (datos intactos)
+  update       Actualiza el codigo y reconstruye (datos intactos)
   uninstall    Quita rugol (pregunta si borrar datos)
 
 Agentes y memoria:

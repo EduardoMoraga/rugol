@@ -123,14 +123,36 @@ def list_memories(agent_name: str) -> list[Memory]:
     return out
 
 
+def _normalize_related(related: list[str] | str | None) -> list[str]:
+    """Accept a list, a comma-string, or None → clean list of memory names."""
+    if not related:
+        return []
+    items = related if isinstance(related, list) else str(related).split(",")
+    out: list[str] = []
+    for r in items:
+        r = str(r).strip().strip("[]").strip()
+        if r and r not in out:
+            out.append(r)
+    return out
+
+
 def add_memory(
     agent_name: str,
     name: str,
     description: str,
     content: str,
     kind: str = "note",
+    related: list[str] | str | None = None,
 ) -> Memory:
-    """Append a new memory file and update MEMORY.md."""
+    """Append a new memory file and update MEMORY.md.
+
+    The file is written as an Obsidian-native note: the frontmatter carries
+    an `aliases` entry equal to `name`, so any `[[name]]` wikilink (in this
+    note or another) resolves to this file and shows up as an edge in the
+    Obsidian graph. `related` is rendered as a "Relacionadas" footer of
+    wikilinks — this is what turns the memory folder into a navigable
+    neural-network-like graph instead of a flat list.
+    """
     d = memory_dir(agent_name)
     d.mkdir(parents=True, exist_ok=True)
     now = datetime.now(UTC)
@@ -149,9 +171,16 @@ def add_memory(
         f"description: {desc_clean}\n"
         f"kind: {kind}\n"
         f"created_at: {now.isoformat()}\n"
+        # Obsidian alias → makes [[name]] wikilinks resolve to this note.
+        f"aliases: [{name_clean}]\n"
         "---\n\n"
     )
-    out.write_text(fm + content.strip() + "\n", encoding="utf-8")
+    body = content.strip()
+    rel = _normalize_related(related)
+    if rel and "**Relacionadas:**" not in body:
+        links = " · ".join(f"[[{r}]]" for r in rel)
+        body = f"{body}\n\n**Relacionadas:** {links}"
+    out.write_text(fm + body + "\n", encoding="utf-8")
     _rebuild_index(agent_name)
     logger.info("memory added for %s: %s", agent_name, out.name)
     return Memory(
@@ -159,7 +188,7 @@ def add_memory(
         description=desc_clean,
         kind=kind,
         created_at=now.isoformat(),
-        body=content.strip(),
+        body=body,
         file=out.name,
     )
 
@@ -193,8 +222,18 @@ def _rebuild_index(agent_name: str) -> None:
     if not mems:
         lines.append("(vacío — agrega memorias con /remember en Telegram, vía API, o desde el dashboard)")
     else:
+        # Group by kind so the index reads like a brain map, and use Obsidian
+        # wikilinks ([[file|alias]]) so the index node connects to every
+        # memory node in the graph view.
+        by_kind: dict[str, list[Memory]] = {}
         for m in mems:
-            lines.append(f"- [{m.name}]({m.file}) — {m.description}")
+            by_kind.setdefault(m.kind or "note", []).append(m)
+        for kind in sorted(by_kind):
+            lines.append(f"## {kind}")
+            for m in by_kind[kind]:
+                stem = m.file[:-3] if m.file.endswith(".md") else m.file
+                lines.append(f"- [[{stem}|{m.name}]] — {m.description}")
+            lines.append("")
     (d / "MEMORY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

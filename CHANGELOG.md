@@ -3,6 +3,39 @@
 All notable changes to Rugol are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-alpha] — 2026-06-07
+
+**Memory & Evolution release.** La memoria de los agentes deja de ser una
+lista plana y pasa a ser un grafo navegable en Obsidian; llega un pipeline
+de divulgación de economía conductual; el self-improving queda al alcance
+de un comando; y crear un bot de Telegram por proyecto es nativo.
+
+### Added
+- **Memoria Obsidian-native.** Cada memoria se escribe con `aliases` en el
+  frontmatter y soporta enlaces `[[wikilink]]`; el tool `save_memory` gana
+  un parámetro `related` que renderiza las conexiones como wikilinks, y el
+  índice `MEMORY.md` agrupa por tipo y enlaza cada nota. Apuntás Obsidian a
+  `agent-memory/` y ves la red de lo que aprendieron tus agentes como un
+  grafo tipo red neuronal. Nuevo comando **`rugol vault [agente]`**.
+- **Multi-bot de Telegram, un bot por proyecto.** Cada proyecto puede tener
+  su propio bot (token propio → contacto propio), pegado a su agente.
+  Vínculos y sesiones namespaceados por bot para no cruzarse. Nuevo comando
+  **`rugol bot [list|add|remove]`** y el wizard ahora conecta varios bots.
+- **Self-improving al alcance de un comando.** **`rugol evolve <agente>`**
+  dispara al agente a proponer mejoras de su propio prompt (Soul-3) y te
+  deja el link del dashboard para validar y aceptar/rechazar. Vos decidís.
+- **Plantilla "Sesgo Útil".** Redacción de 5 agentes (scout → filtro de
+  calidad → traductor ejecutivo → columnista → notetaker Obsidian) que
+  convierte literatura de economía conductual × IA en columnas, decisiones
+  y notas enlazadas. Con manual de voz y lecciones vivas (cero hype).
+
+### Fixed
+- **El token del `.env`/wizard ahora llega al backend** sin pasar por el
+  dashboard: `telegram_bots()` cae al `.env` cuando `settings.json` está
+  vacío. (Raíz del viejo "telegram disabled (no token)".)
+- **`rugol setup` reinicia los servicios vivos** para aplicar config nueva.
+- **Instalador idempotente**: `uv venv --clear` no se traba en reintentos.
+
 ## [0.7.1-alpha] — 2026-05-11
 
 **Stability + sensory release.** Cierra los bugs que Eduardo hit en

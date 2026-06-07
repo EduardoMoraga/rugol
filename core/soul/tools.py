@@ -46,7 +46,10 @@ def build_soul_mcp_server(agent_name: str) -> McpSdkServerConfig:
         "Save a new persistent memory you'll see in every future run. Use "
         "for things future-you should remember: user facts, feedback, "
         "project state, external references. Don't save derivable code "
-        "details or ephemeral turn state.",
+        "details or ephemeral turn state. To connect this memory to related "
+        "ones, weave Obsidian wikilinks like [[other_memory_name]] into the "
+        "content — that turns your memory into a navigable graph, not a flat "
+        "list. Call list_my_memories first to get the exact names to link.",
         {
             "name": str,
             "description": str,

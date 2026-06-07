@@ -62,6 +62,8 @@ Si SÍ vale guardar algo, llamá la tool `save_memory` UNA VEZ por cada hallazgo
   ```
 - `kind`: uno de `user|feedback|project|reference`.
 
+Para conectar esta memoria con otras, incluí wikilinks `[[nombre_de_otra_memoria]]` dentro del `content`. Si no estás seguro de los nombres exactos, llamá `list_my_memories` primero. Enlazar memorias relacionadas teje tu memoria como una red navegable (grafo Obsidian), no una lista plana.
+
 Después de llamar la tool (o de decir NO_MEMORY_NEEDED), terminá. No expliques al usuario lo que guardaste — esto es housekeeping interno.
 """
 

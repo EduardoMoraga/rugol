@@ -203,6 +203,9 @@ ready-to-clone agent templates. Everything you create lives in
 | `rugol logs [core\|dashboard]` | Live logs |
 | `rugol doctor` | Check runtimes, ports, config |
 | `rugol update` | Pull latest + rebuild (data untouched) |
+| `rugol bot [list\|add\|remove]` | Telegram bots, one per project (own token, own agent) |
+| `rugol vault [agent]` | Open the agents' memory as an Obsidian vault (graph view) |
+| `rugol evolve <agent>` | Self-improving: the agent proposes prompt upgrades, you approve |
 | `rugol uninstall` | Remove it (asks before deleting data) |
 
 **Chat from minute one.** `setup` asks for a default agent (`assistant`),
@@ -236,7 +239,7 @@ Or just `docker compose up --build` from the repo root.
 
 ---
 
-## What's already inside · `v0.7.0-alpha`
+## What's already inside · `v0.8.0-alpha`
 
 Rugol was built in layers, each shipped as a working, tested commit.
 The current version includes:

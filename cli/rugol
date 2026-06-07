@@ -386,6 +386,111 @@ cmd_uninstall() {
 
 cmd_open() { open_url "http://127.0.0.1:${DASHBOARD_PORT}"; say "Abriendo http://127.0.0.1:${DASHBOARD_PORT}"; }
 
+# ── vault: abrir la memoria de los agentes como vault de Obsidian ─────────────
+cmd_vault() {
+  require_app
+  local mem_root="$APP_DIR/agent-memory"
+  if [ ! -d "$mem_root" ] || [ -z "$(ls -A "$mem_root" 2>/dev/null)" ]; then
+    warn "Todavía no hay memorias. Hablá con un agente (Telegram o dashboard) y volvé."
+    return 0
+  fi
+  local target="$mem_root"
+  if [ -n "${1:-}" ]; then
+    local slug; slug="$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]\+/-/g; s/^-//; s/-$//')"
+    if [ -d "$mem_root/$slug" ]; then target="$mem_root/$slug"
+    else warn "No hay memorias para '$1' — abro el vault completo (todos los agentes)."; fi
+  fi
+  echo ""
+  say "${B}Vault de memoria:${X} $target"
+  if [ -d "/Applications/Obsidian.app" ]; then
+    open -a Obsidian "$target" 2>/dev/null || open "$target" 2>/dev/null || true
+    echo ""
+    say "${D}Primera vez: en Obsidian → 'Open folder as vault' → elegí esa carpeta.${X}"
+    say "${D}Después abrí el Graph view (ícono de grafo, ⌘G) para ver la red de memorias.${X}"
+  else
+    open_url "$target" 2>/dev/null || true
+    echo ""
+    warn "No vi Obsidian instalado."
+    say "  Instalalo gratis: ${B}https://obsidian.md${X}  y abrí esa carpeta como vault."
+  fi
+}
+
+# ── bot: gestionar bots de Telegram por proyecto ──────────────────────────────
+cmd_bot() {
+  require_app; require_env
+  local py; py="$(resolve_python)"
+  local sub="${1:-list}"; shift || true
+  case "$sub" in
+    list|ls)
+      ( cd "$APP_DIR"; set -a; . "$ENV_FILE"; set +a; "$py" cli/rugol-botctl.py list )
+      ;;
+    add)
+      echo ""
+      echo "${B}Conectar un bot de Telegram a un proyecto${X}"
+      echo "${D}Creá el bot en @BotFather (/newbot) y pegá su token acá.${X}"
+      local token agent label users
+      read -r -p "   Token del bot: " token
+      [ -z "$token" ] && { err "Sin token, cancelo."; return 1; }
+      read -r -p "   Agente que responde en este bot [assistant]: " agent
+      agent="${agent:-assistant}"
+      read -r -p "   Nombre/etiqueta del bot (ej. Ventas): " label
+      read -r -p "   User IDs permitidos (coma-separado, Enter = reusar los del bot 1): " users
+      ( cd "$APP_DIR"; set -a; . "$ENV_FILE"; set +a; "$py" cli/rugol-botctl.py add "$token" "$agent" "$label" "$users" ) || return 1
+      echo ""
+      if _pid_running "$RUN_DIR/core.pid"; then
+        say "Reinicio el core para que el bot nuevo arranque..."; cmd_restart
+      else
+        say "Levantá Rugol con ${B}rugol up${X} y tu bot quedará activo."
+      fi
+      ;;
+    remove|rm)
+      local key="${1:-}"
+      [ -z "$key" ] && { err "Uso: rugol bot remove <key>  (ver 'rugol bot list')"; return 1; }
+      ( cd "$APP_DIR"; set -a; . "$ENV_FILE"; set +a; "$py" cli/rugol-botctl.py remove "$key" ) || return 1
+      _pid_running "$RUN_DIR/core.pid" && { say "Reinicio el core..."; cmd_restart; }
+      ;;
+    *) err "Subcomando desconocido: $sub"; say "  Uso: rugol bot [list|add|remove <key>]" ;;
+  esac
+}
+
+# ── evolve: self-improving (Soul-3) con vos en el loop ────────────────────────
+cmd_evolve() {
+  require_app
+  local agent="${1:-}"
+  [ -z "$agent" ] && { err "Uso: rugol evolve <agente>   (ej. rugol evolve assistant)"; return 1; }
+  local base="http://127.0.0.1:${CORE_PORT}"
+  curl -fs "$base/api/health" >/dev/null 2>&1 || { err "El core no responde. Corré ${B}rugol up${X} primero."; return 1; }
+  local py; py="$(resolve_python)"
+  # Resolver agent_id por nombre.
+  local aid
+  aid="$(curl -fs "$base/api/agents" | "$py" -c "import sys,json;
+d=json.load(sys.stdin)
+print(next((a['id'] for a in d if a['name']=='$agent'), ''))" 2>/dev/null)"
+  [ -z "$aid" ] && { err "No existe el agente '$agent'. Mirá la lista en el dashboard."; return 1; }
+  echo ""
+  say "${B}Self-improving${X} — pidiendo a '$agent' que proponga mejoras a su propio prompt..."
+  say "${D}(usa Opus; puede tardar ~20-40s)${X}"
+  local ids
+  ids="$(curl -fs -X POST "$base/api/agents/$aid/evolution/propose?max_candidates=2" | "$py" -c "import sys,json; print(' '.join(json.load(sys.stdin).get('proposed_version_ids',[])))" 2>/dev/null)"
+  if [ -z "$ids" ]; then
+    echo ""; ok "El agente no propuso cambios (su prompt ya está sólido), o no hubo corridas suficientes."
+    return 0
+  fi
+  echo ""
+  ok "Propuestas generadas: $ids"
+  curl -fs "$base/api/agents/$aid/evolution" | "$py" -c "
+import sys,json
+d=json.load(sys.stdin)
+for v in d.get('versions',[]):
+    if v.get('status')=='proposed':
+        print('  • '+v.get('id','?')+'  —  '+ (v.get('hypothesis') or v.get('rationale') or '')[:100])
+" 2>/dev/null
+  echo ""
+  say "${B}Vos decidís.${X} Revisá, validá y aceptá/rechazá cada propuesta en:"
+  say "  ${B}http://127.0.0.1:${DASHBOARD_PORT}/agents/$aid/evolution${X}"
+  say "${D}Nada se aplica solo: el self-improving siempre te deja la decisión final.${X}"
+}
+
 cmd_version() {
   local v=""
   [ -f "$APP_DIR/core/__init__.py" ] && v="$(grep -m1 '__version__' "$APP_DIR/core/__init__.py" 2>/dev/null | sed 's/.*"\(.*\)".*/\1/')"
@@ -411,6 +516,11 @@ ${B}Uso:${X}  rugol <comando>
   ${B}update${X}       Actualiza el código y reconstruye (datos intactos)
   ${B}uninstall${X}    Quita rugol (pregunta si borrar datos)
 
+${B}Agentes y memoria:${X}
+  ${B}bot${X} [list|add|remove]  Bots de Telegram por proyecto (uno por agente)
+  ${B}vault${X} [agente]         Abre la memoria de los agentes como vault de Obsidian
+  ${B}evolve${X} <agente>        Self-improving: el agente propone mejorar su prompt (vos aprobás)
+
 ${B}Primera vez:${X}  rugol setup  →  rugol up
 ${D}Home de datos: $RUGOL_HOME${X}
 EOF
@@ -429,7 +539,10 @@ main() {
     build)            cmd_build "$@" ;;
     open)             cmd_open "$@" ;;
     update|upgrade)   cmd_update "$@" ;;
-    uninstall|remove) cmd_uninstall "$@" ;;
+    uninstall)        cmd_uninstall "$@" ;;
+    bot|bots)         cmd_bot "$@" ;;
+    vault|memory|mem) cmd_vault "$@" ;;
+    evolve|improve)   cmd_evolve "$@" ;;
     version|--version|-v) cmd_version ;;
     help|--help|-h|"") usage ;;
     *) err "Comando desconocido: $cmd"; usage; exit 1 ;;

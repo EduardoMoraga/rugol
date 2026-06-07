@@ -113,26 +113,23 @@ function Build-Dashboard {
     # sin ningun detalle). Los callers leen $script:BuildOk.
     $script:BuildOk = $false
     Require-App
-    $nodebin = "$RT\node"
-    if (Test-Path $nodebin) { $env:PATH = "$nodebin;$env:PATH" }
+    # Node del sistema si esta; el embebido solo como fallback (evita usar un
+    # node viejo de una instalacion previa).
+    if ((-not (Have "node")) -and (Test-Path "$RT\node\node.exe")) { $env:PATH = "$RT\node;$env:PATH" }
     if (-not (Have "node")) { Err "Node no disponible (lo necesita el dashboard)."; return }
-    # Elegir gestor de paquetes: pnpm si esta (o se puede habilitar con corepack),
-    # si no npm (siempre viene con Node). Esto evita que un Windows sin pnpm
-    # deje el dashboard sin compilar.
-    if (-not (Have "pnpm")) { corepack enable pnpm 2>$null | Out-Null }
-    $pm = if (Have "pnpm") { "pnpm" } else { "npm" }
-    Write-Host "Compilando el dashboard con $pm (1-2 min la primera vez)..."
+    # Usamos npm (viene con Node). NO corepack/pnpm: su verificacion de firma
+    # falla en varias versiones de Node ('Cannot find matching keyid'). npm
+    # compila el dashboard igual (es un Next app estandar, 'next build').
+    Write-Host "Compilando el dashboard con npm (1-2 min la primera vez)..."
     Push-Location $DashDir
     $built = $false
     try {
         $env:NEXT_PUBLIC_API_URL = "http://127.0.0.1:$CorePort"
-        if (-not (Test-Path "node_modules")) {
-            & $pm install
-            if ($LASTEXITCODE -ne 0) { Err "'$pm install' fallo (codigo $LASTEXITCODE)."; return }
-        }
-        if ($pm -eq "pnpm") { pnpm build } else { npm run build }
+        npm install --no-audit --no-fund
+        if ($LASTEXITCODE -ne 0) { Err "'npm install' fallo (codigo $LASTEXITCODE)."; return }
+        npm run build
         $built = ($LASTEXITCODE -eq 0)
-        if (-not $built) { Err "'$pm build' fallo (codigo $LASTEXITCODE)." }
+        if (-not $built) { Err "'npm run build' fallo (codigo $LASTEXITCODE)." }
     } finally { Pop-Location }
     if (-not $built) { return }
     $sa = Join-Path $DashDir ".next\standalone\.next"

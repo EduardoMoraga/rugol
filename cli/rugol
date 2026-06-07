@@ -111,11 +111,23 @@ build_dashboard() {
   local nodebin="$RUGOL_HOME/runtime/node/bin"
   [ -d "$nodebin" ] && export PATH="$nodebin:$PATH"
   have node || { err "Node no está disponible (lo necesita el dashboard)."; return 1; }
-  have pnpm || corepack enable pnpm 2>/dev/null || { err "pnpm no está disponible."; return 1; }
   say "Compilando el dashboard (1-2 min la primera vez)..."
-  ( cd "$DASH_DIR"
-    [ -d node_modules ] || pnpm install
-    NEXT_PUBLIC_API_URL="http://127.0.0.1:${CORE_PORT}" pnpm build ) || { err "Falló el build del dashboard."; return 1; }
+  local built=0
+  # Intento 1: pnpm (si está y funciona).
+  if have pnpm || corepack enable pnpm 2>/dev/null; then
+    if ( cd "$DASH_DIR"
+         [ -d node_modules ] || pnpm install
+         NEXT_PUBLIC_API_URL="http://127.0.0.1:${CORE_PORT}" pnpm build ); then built=1; fi
+  fi
+  # Intento 2 (fallback): npm. Cubre el bug de firma de corepack/pnpm
+  # ('Cannot find matching keyid') que aparece en varias versiones de Node.
+  if [ "$built" -ne 1 ]; then
+    warn "pnpm no funcionó — uso npm."
+    if ( cd "$DASH_DIR"
+         npm install --no-audit --no-fund
+         NEXT_PUBLIC_API_URL="http://127.0.0.1:${CORE_PORT}" npm run build ); then built=1; fi
+  fi
+  [ "$built" -eq 1 ] || { err "Falló el build del dashboard (pnpm y npm)."; return 1; }
   # Next standalone necesita los estáticos al lado del server.
   mkdir -p "$DASH_DIR/.next/standalone/.next"
   cp -R "$DASH_DIR/.next/static" "$DASH_DIR/.next/standalone/.next/static"

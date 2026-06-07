@@ -76,7 +76,6 @@ if ($needNode) {
     if (Test-Path "$RT\node") { Remove-Item -Recurse -Force "$RT\node" }
     Move-Item $inner.FullName "$RT\node"
     $env:PATH = "$RT\node;$env:PATH"
-    corepack enable pnpm 2>$null
     Ok "node embebido en $RT\node"
 }
 

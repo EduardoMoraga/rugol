@@ -206,6 +206,7 @@ ready-to-clone agent templates. Everything you create lives in
 | `rugol bot [list\|add\|remove]` | Telegram bots, one per project (own token, own agent) |
 | `rugol vault [agent]` | Open the agents' memory as an Obsidian vault (graph view) |
 | `rugol evolve <agent>` | Self-improving: the agent proposes prompt upgrades, you approve |
+| `rugol sessions [filter]` | Your Claude Code sessions per project + how to resume them |
 | `rugol uninstall` | Remove it (asks before deleting data) |
 
 **Chat from minute one.** `setup` asks for a default agent (`assistant`),

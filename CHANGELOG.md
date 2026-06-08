@@ -24,6 +24,10 @@ de un comando; y crear un bot de Telegram por proyecto es nativo.
 - **Self-improving al alcance de un comando.** **`rugol evolve <agente>`**
   dispara al agente a proponer mejoras de su propio prompt (Soul-3) y te
   deja el link del dashboard para validar y aceptar/rechazar. Vos decidís.
+- **`rugol sessions`** — ve tus sesiones de Claude Code (lee
+  `~/.claude/projects`), agrupadas por proyecto y por recencia, filtrando el
+  ruido interno de Rugol. `rugol sessions <filtro>` muestra las sesiones de un
+  proyecto, en qué quedaste, y el comando `claude --resume` para retomar.
 - **Plantilla "Sesgo Útil".** Redacción de 5 agentes (scout → filtro de
   calidad → traductor ejecutivo → columnista → notetaker Obsidian) que
   convierte literatura de economía conductual × IA en columnas, decisiones

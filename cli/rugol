@@ -398,6 +398,13 @@ cmd_uninstall() {
 
 cmd_open() { open_url "http://127.0.0.1:${DASHBOARD_PORT}"; say "Abriendo http://127.0.0.1:${DASHBOARD_PORT}"; }
 
+# ── sessions: ver y retomar tus sesiones de Claude Code ───────────────────────
+cmd_sessions() {
+  require_app
+  local py; py="$(resolve_python)"
+  "$py" "$APP_DIR/cli/rugol-sessions.py" "$@"
+}
+
 # ── vault: abrir la memoria de los agentes como vault de Obsidian ─────────────
 cmd_vault() {
   require_app
@@ -539,6 +546,7 @@ ${B}Agentes y memoria:${X}
   ${B}bot${X} [list|add|remove]  Bots de Telegram por proyecto (uno por agente)
   ${B}vault${X} [agente]         Abre la memoria de los agentes como vault de Obsidian
   ${B}evolve${X} <agente>        Self-improving: el agente propone mejorar su prompt (vos aprobás)
+  ${B}sessions${X} [filtro]      Tus sesiones de Claude Code + cómo retomarlas
 
 ${B}Primera vez:${X}  rugol setup  →  rugol up
 ${D}Home de datos: $RUGOL_HOME${X}
@@ -562,6 +570,7 @@ main() {
     bot|bots)         cmd_bot "$@" ;;
     vault|memory|mem) cmd_vault "$@" ;;
     evolve|improve)   cmd_evolve "$@" ;;
+    sessions|ses)     cmd_sessions "$@" ;;
     version|--version|-v) cmd_version ;;
     help|--help|-h|"") usage ;;
     *) err "Comando desconocido: $cmd"; usage; exit 1 ;;

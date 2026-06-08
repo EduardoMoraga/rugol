@@ -375,6 +375,12 @@ function Cmd-Evolve {
     Write-Host "  Nada se aplica solo: el humano siempre tiene la decision final." -ForegroundColor DarkGray
 }
 
+function Cmd-Sessions {
+    Require-App
+    $py = Resolve-Python
+    & $py (Join-Path $AppDir "cli\rugol-sessions.py") @Rest
+}
+
 function Show-Usage {
 @"
 
@@ -398,6 +404,7 @@ Agentes y memoria:
   bot [list|add|remove]  Bots de Telegram por proyecto (uno por agente)
   vault [agente]         Abre la memoria como vault de Obsidian
   evolve <agente>        Self-improving: el agente propone mejorar su prompt
+  sessions [filtro]      Tus sesiones de Claude Code + como retomarlas
 
 Primera vez:  rugol setup  ->  rugol up
 Home de datos: $HomeDir
@@ -419,6 +426,7 @@ switch ($Command.ToLower()) {
     { $_ -in @("bot", "bots") }         { Cmd-Bot }
     { $_ -in @("vault", "memory", "mem") } { Cmd-Vault }
     { $_ -in @("evolve", "improve") }   { Cmd-Evolve }
+    { $_ -in @("sessions", "ses") }     { Cmd-Sessions }
     { $_ -in @("version", "--version", "-v") } { Cmd-Version }
     default   { Show-Usage }
 }

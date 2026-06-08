@@ -28,6 +28,10 @@ de un comando; y crear un bot de Telegram por proyecto es nativo.
   `~/.claude/projects`), agrupadas por proyecto y por recencia, filtrando el
   ruido interno de Rugol. `rugol sessions <filtro>` muestra las sesiones de un
   proyecto, en qué quedaste, y el comando `claude --resume` para retomar.
+- **`rugol autostart [on|off]`** — Rugol se levanta solo al iniciar sesión.
+  En Mac/Linux instala un LaunchAgent con un supervisor que mantiene vivos
+  backend+dashboard (y los reinicia si se caen); en Windows registra una
+  Tarea Programada al logon. Sin abrir el navegador.
 - **Plantilla "Sesgo Útil".** Redacción de 5 agentes (scout → filtro de
   calidad → traductor ejecutivo → columnista → notetaker Obsidian) que
   convierte literatura de economía conductual × IA en columnas, decisiones

@@ -236,7 +236,7 @@ function Cmd-Up {
     $dash = "http://127.0.0.1:$DashPort"
     if ((Get-Content $EnvFile -ErrorAction SilentlyContinue) -match '^TELEGRAM_BOT_TOKEN=.+') { Ok "Telegram conectado - escribile a tu bot." }
     Write-Host ""; Write-Host "  Abri:  $dash" -ForegroundColor White
-    Start-Process $dash
+    if (-not $env:RUGOL_NO_OPEN) { Start-Process $dash }  # en auto-arranque no abrimos el navegador
     Write-Host ""; Write-Host "Detener: rugol down  |  Estado: rugol status  |  Logs: rugol logs"
 }
 function Cmd-Down { Stop-One (Join-Path $RunDir "dashboard.pid") "dashboard"; Stop-One (Join-Path $RunDir "core.pid") "core" }
@@ -394,6 +394,31 @@ function Cmd-Sessions {
     & $py (Join-Path $AppDir "cli\rugol-sessions.py") @Rest
 }
 
+function Cmd-Autostart {
+    $action = if ($Rest -and $Rest.Count -gt 0) { $Rest[0].ToLower() } else { "on" }
+    $task = "Rugol Autostart"
+    $cmd = Join-Path $HomeDir "bin\rugol.cmd"
+    if ($action -in @("on", "enable")) {
+        # En Windows los procesos de Start-Process sobreviven al padre, asi que
+        # alcanza con correr 'up' al iniciar sesion (no hace falta supervisor).
+        # cmd.exe setea RUGOL_NO_OPEN para no abrir el navegador en cada logon.
+        $arg = "/c set RUGOL_NO_OPEN=1 && `"$cmd`" up"
+        $a = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $arg
+        $t = New-ScheduledTaskTrigger -AtLogOn
+        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+        try {
+            Register-ScheduledTask -TaskName $task -Action $a -Trigger $t -Settings $s -Force -ErrorAction Stop | Out-Null
+            Ok "auto-arranque activado - Rugol se levanta al iniciar sesion."
+            Write-Host "  Quitarlo: rugol autostart off" -ForegroundColor DarkGray
+        } catch { Err "no pude crear la tarea programada: $_" }
+    } elseif ($action -in @("off", "disable")) {
+        Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
+        Ok "auto-arranque desactivado."
+    } else {
+        if (Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue) { Ok "auto-arranque: ACTIVADO" } else { Warn "auto-arranque: desactivado" }
+    }
+}
+
 function Show-Usage {
 @"
 
@@ -418,6 +443,7 @@ Agentes y memoria:
   vault [agente]         Abre la memoria como vault de Obsidian
   evolve <agente>        Self-improving: el agente propone mejorar su prompt
   sessions [filtro]      Tus sesiones de Claude Code + como retomarlas
+  autostart [on|off]     Levanta Rugol solo al iniciar sesion
 
 Primera vez:  rugol setup  ->  rugol up
 Home de datos: $HomeDir
@@ -440,6 +466,7 @@ switch ($Command.ToLower()) {
     { $_ -in @("vault", "memory", "mem") } { Cmd-Vault }
     { $_ -in @("evolve", "improve") }   { Cmd-Evolve }
     { $_ -in @("sessions", "ses") }     { Cmd-Sessions }
+    "autostart"                         { Cmd-Autostart }
     { $_ -in @("version", "--version", "-v") } { Cmd-Version }
     default   { Show-Usage }
 }

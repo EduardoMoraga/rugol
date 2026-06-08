@@ -207,6 +207,7 @@ ready-to-clone agent templates. Everything you create lives in
 | `rugol vault [agent]` | Open the agents' memory as an Obsidian vault (graph view) |
 | `rugol evolve <agent>` | Self-improving: the agent proposes prompt upgrades, you approve |
 | `rugol sessions [filter]` | Your Claude Code sessions per project + how to resume them |
+| `rugol autostart [on\|off]` | Start Rugol automatically at login (launchd / Scheduled Task) |
 | `rugol uninstall` | Remove it (asks before deleting data) |
 
 **Chat from minute one.** `setup` asks for a default agent (`assistant`),

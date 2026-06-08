@@ -306,7 +306,8 @@ cmd_up() {
   fi
   echo ""
   echo "  ${B}Abrí:  ${dash}${X}"
-  open_url "$dash"
+  # En auto-arranque (launchd) no abrimos el navegador.
+  [ -z "${RUGOL_NO_OPEN:-}" ] && open_url "$dash"
   echo ""
   echo "${D}Detener: rugol down  |  Estado: rugol status  |  Logs: rugol logs${X}"
 }
@@ -413,6 +414,69 @@ cmd_sessions() {
   require_app
   local py; py="$(resolve_python)"
   "$py" "$APP_DIR/cli/rugol-sessions.py" "$@"
+}
+
+# ── _supervise: proceso foreground que mantiene vivo el stack (para launchd) ──
+# launchd MATA los hijos cuando el job termina; por eso 'up' no sirve para
+# autostart. Este supervisor se queda corriendo (es el job de launchd), levanta
+# backend+dashboard y los reinicia si se caen. launchd lo reinicia a él si muere.
+cmd_supervise() {
+  require_app; require_env
+  mkdir -p "$RUN_DIR" "$LOGS_DIR"
+  trap 'cmd_down 2>/dev/null; exit 0' TERM INT
+  while :; do
+    _pid_running "$RUN_DIR/core.pid" || start_backend
+    if [ -f "$DASH_DIR/.next/standalone/server.js" ]; then
+      _pid_running "$RUN_DIR/dashboard.pid" || start_dashboard
+    fi
+    sleep 10
+  done
+}
+
+# ── autostart: levantar Rugol solo al iniciar sesión (launchd) ────────────────
+cmd_autostart() {
+  local action="${1:-on}"
+  local label="ai.increxa.rugol"
+  local plist="$HOME/Library/LaunchAgents/${label}.plist"
+  local launcher="$HOME/.local/bin/rugol"
+  [ -x "$launcher" ] || launcher="$APP_DIR/cli/rugol"
+  case "$action" in
+    on|enable)
+      mkdir -p "$HOME/Library/LaunchAgents" "$LOGS_DIR"
+      cat > "$plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>${label}</string>
+  <key>ProgramArguments</key>
+  <array><string>${launcher}</string><string>_supervise</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:${HOME}/.local/bin</string>
+    <key>RUGOL_NO_OPEN</key><string>1</string>
+  </dict>
+  <key>StandardOutPath</key><string>${LOGS_DIR}/autostart.log</string>
+  <key>StandardErrorPath</key><string>${LOGS_DIR}/autostart.log</string>
+</dict>
+</plist>
+EOF
+      launchctl unload "$plist" 2>/dev/null
+      launchctl load "$plist" 2>/dev/null && ok "auto-arranque activado — Rugol se levanta solo al iniciar sesión." \
+        || { err "no pude cargar el LaunchAgent."; return 1; }
+      say "  ${D}Quitarlo: rugol autostart off${X}"
+      ;;
+    off|disable)
+      launchctl unload "$plist" 2>/dev/null
+      rm -f "$plist" && ok "auto-arranque desactivado."
+      ;;
+    status)
+      if [ -f "$plist" ]; then ok "auto-arranque: ACTIVADO ($plist)"; else warn "auto-arranque: desactivado"; fi
+      ;;
+    *) err "Uso: rugol autostart [on|off|status]" ;;
+  esac
 }
 
 # ── vault: abrir la memoria de los agentes como vault de Obsidian ─────────────
@@ -557,6 +621,7 @@ ${B}Agentes y memoria:${X}
   ${B}vault${X} [agente]         Abre la memoria de los agentes como vault de Obsidian
   ${B}evolve${X} <agente>        Self-improving: el agente propone mejorar su prompt (vos aprobás)
   ${B}sessions${X} [filtro]      Tus sesiones de Claude Code + cómo retomarlas
+  ${B}autostart${X} [on|off]     Levanta Rugol solo al iniciar sesión
 
 ${B}Primera vez:${X}  rugol setup  →  rugol up
 ${D}Home de datos: $RUGOL_HOME${X}
@@ -581,6 +646,8 @@ main() {
     vault|memory|mem) cmd_vault "$@" ;;
     evolve|improve)   cmd_evolve "$@" ;;
     sessions|ses)     cmd_sessions "$@" ;;
+    autostart)        cmd_autostart "$@" ;;
+    _supervise)       cmd_supervise ;;
     version|--version|-v) cmd_version ;;
     help|--help|-h|"") usage ;;
     *) err "Comando desconocido: $cmd"; usage; exit 1 ;;

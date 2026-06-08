@@ -235,38 +235,55 @@ async def run_agent(
     in_tok = out_tok = 0
     cost = 0.0
 
-    async for message in query(prompt=prompt, options=options):
-        kind = type(message).__name__
+    try:
+        async for message in query(prompt=prompt, options=options):
+            kind = type(message).__name__
 
-        if kind == "AssistantMessage":
-            for block in getattr(message, "content", []) or []:
-                btype = getattr(block, "type", None) or type(block).__name__.lower()
-                if btype in {"text", "textblock"}:
-                    text = getattr(block, "text", "") or ""
-                    parts.append(text)
-                    await bus.publish("run:message", {
-                        "run_id": run_id,
-                        "agent": agent_name,
-                        "kind": "text",
-                        "delta": text,
-                    })
-                elif btype in {"tool_use", "tooluseblock"}:
-                    tool = getattr(block, "name", "?")
-                    await bus.publish("run:tool", {
-                        "run_id": run_id,
-                        "agent": agent_name,
-                        "tool": tool,
-                    })
+            if kind == "AssistantMessage":
+                for block in getattr(message, "content", []) or []:
+                    btype = getattr(block, "type", None) or type(block).__name__.lower()
+                    if btype in {"text", "textblock"}:
+                        text = getattr(block, "text", "") or ""
+                        parts.append(text)
+                        await bus.publish("run:message", {
+                            "run_id": run_id,
+                            "agent": agent_name,
+                            "kind": "text",
+                            "delta": text,
+                        })
+                    elif btype in {"tool_use", "tooluseblock"}:
+                        tool = getattr(block, "name", "?")
+                        await bus.publish("run:tool", {
+                            "run_id": run_id,
+                            "agent": agent_name,
+                            "tool": tool,
+                        })
 
-        elif kind == "ResultMessage":
-            new_sid = getattr(message, "session_id", None) or new_sid
-            usage = getattr(message, "usage", None) or {}
-            in_tok = int(usage.get("input_tokens", 0) or 0)
-            out_tok = int(usage.get("output_tokens", 0) or 0)
-            cost = float(getattr(message, "total_cost_usd", 0.0) or 0.0)
-            result = getattr(message, "result", None)
-            if result and not parts:
-                parts.append(str(result))
+            elif kind == "ResultMessage":
+                new_sid = getattr(message, "session_id", None) or new_sid
+                usage = getattr(message, "usage", None) or {}
+                in_tok = int(usage.get("input_tokens", 0) or 0)
+                out_tok = int(usage.get("output_tokens", 0) or 0)
+                cost = float(getattr(message, "total_cost_usd", 0.0) or 0.0)
+                result = getattr(message, "result", None)
+                if result and not parts:
+                    parts.append(str(result))
+    except Exception as e:
+        # El CLI a veces sale con código ≠ 0 DESPUÉS de haber producido una
+        # respuesta válida: p.ej. "error result: success" (is_error=True con
+        # subtype=success), o un cierre sucio de un MCP server / hook (más común
+        # en Windows). Si ya tenemos texto del agente, entregamos la respuesta
+        # en vez de fallar el run — un bot de chat debe contestar, no mostrar un
+        # error críptico cuando en realidad respondió. Si NO hubo salida alguna,
+        # es un fallo real y lo propagamos.
+        if parts:
+            logger.warning(
+                "run %s (%s): query salió con error tras producir respuesta (%s); "
+                "recupero el texto del agente",
+                run_id, agent_name, e,
+            )
+        else:
+            raise
 
     final_text = "".join(parts).strip() or "(run completed with no text output)"
     return RunResult(

@@ -279,7 +279,20 @@ function Cmd-Doctor {
 }
 function Cmd-Update {
     Require-App
-    if (Test-Path (Join-Path $AppDir ".git")) { git -C $AppDir pull --ff-only; Ok "codigo actualizado" }
+    if (Test-Path (Join-Path $AppDir ".git")) {
+        # reset --hard al remoto (no 'pull'): el deploy no debe trabarse por
+        # archivos que el runtime escribe. Tus datos viven en $HomeDir.
+        git -C $AppDir fetch --depth 1 origin main 2>$null
+        git -C $AppDir reset --hard origin/main 2>$null
+        Ok "codigo actualizado"
+    }
+    # Refrescar el launcher en el bin (sin reinstalar a mano).
+    $bin = Join-Path $HomeDir "bin"
+    if (Test-Path $bin) {
+        Copy-Item (Join-Path $AppDir "cli\rugol.ps1") $bin -Force
+        Copy-Item (Join-Path $AppDir "cli\rugol.cmd") $bin -Force
+        Ok "launcher actualizado"
+    }
     $py = Resolve-Python
     if ($py) { Push-Location $AppDir; & $py -m pip install -q -r core/requirements.txt; Pop-Location; Ok "deps backend OK" }
     Build-Dashboard

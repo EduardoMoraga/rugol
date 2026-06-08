@@ -374,8 +374,18 @@ cmd_update() {
   require_app
   echo ""
   if [ -d "$APP_DIR/.git" ]; then
-    say "Actualizando código..."; git -C "$APP_DIR" pull --ff-only && ok "código actualizado"
+    say "Actualizando código..."
+    # reset --hard al remoto (no 'pull'): un deploy no debe trabarse por
+    # archivos que el runtime escribe. Tus datos viven en $RUGOL_HOME, no acá.
+    if git -C "$APP_DIR" fetch --depth 1 origin main >/dev/null 2>&1 \
+       && git -C "$APP_DIR" reset --hard origin/main >/dev/null 2>&1; then
+      ok "código actualizado"
+    else
+      warn "no pude bajar la última versión (¿conexión?); sigo con lo instalado"
+    fi
   fi
+  # Refrescar el launcher en el PATH (sin reinstalar a mano).
+  install -m 0755 "$APP_DIR/cli/rugol" "$HOME/.local/bin/rugol" 2>/dev/null && ok "launcher actualizado"
   local py; py="$(resolve_python)"
   [ -x "$py" ] && ( cd "$APP_DIR" && "$py" -m pip install -q -r core/requirements.txt ) && ok "deps backend OK"
   build_dashboard

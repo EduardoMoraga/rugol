@@ -456,6 +456,31 @@ export interface NewAgentMemory {
 export const fetchAgentMemories = (id: number) =>
   get<AgentMemory[]>(`/api/agents/${id}/memories`);
 
+// --- Global memory graph (v0.8 — Obsidian-style network) ---
+export interface MemoryGraphNode {
+  id: string;
+  type: "agent" | "memory" | "concept";
+  label: string;
+  degree: number;
+  agent?: string;
+  kind?: string;
+  description?: string;
+  file?: string;
+  created_at?: string;
+  body?: string;
+}
+export interface MemoryGraphEdge {
+  source: string;
+  target: string;
+  type: "owns" | "link";
+}
+export interface MemoryGraphData {
+  nodes: MemoryGraphNode[];
+  edges: MemoryGraphEdge[];
+  stats: { agents: number; memories: number; concepts: number; links: number };
+}
+export const fetchMemoryGraph = () => get<MemoryGraphData>("/api/memory-graph");
+
 export const createAgentMemory = (id: number, mem: NewAgentMemory) =>
   post<AgentMemory>(`/api/agents/${id}/memories`, mem);
 

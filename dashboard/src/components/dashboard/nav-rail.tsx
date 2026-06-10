@@ -17,6 +17,7 @@ import {
   Briefcase,
   Languages,
   Wand2,
+  Brain,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { useI18n } from "@/lib/i18n";
@@ -38,6 +39,7 @@ const items: NavItem[] = [
   { href: "/skills", labelKey: "nav.skills", icon: Wrench },
   { href: "/schedules", labelKey: "nav.schedules", icon: CalendarClock },
   { href: "/operations", labelKey: "nav.operations", icon: LayoutDashboard },
+  { href: "/memory-graph", labelKey: "nav.memoryGraph", icon: Brain },
   { href: "/ant-farm", labelKey: "nav.antFarm", icon: Hexagon },
   { href: "/ontology", labelKey: "nav.ontology", icon: Network },
   { href: "/improvements", labelKey: "nav.improvements", icon: GitBranch },

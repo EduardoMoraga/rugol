@@ -43,10 +43,37 @@ const ES: Dict = {
   "nav.skills": "Skills",
   "nav.schedules": "Schedules",
   "nav.operations": "Operations",
+  "nav.memoryGraph": "Memoria",
   "nav.antFarm": "Hormiguero",
   "nav.ontology": "Ontología",
   "nav.improvements": "Mejoras",
   "nav.settings": "Settings",
+
+  // ---- Memory graph ----
+  "memgraph.title": "Red de memoria",
+  "memgraph.desc":
+    "La red neuronal de tus agentes, estilo Obsidian: cada nodo es una memoria o un concepto; las líneas son los [[enlaces]] que ellos mismos tejen al aprender.",
+  "memgraph.search": "Buscar memoria o concepto…",
+  "memgraph.allAgents": "Todos los agentes",
+  "memgraph.agents": "agentes",
+  "memgraph.memories": "memorias",
+  "memgraph.concepts": "conceptos",
+  "memgraph.links": "enlaces",
+  "memgraph.kind.agent": "agente",
+  "memgraph.kind.user": "usuario",
+  "memgraph.kind.feedback": "feedback",
+  "memgraph.kind.project": "proyecto",
+  "memgraph.kind.reference": "referencia",
+  "memgraph.kind.note": "nota",
+  "memgraph.kind.concept": "concepto",
+  "memgraph.emptyTitle": "Todavía no hay memorias",
+  "memgraph.emptyBody":
+    "Hablá con un agente (Telegram o chat) y volvé: cada cosa que aprenda aparece acá como un nodo, y sus conexiones van tejiendo la red.",
+  "memgraph.panel.agent": "Agente — el centro de su propio cluster de memorias.",
+  "memgraph.panel.concept": "Concepto — un [[enlace]] que todavía no es memoria. Une a quienes lo mencionan.",
+  "memgraph.panel.degree": "Conexiones",
+  "memgraph.hint":
+    "Arrastrá los nodos · rueda para zoom · click en un nodo para leer la memoria · click en vacío para deseleccionar.",
 
   // ---- Projects home ----
   "projects.title": "Proyectos",
@@ -217,10 +244,37 @@ const EN: Dict = {
   "nav.skills": "Skills",
   "nav.schedules": "Schedules",
   "nav.operations": "Operations",
+  "nav.memoryGraph": "Memory",
   "nav.antFarm": "Ant farm",
   "nav.ontology": "Ontology",
   "nav.improvements": "Improvements",
   "nav.settings": "Settings",
+
+  // ---- Memory graph ----
+  "memgraph.title": "Memory network",
+  "memgraph.desc":
+    "Your agents' neural network, Obsidian-style: every node is a memory or a concept; the lines are the [[links]] they weave as they learn.",
+  "memgraph.search": "Search memory or concept…",
+  "memgraph.allAgents": "All agents",
+  "memgraph.agents": "agents",
+  "memgraph.memories": "memories",
+  "memgraph.concepts": "concepts",
+  "memgraph.links": "links",
+  "memgraph.kind.agent": "agent",
+  "memgraph.kind.user": "user",
+  "memgraph.kind.feedback": "feedback",
+  "memgraph.kind.project": "project",
+  "memgraph.kind.reference": "reference",
+  "memgraph.kind.note": "note",
+  "memgraph.kind.concept": "concept",
+  "memgraph.emptyTitle": "No memories yet",
+  "memgraph.emptyBody":
+    "Talk to an agent (Telegram or chat) and come back: everything it learns shows up here as a node, and its connections weave the network.",
+  "memgraph.panel.agent": "Agent — the hub of its own memory cluster.",
+  "memgraph.panel.concept": "Concept — a [[link]] that isn't a memory yet. It connects whoever mentions it.",
+  "memgraph.panel.degree": "Connections",
+  "memgraph.hint":
+    "Drag nodes · wheel to zoom · click a node to read the memory · click empty space to deselect.",
 
   // ---- Projects home ----
   "projects.title": "Projects",

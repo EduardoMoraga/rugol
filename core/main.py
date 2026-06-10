@@ -24,6 +24,7 @@ from core.api import (
     health,
     improvements,
     memories,
+    memory_graph,
     ontology,
     projects,
     runs,
@@ -124,6 +125,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router, prefix="/api")
     app.include_router(config_assistant.router, prefix="/api")
     app.include_router(memories.router, prefix="/api")
+    app.include_router(memory_graph.router, prefix="/api")
     app.include_router(evolution.router, prefix="/api")
 
     # Capture the app for the agent runtime's endpoint inventory (so agents

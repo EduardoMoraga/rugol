@@ -17,6 +17,14 @@ de un comando; y crear un bot de Telegram por proyecto es nativo.
   índice `MEMORY.md` agrupa por tipo y enlaza cada nota. Apuntás Obsidian a
   `agent-memory/` y ves la red de lo que aprendieron tus agentes como un
   grafo tipo red neuronal. Nuevo comando **`rugol vault [agente]`**.
+- **Red de memoria en el dashboard** (`/memory-graph`): el grafo Obsidian
+  dentro de Rugol, sin instalar nada. Canvas force-directed (cero deps):
+  nodos por agente/memoria/concepto, aristas por `[[wikilink]]`, arrastrar,
+  zoom, hover resalta vecinos, click abre el contenido, filtro por agente y
+  búsqueda. Se refresca solo: la red crece en vivo mientras los agentes
+  aprenden. Backend: `GET /api/memory-graph` (`core/memory/graph.py`) — un
+  wikilink sin destino se vuelve *concepto global* que conecta a todos los
+  agentes que lo mencionan.
 - **Multi-bot de Telegram, un bot por proyecto.** Cada proyecto puede tener
   su propio bot (token propio → contacto propio), pegado a su agente.
   Vínculos y sesiones namespaceados por bot para no cruzarse. Nuevo comando

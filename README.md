@@ -265,6 +265,7 @@ The current version includes:
 | **16** | **Soul Layer — Sprint 1**: identity + proactive memory tools, every agent inherits them automatically ([ADR-006](docs/adrs/ADR-006-soul-layer.md)) |
 | **17** | **Soul Layer — Sprint 2**: dual-track dispatcher (S1/S2 routing via Haiku classifier) + opt-in plan-then-execute ([ADR-007](docs/adrs/ADR-007-dual-track-dispatcher.md)) |
 | **18** | **Soul Layer — Sprint 3**: per-agent evolutionary archive — propose/validate/accept mutations of system prompts ([ADR-008](docs/adrs/ADR-008-evolutionary-archive.md)) |
+| **19** | **Memory network** (`/memory-graph`): Obsidian-style force-directed graph of every agent's memories and the `[[wikilinks]]` they weave — watch the fleet's knowledge grow live |
 
 Full history in [CHANGELOG.md](CHANGELOG.md). Technical detail in
 [DEVELOPMENT.md](DEVELOPMENT.md) and the ADRs at [`docs/adrs/`](docs/adrs/).

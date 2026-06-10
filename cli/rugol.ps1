@@ -418,16 +418,19 @@ function Cmd-Autostart {
     $task = "Rugol Autostart"
     $cmd = Join-Path $HomeDir "bin\rugol.cmd"
     if ($action -in @("on", "enable")) {
-        # En Windows los procesos de Start-Process sobreviven al padre, asi que
-        # alcanza con correr 'up' al iniciar sesion (no hace falta supervisor).
-        # cmd.exe setea RUGOL_NO_OPEN para no abrir el navegador en cada logon.
-        $arg = "/c set RUGOL_NO_OPEN=1 && `"$cmd`" up"
-        $a = New-ScheduledTaskAction -Execute "cmd.exe" -Argument $arg
-        $t = New-ScheduledTaskTrigger -AtLogOn
-        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+        # Ventana oculta + RUGOL_NO_OPEN para no molestar. 'up' es idempotente
+        # (si ya corre, no hace nada), asi que ademas del arranque al logon
+        # agregamos un WATCHDOG cada 5 min: si el proceso se cayo, lo revive.
+        # Equivalente al supervisor launchd de Mac.
+        $arg = "-NoProfile -WindowStyle Hidden -Command `"`$env:RUGOL_NO_OPEN='1'; & '$cmd' up`""
+        $a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg
+        $t1 = New-ScheduledTaskTrigger -AtLogOn
+        $t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
+            -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
+        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
         try {
-            Register-ScheduledTask -TaskName $task -Action $a -Trigger $t -Settings $s -Force -ErrorAction Stop | Out-Null
-            Ok "auto-arranque activado - Rugol se levanta al iniciar sesion."
+            Register-ScheduledTask -TaskName $task -Action $a -Trigger @($t1, $t2) -Settings $s -Force -ErrorAction Stop | Out-Null
+            Ok "auto-arranque activado - se levanta al iniciar sesion y un watchdog lo revive cada 5 min si se cae."
             Write-Host "  Quitarlo: rugol autostart off" -ForegroundColor DarkGray
         } catch { Err "no pude crear la tarea programada: $_" }
     } elseif ($action -in @("off", "disable")) {

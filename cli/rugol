@@ -387,10 +387,21 @@ cmd_update() {
   fi
   # Refrescar el launcher en el PATH (sin reinstalar a mano).
   install -m 0755 "$APP_DIR/cli/rugol" "$HOME/.local/bin/rugol" 2>/dev/null && ok "launcher actualizado"
+  # Deps: el venv lo crea uv (SIN pip) — usar uv para instalar.
   local py; py="$(resolve_python)"
-  [ -x "$py" ] && ( cd "$APP_DIR" && "$py" -m pip install -q -r core/requirements.txt ) && ok "deps backend OK"
+  if have uv && [ -x "$py" ]; then
+    uv pip install --python "$py" -q -r "$APP_DIR/core/requirements.txt" \
+      && ok "deps backend OK" || warn "deps no actualizadas (seguís con las actuales)"
+  elif [ -x "$py" ] && "$py" -m pip --version >/dev/null 2>&1; then
+    ( cd "$APP_DIR" && "$py" -m pip install -q -r core/requirements.txt ) \
+      && ok "deps backend OK" || warn "deps no actualizadas (seguís con las actuales)"
+  else
+    warn "no pude actualizar deps (sin uv ni pip) — el backend sigue con las actuales"
+  fi
+  # Apagar ANTES de compilar: evita servir assets a medio construir.
+  cmd_down 2>/dev/null
   build_dashboard
-  cmd_restart
+  cmd_up
   ok "rugol actualizado. Tus datos en $RUGOL_HOME quedaron intactos."
 }
 

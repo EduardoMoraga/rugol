@@ -279,24 +279,43 @@ function Cmd-Doctor {
 }
 function Cmd-Update {
     Require-App
+    $fetched = $false
     if (Test-Path (Join-Path $AppDir ".git")) {
         # reset --hard al remoto (no 'pull'): el deploy no debe trabarse por
         # archivos que el runtime escribe. Tus datos viven en $HomeDir.
         git -C $AppDir fetch --depth 1 origin main 2>$null
-        git -C $AppDir reset --hard origin/main 2>$null
-        Ok "codigo actualizado"
+        if ($LASTEXITCODE -eq 0) {
+            git -C $AppDir reset --hard origin/main 2>$null | Out-Null
+            $fetched = $true
+            Ok "codigo actualizado"
+        } else {
+            Warn "no pude bajar la ultima version (red caida o GitHub inaccesible) - reintenta 'rugol update' en un rato. Sigo con lo instalado."
+        }
     }
     # Refrescar el launcher en el bin (sin reinstalar a mano).
     $bin = Join-Path $HomeDir "bin"
-    if (Test-Path $bin) {
+    if ($fetched -and (Test-Path $bin)) {
         Copy-Item (Join-Path $AppDir "cli\rugol.ps1") $bin -Force
         Copy-Item (Join-Path $AppDir "cli\rugol.cmd") $bin -Force
         Ok "launcher actualizado"
     }
+    # Deps: el venv lo crea uv (SIN pip) - instalar con uv.
     $py = Resolve-Python
-    if ($py) { Push-Location $AppDir; & $py -m pip install -q -r core/requirements.txt; Pop-Location; Ok "deps backend OK" }
+    if ((Have "uv") -and $py) {
+        uv pip install --python $py -q -r (Join-Path $AppDir "core\requirements.txt")
+        if ($LASTEXITCODE -eq 0) { Ok "deps backend OK" } else { Warn "deps no actualizadas (seguis con las actuales)" }
+    } elseif ($py) {
+        & $py -m pip --version 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            & $py -m pip install -q -r (Join-Path $AppDir "core\requirements.txt")
+            if ($LASTEXITCODE -eq 0) { Ok "deps backend OK" } else { Warn "deps no actualizadas" }
+        } else { Warn "no pude actualizar deps (sin uv ni pip) - el backend sigue con las actuales" }
+    }
+    # Apagar ANTES de compilar: en Windows el server bloquea archivos de .next
+    # y el build/copia falla a medias (dashboard sin estilos). Down -> build -> up.
+    Cmd-Down
     Build-Dashboard
-    Cmd-Restart
+    Cmd-Up
     Ok "rugol actualizado. Tus datos en $HomeDir quedaron intactos."
 }
 function Cmd-Uninstall {

@@ -80,3 +80,9 @@ installer/dist/
 installer/build/
 *.exe
 !installer/*.exe.placeholder
+desktop/build-payload/
+desktop/release/
+desktop/release-*/
+desktop/dist/
+desktop/node_modules/
+*.dmg

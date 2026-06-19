@@ -48,9 +48,9 @@ Revisá la interacción y guardá UNA o MÁS memorias **solo si aplica de verdad
 - NO inventes memorias para parecer útil.
 - NO guardes nada que el agente ya sabe de su propio entrenamiento.
 - NO guardes estado pasajero del turno.
-- Si el run fue una pregunta operativa trivial ("qué día es", "cómo estás") y no hubo aprendizaje real, respondé exactamente la frase `NO_MEMORY_NEEDED` y terminá ahí, sin llamar herramientas.
+- Si el run fue una pregunta operativa trivial ("qué día es", "cómo estás") y no hubo aprendizaje real, responde exactamente la frase `NO_MEMORY_NEEDED` y terminá ahí, sin llamar herramientas.
 
-Si SÍ vale guardar algo, llamá la tool `save_memory` UNA VEZ por cada hallazgo claro. Los argumentos deben ser:
+Si SÍ vale guardar algo, llama la tool `save_memory` UNA VEZ por cada hallazgo claro. Los argumentos deben ser:
 - `name`: snake_case descriptivo, ej. `user_prefiere_respuestas_cortas`.
 - `description`: una línea, lo que verás en el índice.
 - `content`: dos a cinco líneas. Si es feedback/project, estructurá como:
@@ -62,7 +62,7 @@ Si SÍ vale guardar algo, llamá la tool `save_memory` UNA VEZ por cada hallazgo
   ```
 - `kind`: uno de `user|feedback|project|reference`.
 
-Para conectar esta memoria con otras, incluí wikilinks `[[nombre_de_otra_memoria]]` dentro del `content`. Si no estás seguro de los nombres exactos, llamá `list_my_memories` primero. Enlazar memorias relacionadas teje tu memoria como una red navegable (grafo Obsidian), no una lista plana.
+Para conectar esta memoria con otras, incluye wikilinks `[[nombre_de_otra_memoria]]` dentro del `content`. Si no estás seguro de los nombres exactos, llama `list_my_memories` primero. Enlazar memorias relacionadas teje tu memoria como una red navegable (grafo Obsidian), no una lista plana.
 
 Después de llamar la tool (o de decir NO_MEMORY_NEEDED), terminá. No expliques al usuario lo que guardaste — esto es housekeeping interno.
 """

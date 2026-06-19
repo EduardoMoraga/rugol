@@ -56,13 +56,13 @@ Reglas para el plan:
   * `add_mcp` — campos: `agent_name` (debe ser uno de los agentes existentes), `mcp_name` (corto, lowercase, ej `notion`), `preset_id` (uno de: `notion`, `asana`, `github`, `brave-search`, `filesystem`, `gmail`, `google-calendar`, `youtube`, `playwright`), `env` (dict de KEY: value, opcional para `youtube` y `playwright` que no piden tokens)
   * `setup_google_oauth_credentials` — campos: `credentials_json` (string, el JSON entero de credentials.json desde Google Cloud Console — incluye `installed.client_id` y `installed.client_secret`), `target_path` (opcional, default es `~/.gmail-mcp/gcp-oauth.keys.json`)
   * `set_google_api_key` — campos: `key` (string, API key tipo `AIzaSy...`)
-- Si el input contiene OAuth client de Google (objeto `installed.client_id` + `installed.client_secret`), generá `setup_google_oauth_credentials` con el JSON entero. Esto es independiente de si después agregás `add_mcp` con preset `gmail` o `google-calendar` — la credential file tiene que existir antes de que cualquier MCP de Google funcione.
-- Si el input contiene UNA Google API Key (string `AIzaSy...`), generá `set_google_api_key`. ADEMÁS, si entre los agentes existentes hay uno que parezca dedicado a contenido / curaduría / videos / YouTube (mirá su descripción), generá también `add_mcp` con `preset_id=youtube` y `mcp_name=youtube` para ese agente (el script Python custom lee la key automáticamente del archivo guardado, no hay que pasar env). Si no hay un agente claramente apto, dejá solo `set_google_api_key` y mencionalo en `unsure`.
+- Si el input contiene OAuth client de Google (objeto `installed.client_id` + `installed.client_secret`), genera `setup_google_oauth_credentials` con el JSON entero. Esto es independiente de si después agregas `add_mcp` con preset `gmail` o `google-calendar` — la credential file tiene que existir antes de que cualquier MCP de Google funcione.
+- Si el input contiene UNA Google API Key (string `AIzaSy...`), genera `set_google_api_key`. ADEMÁS, si entre los agentes existentes hay uno que parezca dedicado a contenido / curaduría / videos / YouTube (mira su descripción), genera también `add_mcp` con `preset_id=youtube` y `mcp_name=youtube` para ese agente (el script Python custom lee la key automáticamente del archivo guardado, no hay que pasar env). Si no hay un agente claramente apto, deja solo `set_google_api_key` y menciÃ³nalo en `unsure`.
 - IMPORTANTE: NO devuelvas tokens en la `description`. La description debe decir "configurar X con token de Y" SIN mostrar el valor.
-- Si el input contiene varios bots Telegram (caso OpenClaw), recordá que Rugol solo soporta UN bot Telegram a la vez. Elegí el más representativo (gugol o el del workspace) y describí qué descartaste.
-- Si el input contiene MCP servers para múltiples agentes, generá una `add_mcp` por par (agente, mcp).
+- Si el input contiene varios bots Telegram (caso OpenClaw), recuerda que Rugol solo soporta UN bot Telegram a la vez. Elige el más representativo (gugol o el del workspace) y describe qué descartaste.
+- Si el input contiene MCP servers para múltiples agentes, genera una `add_mcp` por par (agente, mcp).
 - Si el input no contiene nada accionable, devolvé `actions: []`.
-- Si tenés dudas (ej: "no sé si este token es de Slack o de algo más"), NO lo metas en actions; mejor agregá un campo `unsure` array con strings explicando qué viste y no clasificaste.
+- Si tienes dudas (ej: "no sé si este token es de Slack o de algo más"), NO lo metas en actions; mejor agrega un campo `unsure` array con strings explicando qué viste y no clasificaste.
 
 Schema esperado:
 
@@ -247,7 +247,7 @@ async def parse_user_input(user_input: str) -> ConfigPlan:
         await asyncio.wait_for(_drain(), timeout=PARSE_TIMEOUT_S)
     except TimeoutError:
         raise ValueError(
-            f"El Config Assistant no respondió en {PARSE_TIMEOUT_S}s. Probá con un input más corto."
+            f"El Config Assistant no respondió en {PARSE_TIMEOUT_S}s. Prueba con un input más corto."
         )
 
     raw = "".join(parts).strip()

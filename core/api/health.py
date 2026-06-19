@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import os
 
 from fastapi import APIRouter
 from sqlalchemy import func, select
@@ -16,10 +17,18 @@ router = APIRouter()
 
 @router.get("/health")
 async def health() -> dict:
+    # Branding por variante (Rugol / Rugol CRM / Rugol HRO). El desktop wrapper
+    # inyecta estas env vars; el dashboard las aplica en runtime → un solo build
+    # del dashboard sirve a las tres apps.
     return {
         "status": "ok",
         "version": __version__,
         "active_runs": get_orchestrator().active_count,
+        "brand": os.environ.get("RUGOL_BRAND_NAME", "Rugol"),
+        "accent": os.environ.get("RUGOL_BRAND_ACCENT", ""),
+        "accent_strong": os.environ.get("RUGOL_BRAND_ACCENT_STRONG", ""),
+        "tagline": os.environ.get("RUGOL_BRAND_TAGLINE", ""),
+        "variant": os.environ.get("RUGOL_VARIANT", "rugol"),  # rugol|crm|hro
     }
 
 

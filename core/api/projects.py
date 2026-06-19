@@ -30,6 +30,8 @@ class ProjectDTO(BaseModel):
     name: str
     description: str
     mission: str
+    job_description: str = ""
+    cv_folder: str = ""
     color: str
     icon: str
     status: str
@@ -51,6 +53,8 @@ class ProjectCreate(BaseModel):
     slug: str | None = None  # auto-generated from name when missing
     description: str = ""
     mission: str = ""
+    job_description: str = ""
+    cv_folder: str = ""
     color: str = "#7280a8"
     icon: str = "briefcase"
 
@@ -59,6 +63,8 @@ class ProjectUpdate(BaseModel):
     name: str | None = None
     description: str | None = None
     mission: str | None = None
+    job_description: str | None = None
+    cv_folder: str | None = None
     color: str | None = None
     icon: str | None = None
     status: str | None = None
@@ -84,6 +90,8 @@ def _to_dto(p: Project, agent_count: int, runs_24h: int, cost_24h: float) -> Pro
         name=p.name,
         description=p.description,
         mission=p.mission,
+        job_description=getattr(p, "job_description", "") or "",
+        cv_folder=getattr(p, "cv_folder", "") or "",
         color=p.color,
         icon=p.icon,
         status=p.status,
@@ -151,6 +159,8 @@ async def create_project(body: ProjectCreate) -> ProjectDTO:
             name=body.name.strip(),
             description=body.description.strip(),
             mission=body.mission.strip(),
+            job_description=body.job_description.strip(),
+            cv_folder=body.cv_folder.strip(),
             color=body.color.strip() or "#7280a8",
             icon=body.icon.strip() or "briefcase",
         )
@@ -183,6 +193,10 @@ async def update_project(id_or_slug: str, body: ProjectUpdate) -> ProjectDTO:
             p.description = body.description.strip()
         if body.mission is not None:
             p.mission = body.mission.strip()
+        if body.job_description is not None:
+            p.job_description = body.job_description.strip()
+        if body.cv_folder is not None:
+            p.cv_folder = body.cv_folder.strip()
         if body.color is not None:
             p.color = body.color.strip() or p.color
         if body.icon is not None:
@@ -193,6 +207,102 @@ async def update_project(id_or_slug: str, body: ProjectUpdate) -> ProjectDTO:
         ac, r24, c24 = await _aggregate(session, p.id)
         await bus.publish("project:updated", {"id": p.id, "slug": p.slug})
         return _to_dto(p, ac, r24, c24)
+
+
+class ScreenBody(BaseModel):
+    folder: str | None = None  # si no se pasa, usa el cv_folder de la búsqueda
+
+
+@router.post("/{id_or_slug}/screen-cvs", status_code=202)
+async def screen_cvs(id_or_slug: str, body: ScreenBody) -> dict:
+    """Fuente de CVs: dispara al agente screener sobre una carpeta para esta
+    búsqueda. El agente lee cada CV, lo evalúa contra la job description y
+    registra a los candidatos en el pipeline ligados a la búsqueda."""
+    from core.runner.orchestrator import RunRequest, get_orchestrator
+    async with async_session_factory() as session:
+        p = await _resolve(session, id_or_slug)
+        if p is None:
+            raise HTTPException(status_code=404, detail="búsqueda no encontrada")
+        folder = (body.folder or getattr(p, "cv_folder", "") or "").strip()
+        if not folder:
+            raise HTTPException(status_code=400, detail="Conecta una carpeta de CVs a esta búsqueda primero.")
+        jd = (getattr(p, "job_description", "") or p.mission or p.description or p.name).strip()
+        slug, name = p.slug, p.name
+    prompt = (
+        f"Analiza los CVs de la carpeta `{folder}` para la búsqueda «{name}».\n\n"
+        f"Perfil del cargo (job description):\n{jd or '(sin descripción; evalúa por idoneidad general)'}\n\n"
+        "Pasos:\n"
+        "1. Lista los archivos de la carpeta (Bash `ls` o Glob).\n"
+        "2. Por cada CV (PDF/DOCX/imagen/texto), ábrelo con tu herramienta Read y evalúalo contra el perfil.\n"
+        "3. Asigna un score de encaje 1-5 con evidencia tomada del CV.\n"
+        "4. Registra a CADA candidato evaluado en el pipeline con POST al endpoint /api/pipeline: "
+        f'kind=\"candidate\", title=<nombre del candidato>, subtitle=<rol o seniority>, stage=\"Screening\", '
+        f'score=<1-5>, source_agent=\"hro-screener\", project_slug=\"{slug}\", '
+        'note=<una línea de por qué>, y data con {"fortalezas":[...],"banderas":[...],"cv_file":"<nombre archivo>"}.\n'
+        "5. No inventes datos: lo que no esté en el CV, no lo afirmes.\n"
+        "Al terminar, resume cuántos CVs procesaste y cuántos candidatos registraste."
+    )
+    try:
+        run_id = await get_orchestrator().enqueue(RunRequest(
+            agent_name="hro-screener", prompt=prompt, source="dashboard",
+        ))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="No encontré el agente 'hro-screener'. Verifica que exista en Agentes.")
+    return {"run_id": run_id, "status": "queued", "folder": folder}
+
+
+class ConnectBody(BaseModel):
+    kind: str = "api"          # api | pandape | drive | onedrive | web | folder
+    goal: str                  # qué traer, en lenguaje natural
+    credentials: str | None = None  # token/JSON/usuario:clave (se guarda local, no en el prompt)
+    target_folder: str | None = None
+
+
+@router.post("/{id_or_slug}/connect", status_code=202)
+async def connect_source(id_or_slug: str, body: ConnectBody) -> dict:
+    """Conector: el agente `connector` construye y ejecuta una integración
+    (API/Pandapé, Drive/OneDrive, web) y deja los CVs en la carpeta de la
+    búsqueda. Las credenciales se guardan en un archivo local (no en el prompt)."""
+    import json as _json
+    from pathlib import Path as _Path
+    from core.config import REPO_ROOT
+    from core.runner.orchestrator import RunRequest, get_orchestrator
+    async with async_session_factory() as session:
+        p = await _resolve(session, id_or_slug)
+        if p is None:
+            raise HTTPException(status_code=404, detail="búsqueda no encontrada")
+        slug, name = p.slug, p.name
+        # Carpeta destino: la del proyecto, la indicada, o una gestionada por búsqueda.
+        target = (body.target_folder or getattr(p, "cv_folder", "") or "").strip()
+        if not target:
+            target = str(_Path(REPO_ROOT) / "data" / "cv_sources" / slug)
+        _Path(target).mkdir(parents=True, exist_ok=True)
+        if not getattr(p, "cv_folder", ""):
+            p.cv_folder = target
+            await session.commit()
+    # Guardar credenciales fuera del prompt (archivo local que el agente lee).
+    secrets_path = ""
+    if body.credentials and body.credentials.strip():
+        cdir = _Path(REPO_ROOT) / "connectors"
+        cdir.mkdir(parents=True, exist_ok=True)
+        secrets_path = str(cdir / f"{slug}.secret")
+        _Path(secrets_path).write_text(body.credentials.strip(), encoding="utf-8")
+    prompt = (
+        f"Construye y ejecuta una integración para la búsqueda «{name}».\n\n"
+        f"Objetivo: {body.goal.strip()}\n"
+        f"Tipo de fuente: {body.kind}\n"
+        f"Carpeta destino (deja ahí los CVs/archivos): `{target}`\n"
+        + (f"Credenciales: están en el archivo `{secrets_path}` — léelas de ahí con Read, NO las imprimas.\n" if secrets_path else "")
+        + "\nPasos: arma el flujo (script), ejecútalo, descarga los CVs/datos a la carpeta destino y deja el script guardado para re-ejecutar. "
+        "Al terminar, reporta cuántos archivos trajiste y de dónde. Si falta algo (endpoint, credencial), dilo claro."
+    )
+    try:
+        run_id = await get_orchestrator().enqueue(RunRequest(
+            agent_name="connector", prompt=prompt, source="dashboard",
+        ))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="No encontré el agente 'connector'. Verifica que exista en Agentes.")
+    return {"run_id": run_id, "status": "queued", "target_folder": target}
 
 
 @router.delete("/{id_or_slug}", status_code=204)

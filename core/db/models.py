@@ -42,6 +42,10 @@ class Project(Base):
     name: Mapped[str] = mapped_column(String(128))
     description: Mapped[str] = mapped_column(Text, default="")
     mission: Mapped[str] = mapped_column(Text, default="")
+    # En HRO un proyecto es una BÚSQUEDA (posición); aquí va su job description.
+    job_description: Mapped[str] = mapped_column(Text, default="")
+    # Carpeta de CVs conectada a esta búsqueda (fuente local que el screener lee).
+    cv_folder: Mapped[str] = mapped_column(Text, default="")
     color: Mapped[str] = mapped_column(String(16), default="#7280a8")
     icon: Mapped[str] = mapped_column(String(32), default="briefcase")
     status: Mapped[str] = mapped_column(String(16), default="active")  # active|archived
@@ -263,3 +267,31 @@ class ChatSession(Base):
     last_used_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
     )
+
+
+class PipelineItem(Base):
+    """Item de pipeline de dominio: un prospecto (CRM) o un candidato (HRO).
+
+    Lo poblan los agentes de la variante (crm-hunter/strategist, hro-screener/
+    matcher) llamando a /api/pipeline, y el dashboard lo muestra como kanban.
+    `kind` separa los dominios; `data` guarda campos libres (empresa, cargo,
+    score, evidencia, próximos pasos, etc.). Es la "actividad registrada" que
+    el usuario quiere ver: leads y candidatos moviéndose por etapas, con su
+    historial de notas.
+    """
+
+    __tablename__ = "pipeline_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)  # lead|candidate
+    title: Mapped[str] = mapped_column(String(200))            # empresa / nombre del candidato
+    subtitle: Mapped[str | None] = mapped_column(String(300), default=None)  # persona+cargo / rol postulado
+    stage: Mapped[str] = mapped_column(String(40), index=True)
+    score: Mapped[int | None] = mapped_column(Integer, default=None)  # 1-5 (encaje ICP / fit)
+    source_agent: Mapped[str | None] = mapped_column(String(64), default=None)
+    # Búsqueda/posición a la que pertenece el candidato (slug del proyecto). HRO.
+    project_slug: Mapped[str | None] = mapped_column(String(80), default=None, index=True)
+    notes: Mapped[list[Any]] = mapped_column(JSON, default=list)  # [{at, agent, text}]
+    data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

@@ -30,9 +30,25 @@ class CloneBody(BaseModel):
     target_skills_dir: str | None = None
 
 
+# Templates relevantes por variante. Para HRO/CRM NO mostramos los proyectos
+# genéricos (Sesgo Útil, Marca personal, etc.) — solo lo del dominio. Rugol
+# (None) muestra todo el catálogo.
+import os
+
+_VARIANT_TEMPLATE_IDS: dict[str, set[str]] = {
+    "crm": {"pipeline-comercial"},
+    "hro": {"reclutamiento"},  # template de reclutamiento (se siembra en el catálogo)
+}
+
+
 @router.get("")
 async def list_templates() -> list[dict]:
-    return [t.to_card_dict() for t in CATALOG]
+    variant = os.environ.get("RUGOL_VARIANT", "rugol")
+    allowed = _VARIANT_TEMPLATE_IDS.get(variant)  # None en rugol → todo
+    cards = [t.to_card_dict() for t in CATALOG]
+    if allowed is not None:
+        cards = [c for c in cards if c["id"] in allowed]
+    return cards
 
 
 @router.get("/{template_id}")

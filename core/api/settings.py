@@ -30,6 +30,8 @@ class SettingsUpdate(BaseModel):
     agents_dir: str | None = None
     skills_dir: str | None = None
     default_model: str | None = None
+    elevenlabs_api_key: str | None = None
+    elevenlabs_agent_id: str | None = None
 
 
 @router.get("")
@@ -64,6 +66,9 @@ async def status(request: Request) -> dict[str, Any]:
             "agents_dir": str(runtime_state.agents_dir()),
             "skills_dir": str(runtime_state.skills_dir()),
             "running": bool(watcher and getattr(watcher, "_observer", None)),
+        },
+        "elevenlabs": {
+            "configured": bool(runtime_state.elevenlabs_creds()[0] and runtime_state.elevenlabs_creds()[1]),
         },
     }
 

@@ -34,6 +34,10 @@ class RuntimeSettings:
     agents_dir: str = ""  # absolute path; "" → fall back to config default
     skills_dir: str = ""
     default_model: str = ""
+    # ElevenLabs (entrevistas de voz "Sofía"). Configurable desde el dashboard
+    # para que cada usuario use SU propia cuenta (nada hardcodeado → shareable).
+    elevenlabs_api_key: str = ""
+    elevenlabs_agent_id: str = ""
 
     def as_public_dict(self) -> dict[str, Any]:
         """Mask secrets for the UI — return last 4 chars only."""
@@ -60,6 +64,9 @@ class RuntimeSettings:
             "agents_dir": self.agents_dir,
             "skills_dir": self.skills_dir,
             "default_model": self.default_model,
+            "elevenlabs_api_key_set": bool(self.elevenlabs_api_key),
+            "elevenlabs_api_key_hint": mask(self.elevenlabs_api_key),
+            "elevenlabs_agent_id": self.elevenlabs_agent_id,
         }
 
 
@@ -179,6 +186,18 @@ def telegram_bots() -> list[dict]:
 def slack_tokens() -> tuple[str, str, str]:
     s = load()
     return s.slack_bot_token, s.slack_signing_secret, s.slack_app_token
+
+
+def elevenlabs_creds() -> tuple[str, str]:
+    """(api_key, agent_id) para la voz de Sofía. Prioriza lo guardado desde el
+    dashboard (settings.json); cae a env/.env (ELEVENLABS_*) si no hay."""
+    s = load()
+    from core.config import get_settings
+    cfg = get_settings()
+    return (
+        (s.elevenlabs_api_key or cfg.ELEVENLABS_API_KEY or "").strip(),
+        (s.elevenlabs_agent_id or cfg.ELEVENLABS_AGENT_ID or "").strip(),
+    )
 
 
 def agents_dir() -> Path:

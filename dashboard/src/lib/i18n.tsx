@@ -48,6 +48,239 @@ const ES: Dict = {
   "nav.ontology": "Ontología",
   "nav.improvements": "Mejoras",
   "nav.settings": "Settings",
+  "nav.pipelineLead": "Prospectos",
+  "nav.pipelineCandidate": "Candidatos",
+  "nav.interviews": "Entrevistas",
+  "nav.home": "Inicio",
+  "nav.guide": "Cómo funciona",
+  "nav.searches": "Búsquedas",
+
+  // ---- Nav · secciones (HRO / CRM) ----
+  "nav.section.recruitment": "Reclutamiento",
+  "nav.section.prospecting": "Prospección",
+  "nav.section.agentBrain": "Cerebro del agente",
+  "nav.section.configuration": "Configuración",
+
+  // ---- Guía "Cómo funciona" ----
+  "guide.hro.title": "Cómo funciona Rugol HRO",
+  "guide.hro.subtitle":
+    "De un candidato que llega a una terna recomendada, sin que muevas un dedo de más.",
+  "guide.crm.title": "Cómo funciona Rugol CRM",
+  "guide.crm.subtitle":
+    "De un perfil ideal a un prospecto calificado listo para que cierres.",
+  "guide.rugol.title": "Cómo funciona Rugol",
+  "guide.rugol.body":
+    "Rugol es tu sala de control de agentes. Describes un resultado en Architect, él propone un equipo de agentes con su misión, sus skills y sus rituales, y tú los operas desde Proyectos y Operations. El equipo hace el trabajo y desafía tu pensamiento; tú te quedas con la decisión.",
+  "guide.flowHeading": "El flujo, paso a paso",
+
+  // Pasos HRO
+  "guide.hro.s1.title": "Llega el candidato",
+  "guide.hro.s1.body": "Desde Pandapé o con tu link de entrevista.",
+  "guide.hro.s2.title": "Screening",
+  "guide.hro.s2.body": "El agente evalúa el CV contra el perfil de la búsqueda.",
+  "guide.hro.s3.title": "Sofía entrevista",
+  "guide.hro.s3.body": "Entrevista por voz, con seis competencias evaluadas en escala BARS.",
+  "guide.hro.s4.title": "Pipeline automático",
+  "guide.hro.s4.body": "La entrevista se puntúa y el candidato entra solo al tablero.",
+  "guide.hro.s5.title": "Terna",
+  "guide.hro.s5.body": "Se arma el top 3 recomendado para que tú decidas.",
+
+  // Pasos CRM
+  "guide.crm.s1.title": "Defines el ICP",
+  "guide.crm.s1.body": "Tu perfil de cliente ideal y la propuesta de valor.",
+  "guide.crm.s2.title": "Hunter busca",
+  "guide.crm.s2.body": "Genera y enriquece leads desde las fuentes conectadas.",
+  "guide.crm.s3.title": "Researcher investiga",
+  "guide.crm.s3.body": "Reúne contexto de cada prospecto antes del contacto.",
+  "guide.crm.s4.title": "Closer escribe",
+  "guide.crm.s4.body": "Redacta outreach personalizado y conversa por los canales.",
+  "guide.crm.s5.title": "Strategist califica",
+  "guide.crm.s5.body": "Puntúa por ICP y BANT, y los prospectos entran al tablero.",
+
+  // Tabla "Dónde se configura cada cosa"
+  "guide.config.heading": "Dónde se configura cada cosa",
+  "guide.config.thing": "Qué",
+  "guide.config.where": "Dónde",
+  "guide.config.anthropic.thing": "Cuenta Anthropic",
+  "guide.config.anthropic.where": "Onboarding",
+  "guide.config.elevenlabs.thing": "ElevenLabs · Sofía",
+  "guide.config.elevenlabs.where": "Settings → Entrevistas por voz",
+  "guide.config.telegram.thing": "Telegram",
+  "guide.config.telegram.where": "Settings → solo el token",
+  "guide.config.tools.thing": "Herramientas por agente · MCP",
+  "guide.config.tools.where": "Agentes → abrir el agente → Tools / MCP",
+
+  // Caja link de entrevista
+  "guide.link.heading": "Link de entrevista",
+  "guide.link.body": "Comparte este link para entrevistar a un candidato.",
+  "guide.link.copy": "Copiar",
+  "guide.link.open": "Abrir",
+  "guide.link.copied": "Link copiado",
+  "guide.link.copyFailed": "No se pudo copiar",
+
+  // "Dónde ves cada cosa"
+  "guide.see.heading": "Dónde ves cada cosa",
+  "guide.see.candidates.title": "Candidatos",
+  "guide.see.candidates.body": "El tablero kanban de tu pipeline de selección.",
+  "guide.see.interviews.title": "Entrevistas",
+  "guide.see.interviews.body": "Los informes de Sofía con las competencias BARS.",
+  "guide.see.searches.title": "Búsquedas",
+  "guide.see.searches.body": "Cada posición a cubrir con su descripción de cargo.",
+  "guide.see.agents.title": "Agentes",
+  "guide.see.agents.body": "El cerebro del agente: cómo piensa y qué herramientas usa.",
+  "guide.see.prospects.title": "Prospectos",
+  "guide.see.prospects.body": "El tablero kanban de tu pipeline comercial.",
+  "guide.see.projects.title": "Proyectos",
+  "guide.see.projects.body": "Cada iniciativa con su misión y su equipo de agentes.",
+
+  // ---- Pipeline (CRM prospectos / HRO candidatos) ----
+  "pipeline.titleLead": "Prospectos",
+  "pipeline.titleCandidate": "Candidatos",
+  "pipeline.descLead":
+    "Pipeline comercial en vivo. Tus agentes registran y mueven prospectos por las etapas; tú decides y cierras.",
+  "pipeline.descCandidate":
+    "Pipeline de selección en vivo. Tus agentes registran y mueven candidatos por las etapas; tú decides la contratación.",
+  "pipeline.add": "Agregar",
+  "pipeline.addLead": "Agregar prospecto",
+  "pipeline.addCandidate": "Agregar candidato",
+  "pipeline.loading": "Cargando pipeline…",
+  "pipeline.emptyLead":
+    "Aún no hay prospectos. Tus agentes los irán registrando aquí a medida que trabajen, o agrégalos manualmente.",
+  "pipeline.emptyCandidate":
+    "Aún no hay candidatos. Tus agentes los irán registrando aquí a medida que trabajen, o agrégalos manualmente.",
+  "pipeline.colEmpty": "Sin items",
+  "pipeline.rugolTitle": "Esta vista pertenece a Rugol CRM / HRO",
+  "pipeline.rugolBody":
+    "El pipeline de dominio vive en las variantes CRM (prospectos) y HRO (candidatos). En Rugol orquestas a tus agentes desde Proyectos y Operations.",
+  "pipeline.score": "Score",
+  "pipeline.noScore": "sin score",
+  "pipeline.source": "Origen",
+  "pipeline.manual": "manual",
+  "pipeline.details": "Detalle",
+  "pipeline.data": "Datos",
+  "pipeline.noData": "Sin datos estructurados.",
+  "pipeline.history": "Historial",
+  "pipeline.noNotes": "Aún no hay notas registradas.",
+  "pipeline.addNote": "Agregar nota",
+  "pipeline.notePlaceholder": "Escribe una nota…",
+  "pipeline.saveNote": "Guardar nota",
+  "pipeline.savingNote": "Guardando…",
+  "pipeline.delete": "Borrar item",
+  "pipeline.deleteConfirm": "¿Borrar este item del pipeline?",
+  "pipeline.moveBack": "Etapa anterior",
+  "pipeline.moveForward": "Etapa siguiente",
+  "pipeline.title": "Título",
+  "pipeline.titlePlaceholder": "Nombre del prospecto / candidato",
+  "pipeline.subtitle": "Subtítulo",
+  "pipeline.subtitlePlaceholder": "Empresa, cargo, detalle corto",
+  "pipeline.stage": "Etapa",
+  "pipeline.cancel": "Cancelar",
+  "pipeline.create": "Crear",
+  "pipeline.creating": "Creando…",
+  "pipeline.created": "Item creado",
+  "pipeline.deleted": "Item borrado",
+  "pipeline.noteAdded": "Nota agregada",
+  "pipeline.moved": "Item movido",
+
+  // ---- Interviews (Sofía / HRO) ----
+  "interviews.title": "Entrevistas",
+  "interviews.desc":
+    "Informes de entrevista de Sofía. Cada candidato evaluado trae su veredicto, las seis competencias con su puntaje y la evidencia citada.",
+  "interviews.loading": "Cargando entrevistas…",
+  "interviews.empty":
+    "Aún no hay entrevistas. Cuando Sofía entreviste candidatos, sus informes aparecerán aquí.",
+  "interviews.notHroTitle": "Esta vista pertenece a Rugol HRO",
+  "interviews.notHroBody":
+    "Las entrevistas de Sofía solo aplican a la variante de selección de personal (HRO).",
+  "interviews.verdict": "Veredicto",
+  "interviews.verdict.avanzar": "Avanzar",
+  "interviews.verdict.dudoso": "Dudoso",
+  "interviews.verdict.descartar": "Descartar",
+  "interviews.confidence": "Confianza",
+  "interviews.confidence.alta": "alta",
+  "interviews.confidence.media": "media",
+  "interviews.confidence.baja": "baja",
+  "interviews.competencies": "Competencias",
+  "interviews.noScore": "s/p",
+  "interviews.evidence": "Evidencia",
+  "interviews.noEvidence": "Sin evidencia citada.",
+  "interviews.risks": "Riesgos",
+  "interviews.noRisks": "Sin riesgos señalados.",
+  "interviews.history": "Historial",
+  "interviews.noNotes": "Aún no hay notas registradas.",
+  "interviews.manual": "manual",
+  "interviews.expand": "Ver detalle",
+  "interviews.collapse": "Ocultar detalle",
+  "interviews.count": "entrevistas",
+
+  // ---- Voz Sofía (ElevenLabs) ----
+  "voice.sync": "Sincronizar con ElevenLabs",
+  "voice.syncing": "Sincronizando…",
+  "voice.syncDone": "{n} entrevista(s) nueva(s)",
+  "voice.syncNone": "Sin entrevistas nuevas",
+  "voice.syncError": "No se pudo sincronizar",
+  "voice.notConfigured":
+    "Conecta tu cuenta de ElevenLabs en Ajustes para traer las entrevistas de Sofía.",
+  "voice.goToSettings": "Ir a Ajustes",
+  "voice.launch": "Lanzar entrevista de voz",
+
+  // ---- HRO Cockpit (sala de reclutamiento — inicio) ----
+  "hro.cockpit.tag": "Sala de reclutamiento",
+  "hro.cockpit.title": "Sala de reclutamiento",
+  "hro.cockpit.subtitle":
+    "Tus agentes evalúan, Sofía entrevista, y todo se ordena solo en tu pipeline.",
+  "hro.cockpit.stat.candidates": "candidatos",
+  "hro.cockpit.stat.interviews": "entrevistas hechas",
+
+  // Flujo (5 pasos)
+  "hro.cockpit.flow.heading": "Cómo funciona, de punta a punta",
+  "hro.cockpit.flow.s1.title": "Llega el candidato",
+  "hro.cockpit.flow.s1.body": "Desde Pandapé o con tu link de entrevista.",
+  "hro.cockpit.flow.s2.title": "Screening",
+  "hro.cockpit.flow.s2.body": "hro-screener filtra y ordena por ajuste al perfil.",
+  "hro.cockpit.flow.s3.title": "Sofía entrevista",
+  "hro.cockpit.flow.s3.body": "Entrevista por voz, con evaluación BARS.",
+  "hro.cockpit.flow.s4.title": "Pipeline automático",
+  "hro.cockpit.flow.s4.body": "Cada candidato avanza solo por las etapas.",
+  "hro.cockpit.flow.s5.title": "Terna",
+  "hro.cockpit.flow.s5.body": "hro-matcher arma la terna final para ti.",
+
+  // Conexiones
+  "hro.cockpit.connections.heading": "Qué está conectado",
+  "hro.cockpit.connections.active": "activo",
+  "hro.cockpit.connections.connected": "conectado",
+  "hro.cockpit.connections.missing": "falta configurar",
+  "hro.cockpit.connections.notRunning": "configurado · no corre",
+  "hro.cockpit.connections.notConnected": "no conectado",
+  "hro.cockpit.connections.configure": "Configurar",
+  "hro.cockpit.connections.anthropic.name": "Anthropic",
+  "hro.cockpit.connections.anthropic.body":
+    "El cerebro de tus agentes. Va incluido en tu suscripción.",
+  "hro.cockpit.connections.elevenlabs.name": "ElevenLabs · Sofía",
+  "hro.cockpit.connections.elevenlabs.body":
+    "La voz de Sofía para entrevistar a los candidatos.",
+  "hro.cockpit.connections.telegram.name": "Telegram",
+  "hro.cockpit.connections.telegram.body":
+    "Recibe alertas y opera el pipeline desde tu teléfono.",
+
+  // Link de entrevista
+  "hro.cockpit.link.heading": "Link de entrevista",
+  "hro.cockpit.link.body": "Comparte este link para entrevistar a un candidato.",
+  "hro.cockpit.link.copy": "Copiar",
+  "hro.cockpit.link.open": "Abrir",
+  "hro.cockpit.link.copied": "Link copiado",
+  "hro.cockpit.link.copyFailed": "No se pudo copiar",
+
+  // Acciones rápidas
+  "hro.cockpit.actions.heading": "Acciones rápidas",
+  "hro.cockpit.actions.candidates.title": "Ver candidatos",
+  "hro.cockpit.actions.candidates.body": "Tu pipeline de selección en vivo.",
+  "hro.cockpit.actions.interviews.title": "Ver entrevistas",
+  "hro.cockpit.actions.interviews.body": "Los informes que dejó Sofía.",
+  "hro.cockpit.actions.sync.title": "Sincronizar entrevistas",
+  "hro.cockpit.actions.sync.body": "Trae las últimas entrevistas de ElevenLabs.",
+  "hro.cockpit.actions.configureSofia.title": "Configurar a Sofía",
+  "hro.cockpit.actions.configureSofia.body": "Ajusta a tu entrevistadora de voz.",
 
   // ---- Memory graph ----
   "memgraph.title": "Red de memoria",
@@ -68,7 +301,7 @@ const ES: Dict = {
   "memgraph.kind.concept": "concepto",
   "memgraph.emptyTitle": "Todavía no hay memorias",
   "memgraph.emptyBody":
-    "Hablá con un agente (Telegram o chat) y volvé: cada cosa que aprenda aparece acá como un nodo, y sus conexiones van tejiendo la red.",
+    "Hablá con un agente (Telegram o chat) y volvé: cada cosa que aprenda aparece aquí como un nodo, y sus conexiones van tejiendo la red.",
   "memgraph.panel.agent": "Agente — el centro de su propio cluster de memorias.",
   "memgraph.panel.concept": "Concepto — un [[enlace]] que todavía no es memoria. Une a quienes lo mencionan.",
   "memgraph.panel.degree": "Conexiones",
@@ -78,7 +311,7 @@ const ES: Dict = {
   // ---- Projects home ----
   "projects.title": "Proyectos",
   "projects.description":
-    "Cada proyecto reúne un equipo de agentes con una misión propia. Ellos hacen el trabajo y desafían tu pensamiento; vos te quedás con la decisión.",
+    "Cada proyecto reúne un equipo de agentes con una misión propia. Ellos hacen el trabajo y desafían tu pensamiento; tú te quedas con la decisión.",
   "projects.designWithArchitect": "Diseñar con Architect",
   "projects.newProject": "Nuevo proyecto",
   "projects.activeStat": "Proyectos activos",
@@ -91,12 +324,94 @@ const ES: Dict = {
   "projects.emptyDescription":
     "Empieza describiendo una idea — Architect propone el equipo, las skills y los rituales — o crea un proyecto manualmente.",
 
+  // ---- Búsquedas (HRO: un proyecto ES una posición a cubrir) ----
+  "searches.title": "Búsquedas",
+  "searches.description":
+    "Cada búsqueda es una posición a cubrir, con su descripción de cargo y su equipo de agentes. Ellos evalúan y entrevistan; tú decides la contratación.",
+  "searches.newSearch": "Nueva búsqueda",
+  "searches.empty": "Todavía no tienes búsquedas",
+  "searches.emptyDescription":
+    "Crea una búsqueda para abrir una posición — describe el cargo y deja que tus agentes evalúen a los candidatos.",
+  "searches.activeStat": "Búsquedas activas",
+  "newSearch.title": "Nueva búsqueda",
+  "newSearch.description":
+    "Define la posición a cubrir. Tus agentes leen el alcance y la descripción de cargo antes de evaluar a cada candidato.",
+  "newSearch.name": "Nombre de la posición",
+  "newSearch.namePlaceholder": "Analista de Datos Senior",
+  "newSearch.create": "Crear búsqueda",
+  "project.jobDescription": "Descripción de cargo",
+  "project.jobDescriptionHint": "el perfil que el agente usa para evaluar candidatos",
+  "project.jobDescriptionPlaceholder":
+    "Responsabilidades, requisitos, competencias clave y todo lo que define el perfil de la posición.",
+  "project.scope": "Alcance / objetivo",
+  "project.scopeHint": "el porqué que el equipo lee antes de cada tarea",
+  "project.noJobDescription": "Sin descripción de cargo todavía.",
+
+  // ---- Fuente de CVs (HRO: carpeta de CVs por búsqueda) ----
+  "cvSource.title": "Fuente de CVs",
+  "cvSource.help":
+    "Conecta una carpeta con CVs (PDF/Word). El agente los lee, los evalúa contra la descripción del cargo y crea los candidatos en esta búsqueda.",
+  "cvSource.none": "Ninguna carpeta conectada todavía.",
+  "cvSource.connect": "Conectar carpeta",
+  "cvSource.change": "Cambiar carpeta",
+  "cvSource.analyze": "Analizar CVs",
+  "cvSource.analyzing": "Analizando…",
+  "cvSource.prompt": "Ruta de la carpeta de CVs:",
+  "cvSource.connected": "Carpeta conectada",
+  "cvSource.connectError": "No se pudo conectar la carpeta",
+  "cvSource.analyzeStarted":
+    "Análisis iniciado — el agente está leyendo los CVs; los candidatos irán apareciendo en Candidatos.",
+  "cvSource.analyzeError": "No se pudo iniciar el análisis",
+  "cvSource.needFolder": "Conecta una carpeta primero",
+
+  // ---- Conectar fuente externa de CVs (HRO: agente conector) ----
+  "connect.button": "Conectar fuente externa",
+  "connect.dialogTitle": "Conectar una fuente de CVs",
+  "connect.dialogDescription":
+    "Trae los CVs desde donde estén: una carpeta sincronizada de Drive/OneDrive, una API como Pandapé, o una web. El agente arma la integración y deja los CVs en esta búsqueda.",
+  "connect.typeLabel": "Tipo",
+  "connect.type.drive": "Google Drive / OneDrive (carpeta sincronizada)",
+  "connect.type.api": "API / Pandapé",
+  "connect.type.web": "Web / personalizada",
+  "connect.driveNote":
+    "Elige la carpeta donde Drive/OneDrive sincroniza los CVs. Se usa el mismo flujo de carpeta local: una vez sincronizada, el agente la lee directo.",
+  "connect.drivePick": "Elegir carpeta sincronizada",
+  "connect.goalLabel": "¿Qué quieres traer?",
+  "connect.goalPlaceholder":
+    "Trae los CVs de la vacante 'Promotor SKF' de Pandapé",
+  "connect.credentialsLabel": "Credenciales / token",
+  "connect.credentialsHint": "opcional",
+  "connect.credentialsPlaceholder":
+    "Pega tu token de Pandapé o el JSON de credenciales",
+  "connect.credentialsSecurity":
+    "Tu token se guarda solo en tu equipo, no se envía a ningún lado salvo a la herramienta que conectas.",
+  "connect.submit": "Construir y traer CVs",
+  "connect.submitting": "Iniciando conector…",
+  "connect.started":
+    "Conector iniciado — el agente está armando la integración. Cuando termine, los CVs estarán en esta búsqueda y podrás darle Analizar CVs.",
+  "connect.error": "No se pudo iniciar el conector",
+  "connect.needGoal": "Describe qué quieres traer",
+  "connect.cancel": "Cancelar",
+
+  // ---- Filtros de Candidatos / Prospectos (pipeline) ----
+  "candidates.filter.search": "Búsqueda",
+  "candidates.filter.project": "Proyecto",
+  "candidates.filter.allSearches": "Todas las búsquedas",
+  "candidates.filter.allProjects": "Todos los proyectos",
+  "candidates.filter.searchPlaceholder": "Buscar candidato…",
+  "candidates.filter.searchLeadPlaceholder": "Buscar prospecto…",
+  "candidates.noSearch": "Sin búsqueda",
+  "candidates.field.search": "Búsqueda",
+  "candidates.field.searchHint": "opcional · liga el candidato a una búsqueda",
+  "candidates.field.project": "Proyecto",
+  "candidates.field.none": "Ninguna",
+
   // ---- Onboarding hero ----
   "onboarding.tag": "Bienvenida a Rugol",
   "onboarding.headline": "Tu orquestador de agentes.",
   "onboarding.headlineHighlight": "Apoyo para las decisiones que importan.",
   "onboarding.pitch":
-    "Rugol es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué quiero resolver\": tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial. El equipo de agentes hace el trabajo y desafía tu pensamiento; vos decidís con un mejor proceso, no solo con más información.",
+    "Rugol es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué quiero resolver\": tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial. El equipo de agentes hace el trabajo y desafía tu pensamiento; tú decides con un mejor proceso, no solo con más información.",
   "onboarding.question": "¿Por dónde te gustaría empezar?",
   "onboarding.seeTemplates": "Ver los 5 templates",
   "onboarding.orArchitect": "o descríbelo en una línea con Architect →",
@@ -207,13 +522,24 @@ const ES: Dict = {
   // ---- Settings ----
   "settings.title": "Settings",
   "settings.description":
-    "Configura tokens y rutas desde acá. Los cambios reinician en caliente los adapters y el watcher — sin tocar el backend.",
+    "Configura tokens y rutas desde aquí. Los cambios reinician en caliente los adapters y el watcher — sin tocar el backend.",
   "settings.refreshStatus": "Refrescar estado",
   "settings.dangerZone": "Zona peligrosa",
   "settings.dangerZoneDescription":
     "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) para que se recreen las tablas vacías. El proyecto Workspace y los 5 templates curados siguen disponibles.",
   "settings.resetButton": "Restablecer instalación",
   "settings.resetting": "Reseteando…",
+
+  // ---- Settings · Entrevistas por voz (ElevenLabs) ----
+  "settings.elevenlabs.title": "Entrevistas por voz · Sofía (ElevenLabs)",
+  "settings.elevenlabs.body":
+    "Pega tu API key de ElevenLabs y el Agent ID de tu entrevistadora. Se guarda solo en tu equipo.",
+  "settings.elevenlabs.apiKey": "API key",
+  "settings.elevenlabs.apiKeyHint": "se guarda solo en tu equipo",
+  "settings.elevenlabs.agentId": "Agent ID",
+  "settings.elevenlabs.configured": "configurado",
+  "settings.elevenlabs.notConfigured": "sin configurar",
+  "settings.elevenlabs.saved": "Ajustes de voz guardados",
 
   // ---- Architect ----
   "architect.title": "Architect",
@@ -249,6 +575,239 @@ const EN: Dict = {
   "nav.ontology": "Ontology",
   "nav.improvements": "Improvements",
   "nav.settings": "Settings",
+  "nav.pipelineLead": "Prospects",
+  "nav.pipelineCandidate": "Candidates",
+  "nav.interviews": "Interviews",
+  "nav.home": "Home",
+  "nav.guide": "How it works",
+  "nav.searches": "Searches",
+
+  // ---- Nav · sections (HRO / CRM) ----
+  "nav.section.recruitment": "Recruitment",
+  "nav.section.prospecting": "Prospecting",
+  "nav.section.agentBrain": "Agent brain",
+  "nav.section.configuration": "Configuration",
+
+  // ---- Guide "How it works" ----
+  "guide.hro.title": "How Rugol HRO works",
+  "guide.hro.subtitle":
+    "From a candidate who arrives to a recommended shortlist, without you lifting an extra finger.",
+  "guide.crm.title": "How Rugol CRM works",
+  "guide.crm.subtitle":
+    "From an ideal profile to a qualified prospect ready for you to close.",
+  "guide.rugol.title": "How Rugol works",
+  "guide.rugol.body":
+    "Rugol is your agent control room. You describe an outcome in Architect, it proposes a team of agents with their mission, skills and rituals, and you run them from Projects and Operations. The team does the work and challenges your thinking; you keep the decision.",
+  "guide.flowHeading": "The flow, step by step",
+
+  // HRO steps
+  "guide.hro.s1.title": "Candidate arrives",
+  "guide.hro.s1.body": "From Pandapé or via your interview link.",
+  "guide.hro.s2.title": "Screening",
+  "guide.hro.s2.body": "The agent scores the CV against the search profile.",
+  "guide.hro.s3.title": "Sofía interviews",
+  "guide.hro.s3.body": "Voice interview, with six competencies scored on a BARS scale.",
+  "guide.hro.s4.title": "Automatic pipeline",
+  "guide.hro.s4.body": "The interview is scored and the candidate enters the board on its own.",
+  "guide.hro.s5.title": "Shortlist",
+  "guide.hro.s5.body": "The recommended top 3 is built for you to decide.",
+
+  // CRM steps
+  "guide.crm.s1.title": "You define the ICP",
+  "guide.crm.s1.body": "Your ideal customer profile and the value proposition.",
+  "guide.crm.s2.title": "Hunter searches",
+  "guide.crm.s2.body": "Generates and enriches leads from the connected sources.",
+  "guide.crm.s3.title": "Researcher digs in",
+  "guide.crm.s3.body": "Gathers context on each prospect before reaching out.",
+  "guide.crm.s4.title": "Closer writes",
+  "guide.crm.s4.body": "Drafts personalized outreach and converses across channels.",
+  "guide.crm.s5.title": "Strategist qualifies",
+  "guide.crm.s5.body": "Scores by ICP and BANT, and prospects enter the board.",
+
+  // "Where each thing is configured" table
+  "guide.config.heading": "Where each thing is configured",
+  "guide.config.thing": "What",
+  "guide.config.where": "Where",
+  "guide.config.anthropic.thing": "Anthropic account",
+  "guide.config.anthropic.where": "Onboarding",
+  "guide.config.elevenlabs.thing": "ElevenLabs · Sofía",
+  "guide.config.elevenlabs.where": "Settings → Voice interviews",
+  "guide.config.telegram.thing": "Telegram",
+  "guide.config.telegram.where": "Settings → just the token",
+  "guide.config.tools.thing": "Per-agent tools · MCP",
+  "guide.config.tools.where": "Agents → open the agent → Tools / MCP",
+
+  // Interview link box
+  "guide.link.heading": "Interview link",
+  "guide.link.body": "Share this link to interview a candidate.",
+  "guide.link.copy": "Copy",
+  "guide.link.open": "Open",
+  "guide.link.copied": "Link copied",
+  "guide.link.copyFailed": "Couldn't copy",
+
+  // "Where you see each thing"
+  "guide.see.heading": "Where you see each thing",
+  "guide.see.candidates.title": "Candidates",
+  "guide.see.candidates.body": "The kanban board for your hiring pipeline.",
+  "guide.see.interviews.title": "Interviews",
+  "guide.see.interviews.body": "Sofía's reports with the BARS competencies.",
+  "guide.see.searches.title": "Searches",
+  "guide.see.searches.body": "Each position to fill with its job description.",
+  "guide.see.agents.title": "Agents",
+  "guide.see.agents.body": "The agent brain: how it thinks and which tools it uses.",
+  "guide.see.prospects.title": "Prospects",
+  "guide.see.prospects.body": "The kanban board for your sales pipeline.",
+  "guide.see.projects.title": "Projects",
+  "guide.see.projects.body": "Each initiative with its mission and agent team.",
+
+  // ---- Pipeline (CRM prospects / HRO candidates) ----
+  "pipeline.titleLead": "Prospects",
+  "pipeline.titleCandidate": "Candidates",
+  "pipeline.descLead":
+    "Live sales pipeline. Your agents register and move prospects through the stages; you decide and close.",
+  "pipeline.descCandidate":
+    "Live hiring pipeline. Your agents register and move candidates through the stages; you make the hire.",
+  "pipeline.add": "Add",
+  "pipeline.addLead": "Add prospect",
+  "pipeline.addCandidate": "Add candidate",
+  "pipeline.loading": "Loading pipeline…",
+  "pipeline.emptyLead":
+    "No prospects yet. Your agents will register them here as they work, or add them manually.",
+  "pipeline.emptyCandidate":
+    "No candidates yet. Your agents will register them here as they work, or add them manually.",
+  "pipeline.colEmpty": "No items",
+  "pipeline.rugolTitle": "This view belongs to Rugol CRM / HRO",
+  "pipeline.rugolBody":
+    "The domain pipeline lives in the CRM (prospects) and HRO (candidates) variants. In Rugol you orchestrate your agents from Projects and Operations.",
+  "pipeline.score": "Score",
+  "pipeline.noScore": "no score",
+  "pipeline.source": "Source",
+  "pipeline.manual": "manual",
+  "pipeline.details": "Details",
+  "pipeline.data": "Data",
+  "pipeline.noData": "No structured data.",
+  "pipeline.history": "History",
+  "pipeline.noNotes": "No notes recorded yet.",
+  "pipeline.addNote": "Add note",
+  "pipeline.notePlaceholder": "Write a note…",
+  "pipeline.saveNote": "Save note",
+  "pipeline.savingNote": "Saving…",
+  "pipeline.delete": "Delete item",
+  "pipeline.deleteConfirm": "Delete this item from the pipeline?",
+  "pipeline.moveBack": "Previous stage",
+  "pipeline.moveForward": "Next stage",
+  "pipeline.title": "Title",
+  "pipeline.titlePlaceholder": "Prospect / candidate name",
+  "pipeline.subtitle": "Subtitle",
+  "pipeline.subtitlePlaceholder": "Company, role, short detail",
+  "pipeline.stage": "Stage",
+  "pipeline.cancel": "Cancel",
+  "pipeline.create": "Create",
+  "pipeline.creating": "Creating…",
+  "pipeline.created": "Item created",
+  "pipeline.deleted": "Item deleted",
+  "pipeline.noteAdded": "Note added",
+  "pipeline.moved": "Item moved",
+
+  // ---- Interviews (Sofía / HRO) ----
+  "interviews.title": "Interviews",
+  "interviews.desc":
+    "Sofía's interview reports. Each assessed candidate carries a verdict, the six competencies with their scores, and the cited evidence.",
+  "interviews.loading": "Loading interviews…",
+  "interviews.empty":
+    "No interviews yet. Once Sofía interviews candidates, her reports will show up here.",
+  "interviews.notHroTitle": "This view belongs to Rugol HRO",
+  "interviews.notHroBody":
+    "Sofía's interviews only apply to the hiring variant (HRO).",
+  "interviews.verdict": "Verdict",
+  "interviews.verdict.avanzar": "Advance",
+  "interviews.verdict.dudoso": "On the fence",
+  "interviews.verdict.descartar": "Reject",
+  "interviews.confidence": "Confidence",
+  "interviews.confidence.alta": "high",
+  "interviews.confidence.media": "medium",
+  "interviews.confidence.baja": "low",
+  "interviews.competencies": "Competencies",
+  "interviews.noScore": "n/a",
+  "interviews.evidence": "Evidence",
+  "interviews.noEvidence": "No evidence cited.",
+  "interviews.risks": "Risks",
+  "interviews.noRisks": "No risks flagged.",
+  "interviews.history": "History",
+  "interviews.noNotes": "No notes recorded yet.",
+  "interviews.manual": "manual",
+  "interviews.expand": "View detail",
+  "interviews.collapse": "Hide detail",
+  "interviews.count": "interviews",
+
+  // ---- Voice Sofía (ElevenLabs) ----
+  "voice.sync": "Sync with ElevenLabs",
+  "voice.syncing": "Syncing…",
+  "voice.syncDone": "{n} new interview(s)",
+  "voice.syncNone": "No new interviews",
+  "voice.syncError": "Sync failed",
+  "voice.notConfigured":
+    "Connect your ElevenLabs account in Settings to pull Sofía's interviews.",
+  "voice.goToSettings": "Go to Settings",
+  "voice.launch": "Launch voice interview",
+
+  // ---- HRO Cockpit (recruiting room — home) ----
+  "hro.cockpit.tag": "Recruiting room",
+  "hro.cockpit.title": "Recruiting room",
+  "hro.cockpit.subtitle":
+    "Your agents assess, Sofía interviews, and everything sorts itself into your pipeline.",
+  "hro.cockpit.stat.candidates": "candidates",
+  "hro.cockpit.stat.interviews": "interviews done",
+
+  // Flow (5 steps)
+  "hro.cockpit.flow.heading": "How it works, end to end",
+  "hro.cockpit.flow.s1.title": "Candidate arrives",
+  "hro.cockpit.flow.s1.body": "From Pandapé or via your interview link.",
+  "hro.cockpit.flow.s2.title": "Screening",
+  "hro.cockpit.flow.s2.body": "hro-screener filters and ranks by role fit.",
+  "hro.cockpit.flow.s3.title": "Sofía interviews",
+  "hro.cockpit.flow.s3.body": "Voice interview, with BARS scoring.",
+  "hro.cockpit.flow.s4.title": "Automatic pipeline",
+  "hro.cockpit.flow.s4.body": "Each candidate moves through the stages on its own.",
+  "hro.cockpit.flow.s5.title": "Shortlist",
+  "hro.cockpit.flow.s5.body": "hro-matcher builds the final shortlist for you.",
+
+  // Connections
+  "hro.cockpit.connections.heading": "What's connected",
+  "hro.cockpit.connections.active": "active",
+  "hro.cockpit.connections.connected": "connected",
+  "hro.cockpit.connections.missing": "needs setup",
+  "hro.cockpit.connections.notRunning": "configured · not running",
+  "hro.cockpit.connections.notConnected": "not connected",
+  "hro.cockpit.connections.configure": "Configure",
+  "hro.cockpit.connections.anthropic.name": "Anthropic",
+  "hro.cockpit.connections.anthropic.body":
+    "The brain behind your agents. Included in your subscription.",
+  "hro.cockpit.connections.elevenlabs.name": "ElevenLabs · Sofía",
+  "hro.cockpit.connections.elevenlabs.body":
+    "Sofía's voice for interviewing candidates.",
+  "hro.cockpit.connections.telegram.name": "Telegram",
+  "hro.cockpit.connections.telegram.body":
+    "Get alerts and run the pipeline from your phone.",
+
+  // Interview link
+  "hro.cockpit.link.heading": "Interview link",
+  "hro.cockpit.link.body": "Share this link to interview a candidate.",
+  "hro.cockpit.link.copy": "Copy",
+  "hro.cockpit.link.open": "Open",
+  "hro.cockpit.link.copied": "Link copied",
+  "hro.cockpit.link.copyFailed": "Couldn't copy",
+
+  // Quick actions
+  "hro.cockpit.actions.heading": "Quick actions",
+  "hro.cockpit.actions.candidates.title": "View candidates",
+  "hro.cockpit.actions.candidates.body": "Your live hiring pipeline.",
+  "hro.cockpit.actions.interviews.title": "View interviews",
+  "hro.cockpit.actions.interviews.body": "The reports Sofía left behind.",
+  "hro.cockpit.actions.sync.title": "Sync interviews",
+  "hro.cockpit.actions.sync.body": "Pull the latest interviews from ElevenLabs.",
+  "hro.cockpit.actions.configureSofia.title": "Configure Sofía",
+  "hro.cockpit.actions.configureSofia.body": "Tune your voice interviewer.",
 
   // ---- Memory graph ----
   "memgraph.title": "Memory network",
@@ -291,6 +850,88 @@ const EN: Dict = {
   "projects.empty": "You don't have any projects yet",
   "projects.emptyDescription":
     "Start by describing an idea — Architect proposes the team, the skills and the rituals — or create a project manually.",
+
+  // ---- Searches (HRO: a project IS a position to fill) ----
+  "searches.title": "Searches",
+  "searches.description":
+    "Each search is a position to fill, with its job description and its agent team. They assess and interview; you make the hire.",
+  "searches.newSearch": "New search",
+  "searches.empty": "You don't have any searches yet",
+  "searches.emptyDescription":
+    "Create a search to open a position — describe the role and let your agents assess the candidates.",
+  "searches.activeStat": "Active searches",
+  "newSearch.title": "New search",
+  "newSearch.description":
+    "Define the position to fill. Your agents read the scope and the job description before assessing each candidate.",
+  "newSearch.name": "Position name",
+  "newSearch.namePlaceholder": "Senior Data Analyst",
+  "newSearch.create": "Create search",
+  "project.jobDescription": "Job description",
+  "project.jobDescriptionHint": "the profile the agent uses to assess candidates",
+  "project.jobDescriptionPlaceholder":
+    "Responsibilities, requirements, key competencies and everything that defines the role profile.",
+  "project.scope": "Scope / objective",
+  "project.scopeHint": "the why the team reads before every task",
+  "project.noJobDescription": "No job description yet.",
+
+  // ---- CV source (HRO: CV folder per search) ----
+  "cvSource.title": "CV source",
+  "cvSource.help":
+    "Connect a folder with CVs (PDF/Word). The agent reads them, scores them against the job description and creates the candidates in this search.",
+  "cvSource.none": "No folder connected yet.",
+  "cvSource.connect": "Connect folder",
+  "cvSource.change": "Change folder",
+  "cvSource.analyze": "Analyze CVs",
+  "cvSource.analyzing": "Analyzing…",
+  "cvSource.prompt": "Path to the CV folder:",
+  "cvSource.connected": "Folder connected",
+  "cvSource.connectError": "Couldn't connect the folder",
+  "cvSource.analyzeStarted":
+    "Analysis started — the agent is reading the CVs; candidates will show up in Candidates.",
+  "cvSource.analyzeError": "Couldn't start the analysis",
+  "cvSource.needFolder": "Connect a folder first",
+
+  // ---- Connect external CV source (HRO: connector agent) ----
+  "connect.button": "Connect external source",
+  "connect.dialogTitle": "Connect a CV source",
+  "connect.dialogDescription":
+    "Bring CVs from wherever they are: a synced Drive/OneDrive folder, an API like Pandapé, or a website. The agent builds the integration and drops the CVs into this search.",
+  "connect.typeLabel": "Type",
+  "connect.type.drive": "Google Drive / OneDrive (synced folder)",
+  "connect.type.api": "API / Pandapé",
+  "connect.type.web": "Web / custom",
+  "connect.driveNote":
+    "Choose the folder where Drive/OneDrive syncs the CVs. It uses the same local-folder flow: once synced, the agent reads it directly.",
+  "connect.drivePick": "Choose synced folder",
+  "connect.goalLabel": "What do you want to bring?",
+  "connect.goalPlaceholder":
+    "Bring the CVs from the 'SKF Promoter' opening on Pandapé",
+  "connect.credentialsLabel": "Credentials / token",
+  "connect.credentialsHint": "optional",
+  "connect.credentialsPlaceholder":
+    "Paste your Pandapé token or the credentials JSON",
+  "connect.credentialsSecurity":
+    "Your token is stored only on your machine; it's never sent anywhere except to the tool you connect.",
+  "connect.submit": "Build and bring CVs",
+  "connect.submitting": "Starting connector…",
+  "connect.started":
+    "Connector started — the agent is building the integration. When it finishes, the CVs will be in this search and you can hit Analyze CVs.",
+  "connect.error": "Couldn't start the connector",
+  "connect.needGoal": "Describe what you want to bring",
+  "connect.cancel": "Cancel",
+
+  // ---- Candidates / Prospects filters (pipeline) ----
+  "candidates.filter.search": "Search",
+  "candidates.filter.project": "Project",
+  "candidates.filter.allSearches": "All searches",
+  "candidates.filter.allProjects": "All projects",
+  "candidates.filter.searchPlaceholder": "Find candidate…",
+  "candidates.filter.searchLeadPlaceholder": "Find prospect…",
+  "candidates.noSearch": "No search",
+  "candidates.field.search": "Search",
+  "candidates.field.searchHint": "optional · links the candidate to a search",
+  "candidates.field.project": "Project",
+  "candidates.field.none": "None",
 
   // ---- Onboarding hero ----
   "onboarding.tag": "Welcome to Rugol",
@@ -416,6 +1057,17 @@ const EN: Dict = {
     "Reset the install to a fresh state — useful when moving the app to another PC or starting clean. After reset, restart the backend (uvicorn) so empty tables get recreated. Workspace and the 5 curated templates remain available.",
   "settings.resetButton": "Reset install",
   "settings.resetting": "Resetting…",
+
+  // ---- Settings · Voice interviews (ElevenLabs) ----
+  "settings.elevenlabs.title": "Voice interviews · Sofía (ElevenLabs)",
+  "settings.elevenlabs.body":
+    "Paste your ElevenLabs API key and your interviewer's Agent ID. It's stored only on your machine.",
+  "settings.elevenlabs.apiKey": "API key",
+  "settings.elevenlabs.apiKeyHint": "stored only on your machine",
+  "settings.elevenlabs.agentId": "Agent ID",
+  "settings.elevenlabs.configured": "configured",
+  "settings.elevenlabs.notConfigured": "not configured",
+  "settings.elevenlabs.saved": "Voice settings saved",
 
   // ---- Architect ----
   "architect.title": "Architect",

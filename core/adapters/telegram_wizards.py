@@ -98,8 +98,8 @@ CATALOG: list[McpPreset] = [
             "1. Andá a https://www.notion.so/profile/integrations\n"
             "2. Click *New integration* → ponele un nombre (ej: Rugol)\n"
             "3. Copiá el secret que empieza con `ntn_...`\n"
-            "4. Volvé y pegámelo acá\n\n"
-            "Después tenés que darle acceso a las páginas/databases que querés "
+            "4. Vuelve y pégamelo aquí\n\n"
+            "Después tienes que dar acceso a las páginas/databases que quieres "
             "que el agente vea (Notion → página → Add connections → tu integración)."
         ),
     ),
@@ -113,7 +113,7 @@ CATALOG: list[McpPreset] = [
             "1. Andá a https://app.asana.com/0/my-apps\n"
             "2. Click *Create new token*\n"
             "3. Copiá el token (lo ves UNA SOLA VEZ)\n"
-            "4. Pegámelo acá"
+            "4. Pégamelo aquí"
         ),
     ),
     McpPreset(
@@ -125,9 +125,9 @@ CATALOG: list[McpPreset] = [
             "Para GitHub necesito un Personal Access Token (classic).\n\n"
             "1. Andá a https://github.com/settings/tokens\n"
             "2. Click *Generate new token (classic)*\n"
-            "3. Marcá los scopes que quieras (mínimo: `repo` y `read:org`)\n"
+            "3. Marca los scopes que quieras (mínimo: `repo` y `read:org`)\n"
             "4. Copiá el token que empieza con `ghp_...`\n"
-            "5. Pegámelo acá"
+            "5. Pégamelo aquí"
         ),
     ),
     McpPreset(
@@ -139,7 +139,7 @@ CATALOG: list[McpPreset] = [
             "Para Brave Search necesito una API key.\n\n"
             "1. Andá a https://api.search.brave.com/app/keys\n"
             "2. Creá una API key (la free tier alcanza para uso personal)\n"
-            "3. Pegámela acá"
+            "3. Pégamela aquí"
         ),
     ),
     McpPreset(
@@ -162,13 +162,13 @@ CATALOG: list[McpPreset] = [
             "Gmail usa OAuth completo. Antes de poder usarlo:\n\n"
             "1. Necesitás credentials.json desde Google Cloud Console "
             "(APIs & Services → Credentials → OAuth client ID, tipo *Desktop*).\n"
-            "2. Lo más fácil: usá el *Asistente de configuración* del dashboard "
-            "y pegá el JSON entero — yo lo guardo donde el MCP lo busca.\n"
+            "2. Lo más fácil: usa el *Asistente de configuración* del dashboard "
+            "y pega el JSON entero — yo lo guardo donde el MCP lo busca.\n"
             "3. Después corré una sola vez:\n"
             "   `npx -y @gongrzhe/server-gmail-autoauth-mcp auth`\n"
             "   Eso abre el browser para que autorices.\n\n"
-            "Para registrarlo acá igual, escribí cualquier cosa o `/cancel` "
-            "y configurá desde el dashboard."
+            "Para registrarlo aquí igual, escribe cualquier cosa o `/cancel` "
+            "y configura desde el dashboard."
         ),
     ),
     McpPreset(
@@ -178,9 +178,9 @@ CATALOG: list[McpPreset] = [
         env_keys=["GOOGLE_OAUTH_CREDENTIALS"],
         token_help=(
             "Google Calendar usa OAuth. Pasos:\n\n"
-            "1. Pegá el path absoluto de tu credentials.json. Ej: "
-            "`C:\\Users\\<vos>\\.gmail-mcp\\gcp-oauth.keys.json` (lo mismo "
-            "que usás para Gmail).\n\n"
+            "1. Pega el path absoluto de tu credentials.json. Ej: "
+            "`C:\\Users\\<usuario>\\.gmail-mcp\\gcp-oauth.keys.json` (lo mismo "
+            "que usas para Gmail).\n\n"
             "El MCP toma `GOOGLE_OAUTH_CREDENTIALS` como path al credentials. "
             "Después corré `npx @cocal/google-calendar-mcp` y autorizá la "
             "primera vez."
@@ -195,7 +195,7 @@ CATALOG: list[McpPreset] = [
             "YouTube usa una API key (no OAuth). Si ya pegaste tu key vía "
             "/config-assistant, ya está guardada en `data/secrets/google-api-key.txt` "
             "y el MCP la lee automáticamente — escribime cualquier cosa para continuar.\n\n"
-            "Si no, pegá tu API key (formato `AIzaSy...`). Si no tenés, "
+            "Si no, pega tu API key (formato `AIzaSy...`). Si no tienes, "
             "se crea en https://console.cloud.google.com/apis/credentials → "
             "*Create credentials → API key* → habilitá *YouTube Data API v3*."
         ),
@@ -262,14 +262,14 @@ async def start_setup_mcp(chat_id: int) -> str:
     async with async_session_factory() as session:
         agents = (await session.execute(select(Agent).order_by(Agent.name))).scalars().all()
     if not agents:
-        return "No hay agentes registrados todavía. Usá /setup_agent primero."
+        return "No hay agentes registrados todavía. Usa /setup_agent primero."
     _WIZARDS[chat_id] = WizardState(kind="mcp", step="pick_agent", data={})
     lines = "\n".join(f"• {a.name}" for a in agents)
     return (
         "Vamos a conectar un MCP a un agente.\n\n"
         "Paso 1/4 — ¿A qué agente?\n\n"
         f"Agentes disponibles:\n{lines}\n\n"
-        "Escribí solo el nombre. Para abortar: /cancel."
+        "Escribe solo el nombre. Para abortar: /cancel."
     )
 
 
@@ -291,7 +291,7 @@ async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
                 await session.execute(select(Agent).where(Agent.name == text))
             ).scalar_one_or_none()
         if agent is None:
-            return (f"No existe el agente '{text}'. Escribí otro o /cancel.", False)
+            return (f"No existe el agente '{text}'. Escribe otro o /cancel.", False)
         state.data["agent_id"] = agent.id
         state.data["agent_name"] = agent.name
         state.step = "pick_preset"
@@ -300,14 +300,14 @@ async def step_setup_mcp(chat_id: int, text: str) -> tuple[str, bool]:
             f"Bien, agente '{agent.name}' seleccionado.\n\n"
             "Paso 2/4 — ¿Qué MCP?\n\n"
             f"Presets disponibles:\n{catalog_lines}\n\n"
-            "Escribí el id (ej: notion). Para algo custom: /cancel y configurá desde el dashboard.",
+            "Escribe el id (ej: notion). Para algo custom: /cancel y configura desde el dashboard.",
             False,
         )
 
     if state.step == "pick_preset":
         preset = find_preset(text)
         if preset is None:
-            return (f"No conozco el preset '{text}'. Escribí otro o /cancel.", False)
+            return (f"No conozco el preset '{text}'. Escribe otro o /cancel.", False)
         state.data["preset_id"] = preset.id
         if not preset.env_keys and not preset.requires_extra_arg:
             # Nothing to ask the user — finalize directly. Used by `youtube`,
@@ -395,11 +395,11 @@ async def _finalize_mcp_install(chat_id: int, preset: McpPreset) -> tuple[str, b
     err_brief = (test_result.error or "").splitlines()[0][:200]
     return (
         "Paso 4/4 — Test falló\n\n"
-        f"La config quedó guardada en {agent_name} (podés probarla después desde el dashboard), "
+        f"La config quedó guardada en {agent_name} (puedes probarla después desde el dashboard), "
         "pero el handshake JSON-RPC no respondió.\n\n"
         f"Tipo de error: {test_result.error_kind or 'desconocido'}\n"
         f"Detalle: {err_brief}\n\n"
-        "Próximo paso: revisá la config en el dashboard, o probá con otro preset.",
+        "Próximo paso: revisá la config en el dashboard, o prueba con otro preset.",
         True,
     )
 

@@ -26,12 +26,14 @@ from core.api import (
     memories,
     memory_graph,
     ontology,
+    pipeline,
     projects,
     runs,
     schedules,
     skills,
     stream,
     templates,
+    voice,
 )
 from core.api import settings as settings_api
 from core.config import get_settings
@@ -62,6 +64,14 @@ async def lifespan(app: FastAPI):
     # 3. Scheduler
     scheduler = get_scheduler()
     scheduler.start()
+
+    # 3b. Voice interviews — job de sync cada 5 min SOLO si ElevenLabs está
+    # configurado. Idempotente; nunca fatal (no debe tumbar el backend).
+    if settings.ELEVENLABS_API_KEY and settings.ELEVENLABS_AGENT_ID:
+        try:
+            scheduler.add_voice_sync_job(interval_minutes=5)
+        except Exception:
+            logger.exception("no se pudo programar el voice sync job — continúo sin él")
 
     # 4. Adapters — NEVER fatal: if a chat platform is misconfigured or
     # unreachable, the rest of Rugol must keep working. We caught a
@@ -126,7 +136,9 @@ def create_app() -> FastAPI:
     app.include_router(config_assistant.router, prefix="/api")
     app.include_router(memories.router, prefix="/api")
     app.include_router(memory_graph.router, prefix="/api")
+    app.include_router(pipeline.router, prefix="/api")
     app.include_router(evolution.router, prefix="/api")
+    app.include_router(voice.router, prefix="/api")
 
     # Capture the app for the agent runtime's endpoint inventory (so agents
     # see the exact list of REST paths and don't hallucinate new ones).

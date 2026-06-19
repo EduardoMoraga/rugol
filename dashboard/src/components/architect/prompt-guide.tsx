@@ -173,7 +173,7 @@ const TIPS_CONSTRAINTS = [
 const ANTIPATTERNS = [
   {
     bad: "\"Sin Gmail por ahora\" — restricciones temporales en el body del agente",
-    why: "Esa frase queda hardcoded en el body del agente. Cuando después conectes Gmail, el modelo sigue creyendo que no lo tiene y no lo usa. Si una integración falta, mencionalo en RESTRICCIONES (visible al humano), no en el body de los agentes.",
+    why: "Esa frase queda hardcoded en el body del agente. Cuando después conectes Gmail, el modelo sigue creyendo que no lo tiene y no lo usa. Si una integración falta, menciÃ³nalo en RESTRICCIONES (visible al humano), no en el body de los agentes.",
   },
   {
     bad: "Listas de 4000+ caracteres",
@@ -181,7 +181,7 @@ const ANTIPATTERNS = [
   },
   {
     bad: "Detalles de implementación en el prompt",
-    why: "No le pidas al Architect que use \"@notionhq/notion-mcp-server\" — eso lo configurás tú después con el MCP Catalog. El Architect propone equipo + roles + reglas, no paquetes npm.",
+    why: "No le pidas al Architect que use \"@notionhq/notion-mcp-server\" — eso lo configuras tú después con el MCP Catalog. El Architect propone equipo + roles + reglas, no paquetes npm.",
   },
   {
     bad: "Roles superpuestos entre agentes",

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   createProject,
+  fetchHealth,
   fetchProjects,
   type ProjectCreate,
 } from "@/lib/api";
@@ -39,14 +40,29 @@ export default function ProjectsHome() {
     refetchInterval: 8000,
   });
 
+  // El bienvenido genérico ("tu marca / tu día a día / tu hija") es de Rugol.
+  // En las variantes de dominio (HRO / CRM) ese discurso no aplica, así que lo
+  // suprimimos aunque el usuario navegue directo a /projects.
+  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
+  const isDomainVariant =
+    health.data?.variant === "hro" || health.data?.variant === "crm";
+  // En HRO un "proyecto" ES una búsqueda (posición a cubrir): cambiamos
+  // título, descripción y labels. El resto de variantes mantiene "Proyectos".
+  const isHro = health.data?.variant === "hro";
+  const titleKey = isHro ? "searches.title" : "projects.title";
+  const descKey = isHro ? "searches.description" : "projects.description";
+  const newKey = isHro ? "searches.newSearch" : "projects.newProject";
+
   const totalProjects = projects.data?.length ?? 0;
   const totalAgents = (projects.data ?? []).reduce((s, p) => s + p.agent_count, 0);
   const totalRuns24h = (projects.data ?? []).reduce((s, p) => s + p.runs_24h, 0);
   const totalCost24h = (projects.data ?? []).reduce((s, p) => s + p.cost_24h, 0);
   // Capa 10: show the emotional hero only when the user has nothing real
-  // yet — i.e. only the bare Workspace project (or no projects at all).
+  // yet — i.e. only the bare Workspace project (or no projects at all) — y
+  // nunca en las variantes de dominio (HRO / CRM).
   const isFirstUse =
     !projects.isLoading &&
+    !isDomainVariant &&
     (!projects.data ||
       projects.data.every((p) => p.slug === "workspace"));
 
@@ -56,8 +72,8 @@ export default function ProjectsHome() {
 
       {!isFirstUse && (
         <PageHeader
-          title={t("projects.title")}
-          description={t("projects.description")}
+          title={t(titleKey)}
+          description={t(descKey)}
           actions={
             <div className="flex items-center gap-2">
               <Link href="/architect">
@@ -65,7 +81,7 @@ export default function ProjectsHome() {
                   <Sparkles size={14} /> {t("projects.designWithArchitect")}
                 </Button>
               </Link>
-              <NewProjectDialog />
+              <NewProjectDialog isHro={isHro} />
             </div>
           }
         />
@@ -73,7 +89,7 @@ export default function ProjectsHome() {
 
       {!isFirstUse && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat label={t("projects.activeStat")} value={totalProjects} />
+          <Stat label={t(isHro ? "searches.activeStat" : "projects.activeStat")} value={totalProjects} />
           <Stat label={t("projects.agentsStat")} value={totalAgents} />
           <Stat label={t("projects.runs24h")} value={totalRuns24h} />
           <Stat label={t("projects.cost24h")} value={`$${totalCost24h.toFixed(3)}`} />
@@ -88,11 +104,11 @@ export default function ProjectsHome() {
         <TemplateCatalog />
       </div>
 
-      {projects.data && projects.data.length === 0 && <EmptyState />}
+      {projects.data && projects.data.length === 0 && <EmptyState isHro={isHro} />}
 
       {projects.data && projects.data.length > 0 && !isFirstUse && (
         <h2 className="text-sm font-semibold tracking-tight pt-2">
-          {t("projects.yourProjects")}
+          {t(isHro ? "searches.title" : "projects.yourProjects")}
         </h2>
       )}
 
@@ -157,15 +173,17 @@ export default function ProjectsHome() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ isHro }: { isHro: boolean }) {
   const { t } = useI18n();
   return (
     <Card className="text-center py-16 space-y-4">
       <Briefcase size={36} className="mx-auto text-[--color-fg-subtle]" />
       <div>
-        <h2 className="text-lg font-semibold tracking-tight">{t("projects.empty")}</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          {t(isHro ? "searches.empty" : "projects.empty")}
+        </h2>
         <p className="text-sm text-[--color-fg-muted] mt-1 max-w-md mx-auto">
-          {t("projects.emptyDescription")}
+          {t(isHro ? "searches.emptyDescription" : "projects.emptyDescription")}
         </p>
       </div>
       <div className="flex items-center justify-center gap-2 pt-2">
@@ -174,39 +192,35 @@ function EmptyState() {
             <Sparkles size={14} /> {t("projects.designWithArchitect")}
           </Button>
         </Link>
-        <NewProjectDialog />
+        <NewProjectDialog isHro={isHro} />
       </div>
     </Card>
   );
 }
 
-function NewProjectDialog() {
+function NewProjectDialog({ isHro }: { isHro: boolean }) {
   const { t } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [body, setBody] = useState<ProjectCreate>({
+  const EMPTY: ProjectCreate = {
     name: "",
     description: "",
     mission: "",
+    job_description: "",
     color: PALETTE[0],
     icon: "briefcase",
-  });
+  };
+  const [body, setBody] = useState<ProjectCreate>(EMPTY);
   const create = useMutation({
     mutationFn: (b: ProjectCreate) => createProject(b),
     onSuccess: (p) => {
-      toast({ tone: "success", title: `${t("newProject.create")}: ${p.name}` });
+      toast({ tone: "success", title: `${t(isHro ? "newSearch.create" : "newProject.create")}: ${p.name}` });
       qc.invalidateQueries({ queryKey: ["projects"] });
       setOpen(false);
-      setBody({
-        name: "",
-        description: "",
-        mission: "",
-        color: PALETTE[0],
-        icon: "briefcase",
-      });
+      setBody(EMPTY);
     },
     onError: (e: Error) =>
-      toast({ tone: "error", title: t("newProject.create"), body: e.message }),
+      toast({ tone: "error", title: t(isHro ? "newSearch.create" : "newProject.create"), body: e.message }),
   });
 
   function submit(e: React.FormEvent) {
@@ -219,20 +233,20 @@ function NewProjectDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary">
-          <Plus size={14} /> {t("projects.newProject")}
+          <Plus size={14} /> {t(isHro ? "searches.newSearch" : "projects.newProject")}
         </Button>
       </DialogTrigger>
       <DialogContent
-        title={t("newProject.title")}
-        description={t("newProject.description")}
+        title={t(isHro ? "newSearch.title" : "newProject.title")}
+        description={t(isHro ? "newSearch.description" : "newProject.description")}
       >
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <FieldLabel>{t("newProject.name")}</FieldLabel>
+            <FieldLabel>{t(isHro ? "newSearch.name" : "newProject.name")}</FieldLabel>
             <Input
               value={body.name}
               onChange={(e) => setBody({ ...body, name: e.target.value })}
-              placeholder={t("newProject.namePlaceholder")}
+              placeholder={t(isHro ? "newSearch.namePlaceholder" : "newProject.namePlaceholder")}
               required
               autoFocus
             />
@@ -248,8 +262,8 @@ function NewProjectDialog() {
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel hint={t("newProject.missionHint")}>
-              {t("newProject.mission")}
+            <FieldLabel hint={t(isHro ? "project.scopeHint" : "newProject.missionHint")}>
+              {t(isHro ? "project.scope" : "newProject.mission")}
             </FieldLabel>
             <Textarea
               value={body.mission}
@@ -258,6 +272,19 @@ function NewProjectDialog() {
               placeholder={t("newProject.missionPlaceholder")}
             />
           </div>
+          {isHro && (
+            <div className="space-y-1.5">
+              <FieldLabel hint={t("project.jobDescriptionHint")}>
+                {t("project.jobDescription")}
+              </FieldLabel>
+              <Textarea
+                value={body.job_description ?? ""}
+                onChange={(e) => setBody({ ...body, job_description: e.target.value })}
+                rows={6}
+                placeholder={t("project.jobDescriptionPlaceholder")}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <FieldLabel>{t("newProject.icon")}</FieldLabel>
@@ -312,7 +339,9 @@ function NewProjectDialog() {
               {t("newProject.cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={create.isPending || !body.name.trim()}>
-              {create.isPending ? t("newProject.creating") : t("newProject.create")}
+              {create.isPending
+                ? t("newProject.creating")
+                : t(isHro ? "newSearch.create" : "newProject.create")}
             </Button>
           </div>
         </form>

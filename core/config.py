@@ -39,13 +39,21 @@ class Settings(BaseSettings):
 
     # Default agent — when a chat (e.g. Telegram) has no explicit binding,
     # messages auto-route to this agent so "token -> chat" works instantly,
-    # Hermes-style. Empty keeps the strict fleet model (must /bind first).
-    DEFAULT_AGENT: str = ""
+    # Hermes-style. "assistant" → con solo pegar el token de Telegram el bot ya
+    # responde (sin pedir User ID, sin /bind). Esa es la experiencia "Apple".
+    DEFAULT_AGENT: str = "assistant"
 
     # Slack
     SLACK_BOT_TOKEN: str = ""
     SLACK_SIGNING_SECRET: str = ""
     SLACK_APP_TOKEN: str = ""
+
+    # ElevenLabs Conversational AI — entrevistas de voz "Sofía" (variante HRO).
+    # Cuando ELEVENLABS_API_KEY está seteada, el módulo core.voice trae las
+    # conversaciones reales del agente, las puntúa con BARS y las deja en el
+    # pipeline de candidatos. Vacío → la integración de voz queda dormida.
+    ELEVENLABS_API_KEY: str = ""
+    ELEVENLABS_AGENT_ID: str = ""
 
     # DB
     DATABASE_URL: str = f"sqlite+aiosqlite:///{REPO_ROOT / 'data' / 'rugol.db'}"

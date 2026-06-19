@@ -15,7 +15,7 @@ Tienes tres herramientas MCP que el sistema te da gratis:
 - `mcp__rugol-soul__list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
 - `mcp__rugol-soul__forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
 
-Cuando llames a la tool en una respuesta breve, NO digas "guardado" como acuse — primero llamá la tool, después confirmá usando lo que la tool te respondió.
+Cuando llames a la tool en una respuesta breve, NO digas "guardado" como acuse — primero llama la tool, después confirma usando lo que la tool te respondió.
 
 ### REGLA DURA: comandos explícitos del usuario
 

@@ -1,16 +1,19 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle } from "lucide-react";
+import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle, Mic } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createChannelBinding,
   deleteChannelBinding,
   fetchAgents,
   fetchChannelBindings,
+  fetchHealth,
   fetchSettings,
   fetchSettingsStatus,
+  fetchVoiceStatus,
   resetInstall,
+  saveSettings,
   updateSettings,
   type SettingsUpdate,
 } from "@/lib/api";
@@ -31,6 +34,8 @@ export default function SettingsPage() {
     queryFn: fetchSettingsStatus,
     refetchInterval: 4000,
   });
+  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
+  const isHro = health.data?.variant === "hro";
 
   return (
     <div className="p-8 space-y-8 max-w-4xl mx-auto">
@@ -54,6 +59,14 @@ export default function SettingsPage() {
         <>
           <TelegramSection settings={settings.data} status={status.data.telegram} qc={qc} />
           <SlackSection settings={settings.data} status={status.data.slack} qc={qc} />
+          {isHro && (
+            <VoiceSection
+              configured={
+                status.data.elevenlabs?.configured ?? false
+              }
+              qc={qc}
+            />
+          )}
           <ChannelsSection />
           <RegistrySection settings={settings.data} status={status.data.watcher} qc={qc} />
           <ModelSection settings={settings.data} qc={qc} />
@@ -135,14 +148,11 @@ function useUpdate(qc: ReturnType<typeof useQueryClient>, label: string) {
 
 function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
   const [token, setToken] = useState("");
-  const [allowed, setAllowed] = useState(settings.telegram_allowed_users || "");
   const update = useUpdate(qc, "Telegram");
-
-  useEffect(() => setAllowed(settings.telegram_allowed_users || ""), [settings.telegram_allowed_users]);
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const upd: SettingsUpdate = { telegram_allowed_users: allowed };
+    const upd: SettingsUpdate = {};
     if (token) upd.telegram_bot_token = token;
     update.mutate(upd);
     setToken("");
@@ -153,14 +163,14 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
       <SectionHeader
         icon={<Send size={14} />}
         title="Telegram"
-        body="Paste the token from @BotFather and the comma-separated user IDs you allow. The bot starts polling immediately on save."
+        body="Pega el token de @BotFather y listo: el bot empieza a responder al instante. No necesita nada más — cualquiera que le escriba habla con tu asistente."
         status={
           status.running ? (
-            <Badge tone="running">connected</Badge>
+            <Badge tone="running">conectado</Badge>
           ) : status.configured ? (
-            <Badge tone="warn">configured · not running</Badge>
+            <Badge tone="warn">configurado · sin iniciar</Badge>
           ) : (
-            <Badge tone="idle">not configured</Badge>
+            <Badge tone="idle">sin configurar</Badge>
           )
         }
       />
@@ -169,11 +179,11 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
           <FieldLabel
             hint={
               settings.telegram_bot_token_set
-                ? `current token ${settings.telegram_bot_token_hint}`
-                : "no token saved"
+                ? `token actual ${settings.telegram_bot_token_hint}`
+                : "sin token guardado"
             }
           >
-            Bot token
+            Token del bot
           </FieldLabel>
           <Input
             type="password"
@@ -181,25 +191,15 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
             onChange={(e) => setToken(e.target.value)}
             placeholder={
               settings.telegram_bot_token_set
-                ? "(leave blank to keep current; type a new one to replace)"
+                ? "(déjalo en blanco para mantener el actual; escribe uno nuevo para reemplazar)"
                 : "1234567:ABC-DEF…"
             }
             autoComplete="new-password"
           />
         </div>
-        <div className="space-y-1.5">
-          <FieldLabel hint="comma-separated, get yours from @userinfobot">
-            Allowed user IDs
-          </FieldLabel>
-          <Input
-            value={allowed}
-            onChange={(e) => setAllowed(e.target.value)}
-            placeholder="123456789, 987654321"
-          />
-        </div>
         <div className="flex justify-end">
           <Button type="submit" variant="primary" disabled={update.isPending}>
-            <Save size={13} /> {update.isPending ? "Saving…" : "Save & restart"}
+            <Save size={13} /> {update.isPending ? "Guardando…" : "Guardar e iniciar"}
           </Button>
         </div>
       </form>
@@ -555,6 +555,100 @@ function ModelSection({ settings, qc }: { settings: any; qc: ReturnType<typeof u
         <div className="flex justify-end">
           <Button type="submit" variant="primary" disabled={update.isPending}>
             <Save size={13} /> Save
+          </Button>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+function VoiceSection({
+  configured,
+  qc,
+}: {
+  configured: boolean;
+  qc: ReturnType<typeof useQueryClient>;
+}) {
+  const { t } = useI18n();
+  const [apiKey, setApiKey] = useState("");
+  const [agentId, setAgentId] = useState("");
+
+  // Fuente secundaria de "configurado": /api/voice/status (más específico que
+  // /api/settings/status). Si una está true, lo damos por configurado.
+  const voice = useQuery({
+    queryKey: ["voice-status"],
+    queryFn: fetchVoiceStatus,
+    refetchInterval: 30_000,
+    retry: false,
+  });
+  const isConfigured = configured || (voice.data?.configured ?? false);
+
+  const save = useMutation({
+    mutationFn: (body: SettingsUpdate) => saveSettings(body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      qc.invalidateQueries({ queryKey: ["settings-status"] });
+      qc.invalidateQueries({ queryKey: ["voice-status"] });
+      toast({ tone: "success", title: t("settings.elevenlabs.saved") });
+      setApiKey("");
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: t("common.error"), body: e.message }),
+  });
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    const upd: SettingsUpdate = {};
+    if (apiKey) upd.elevenlabs_api_key = apiKey;
+    if (agentId) upd.elevenlabs_agent_id = agentId;
+    if (Object.keys(upd).length === 0) {
+      toast({ tone: "info", title: "—" });
+      return;
+    }
+    save.mutate(upd);
+  }
+
+  return (
+    <Card>
+      <SectionHeader
+        icon={<Mic size={14} />}
+        title={t("settings.elevenlabs.title")}
+        body={t("settings.elevenlabs.body")}
+        status={
+          <Badge tone={isConfigured ? "running" : "idle"}>
+            {isConfigured
+              ? t("settings.elevenlabs.configured")
+              : t("settings.elevenlabs.notConfigured")}
+          </Badge>
+        }
+      />
+      <form onSubmit={submit} className="space-y-3 mt-1">
+        <div className="space-y-1.5">
+          <FieldLabel hint={t("settings.elevenlabs.apiKeyHint")}>
+            {t("settings.elevenlabs.apiKey")}
+          </FieldLabel>
+          <Input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="sk_..."
+            autoComplete="new-password"
+            className="font-mono text-[12px]"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <FieldLabel>{t("settings.elevenlabs.agentId")}</FieldLabel>
+          <Input
+            value={agentId}
+            onChange={(e) => setAgentId(e.target.value)}
+            placeholder="agent_..."
+            spellCheck={false}
+            className="font-mono text-[12px]"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit" variant="primary" disabled={save.isPending}>
+            <Save size={13} /> {save.isPending ? t("pipeline.creating") : t("common.save")}
           </Button>
         </div>
       </form>

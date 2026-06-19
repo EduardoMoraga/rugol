@@ -144,7 +144,7 @@ export default function ArchitectPage() {
               toast({
                 tone: "success",
                 title: "Plantilla copiada",
-                body: "Editá lo que quieras y dale Proponer.",
+                body: "Edita lo que quieras y pulsa Proponer.",
               });
             }}
           />
@@ -504,7 +504,7 @@ function ReviewStage({
       <Section
         icon={<Wrench size={14} />}
         title="Dónde se instala"
-        description="Por defecto los .md aterrizan en las carpetas globales (Settings). Sobrescribí solo para esta deploy."
+        description="Por defecto los .md aterrizan en las carpetas globales (Settings). Sobrescribe solo para esta deploy."
       >
         <Card className="space-y-3">
           <div className="space-y-1.5">
@@ -532,7 +532,7 @@ function ReviewStage({
             />
           </div>
           <p className="text-[11px] text-[--color-fg-subtle]">
-            Path absoluto. Se crea si no existe. Si dejás vacío usa el default.
+            Path absoluto. Se crea si no existe. Si dejas vacío usa el default.
             Para cambiar el default global ve a Settings.
           </p>
         </Card>

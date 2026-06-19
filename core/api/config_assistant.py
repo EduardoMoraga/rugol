@@ -80,7 +80,7 @@ async def apply(body: ApplyBody) -> dict[str, Any]:
     if cached is None:
         raise HTTPException(
             status_code=404,
-            detail="Plan no encontrado o expirado. Volvé a analizar el input.",
+            detail="Plan no encontrado o expirado. Vuelve a analizar el input.",
         )
     _, plan = cached
     selected = set(body.action_ids)

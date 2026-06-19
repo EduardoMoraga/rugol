@@ -36,7 +36,7 @@ def _validate_cron(expr: str) -> None:
     except (ValueError, TypeError) as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Cron expression '{expr}' inválida: {e}. Usá 5 campos separados por espacios (e.g. '0 9 * * 1-5').",
+            detail=f"Cron expression '{expr}' inválida: {e}. Usa 5 campos separados por espacios (e.g. '0 9 * * 1-5').",
         )
 
 

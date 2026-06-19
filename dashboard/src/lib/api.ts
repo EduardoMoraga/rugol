@@ -13,6 +13,10 @@ export interface Project {
   name: string;
   description: string;
   mission: string;
+  // En HRO un proyecto ES una búsqueda; este campo guarda la descripción de cargo.
+  job_description?: string;
+  // Carpeta del sistema con los CVs a analizar (HRO). String simple (ruta).
+  cv_folder?: string;
   color: string;
   icon: string;
   status: "active" | "archived";
@@ -29,6 +33,8 @@ export interface ProjectCreate {
   slug?: string;
   description?: string;
   mission?: string;
+  job_description?: string;
+  cv_folder?: string;
   color?: string;
   icon?: string;
 }
@@ -37,6 +43,8 @@ export interface ProjectUpdate {
   name?: string;
   description?: string;
   mission?: string;
+  job_description?: string;
+  cv_folder?: string;
   color?: string;
   icon?: string;
   status?: "active" | "archived";
@@ -343,6 +351,45 @@ export const deleteProject = async (idOrSlug: string | number): Promise<void> =>
   const r = await fetch(`/api/projects/${idOrSlug}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await readError(r));
 };
+// HRO: dispara al agente screener sobre la carpeta de CVs de la búsqueda. Lee
+// los CVs, los evalúa contra la job description y crea candidatos ligados a la
+// búsqueda. Devuelve 202 con {run_id, status, folder}; 400 si no hay carpeta.
+export interface ScreenCvsResult {
+  run_id: number;
+  status: string;
+  folder: string;
+}
+export const screenCvs = (slug: string, folder?: string) =>
+  post<ScreenCvsResult>(
+    `/api/projects/${slug}/screen-cvs`,
+    folder ? { folder } : {},
+  );
+// HRO: conecta una fuente externa de CVs a una búsqueda. Dispara al agente
+// `connector` (Claude Code) que ARMA y EJECUTA la integración real (hits a la
+// API/web con el token, descarga) y deja los CVs en la carpeta de la búsqueda.
+// Las credenciales NO van en el prompt: el backend las guarda en un archivo
+// local que el agente lee. Devuelve 202 con {run_id, status, target_folder};
+// 400 si el pedido es inválido.
+export type ConnectSourceKind =
+  | "api"
+  | "pandape"
+  | "drive"
+  | "onedrive"
+  | "web"
+  | "folder";
+export interface ConnectSourceBody {
+  kind: ConnectSourceKind;
+  goal: string;
+  credentials?: string;
+  target_folder?: string;
+}
+export interface ConnectSourceResult {
+  run_id: number;
+  status: string;
+  target_folder: string;
+}
+export const connectSource = (slug: string, body: ConnectSourceBody) =>
+  post<ConnectSourceResult>(`/api/projects/${slug}/connect`, body);
 export const addProjectLesson = (
   idOrSlug: string | number,
   body: { text: string; kind?: "lesson" | "bias" | "fact" },
@@ -387,7 +434,94 @@ export const fetchImprovements = (status: string = "proposed") =>
 export const approveImprovement = (id: number) => post(`/api/improvements/${id}/approve`);
 export const rejectImprovement = (id: number) => post(`/api/improvements/${id}/reject`);
 
-export const fetchHealth = () => get<{ status: string; version: string; active_runs: number }>("/api/health");
+export const fetchHealth = () => get<{ status: string; version: string; active_runs: number; brand?: string; accent?: string; accent_strong?: string; tagline?: string; variant?: "rugol" | "crm" | "hro" }>("/api/health");
+
+// --- Domain pipeline (CRM prospectos / HRO candidatos) ---
+// El backend (core/api/pipeline.py) lo poblan los agentes runtime y el usuario
+// puede operarlo manualmente desde el dashboard kanban.
+export type PipelineKind = "lead" | "candidate";
+
+export interface PipelineNote {
+  at: string;
+  agent: string | null;
+  text: string;
+}
+
+export interface PipelineItem {
+  id: number;
+  kind: PipelineKind;
+  title: string;
+  subtitle: string | null;
+  stage: string;
+  score: number | null; // 1-5 o null
+  source_agent: string | null;
+  // Búsqueda (HRO) / proyecto (CRM) al que pertenece el item.
+  project_slug: string | null;
+  notes: PipelineNote[];
+  data: Record<string, unknown>;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface PipelineStages {
+  kind: string;
+  stages: string[];
+}
+
+export interface PipelineCreate {
+  kind: PipelineKind;
+  title: string;
+  subtitle?: string | null;
+  stage?: string | null;
+  score?: number | null;
+  source_agent?: string | null;
+  // Liga el item a una búsqueda (HRO) / proyecto (CRM).
+  project_slug?: string | null;
+  data?: Record<string, unknown>;
+  note?: string | null;
+}
+
+export interface PipelineUpdate {
+  stage?: string;
+  score?: number | null;
+  title?: string;
+  subtitle?: string | null;
+  data?: Record<string, unknown>;
+  note?: string;
+  note_agent?: string | null;
+}
+
+// `fetchPipeline("candidate")` sigue funcionando igual; las opciones agregan
+// filtros server-side: `project` (slug de búsqueda) y `q` (texto libre).
+export const fetchPipeline = (
+  kind: PipelineKind,
+  opts: { project?: string; q?: string } = {},
+) => {
+  const params = new URLSearchParams({ kind });
+  if (opts.project) params.set("project", opts.project);
+  if (opts.q) params.set("q", opts.q);
+  return get<PipelineItem[]>(`/api/pipeline?${params.toString()}`);
+};
+export const fetchPipelineStages = (kind: PipelineKind) =>
+  get<PipelineStages>(`/api/pipeline/stages?kind=${kind}`);
+export const createPipelineItem = (body: PipelineCreate) =>
+  post<PipelineItem>("/api/pipeline", body);
+export const updatePipelineItem = async (
+  id: number,
+  body: PipelineUpdate,
+): Promise<PipelineItem> => {
+  const r = await fetch(`/api/pipeline/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
+};
+export const deletePipelineItem = async (id: number): Promise<void> => {
+  const r = await fetch(`/api/pipeline/${id}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(await readError(r));
+};
 
 // --- Agent CRUD via UI ---
 export interface AgentSpec {
@@ -589,6 +723,8 @@ export interface SettingsStatus {
   telegram: { configured: boolean; running: boolean; allowed_user_ids: number[] };
   slack: { configured: boolean; running: boolean };
   watcher: { agents_dir: string; skills_dir: string; running: boolean };
+  // Voz Sofía (ElevenLabs) — presente cuando la variante es HRO.
+  elevenlabs?: { configured: boolean };
 }
 
 export interface SettingsUpdate {
@@ -600,6 +736,9 @@ export interface SettingsUpdate {
   agents_dir?: string;
   skills_dir?: string;
   default_model?: string;
+  // Voz Sofía (ElevenLabs).
+  elevenlabs_api_key?: string;
+  elevenlabs_agent_id?: string;
 }
 
 // --- Skills ---
@@ -701,4 +840,48 @@ export const fetchSettings = () => get<PublicSettings>("/api/settings");
 export const fetchSettingsStatus = () => get<SettingsStatus>("/api/settings/status");
 export const updateSettings = (upd: SettingsUpdate) =>
   post<{ ok: boolean; settings: PublicSettings; restarted: Record<string, string> }>("/api/settings", upd);
+
+// `saveSettings` es el alias semántico que usa la UI de voz (acepta los mismos
+// campos que `updateSettings`, incluyendo elevenlabs_*). Reusa POST /api/settings.
+export const saveSettings = (body: SettingsUpdate) =>
+  post<{ ok: boolean; settings: PublicSettings; restarted: Record<string, string> }>("/api/settings", body);
+
+// --- Voz Sofía (ElevenLabs) ---
+// Backend en vivo en /api/voice/*. La sincronización trae las entrevistas de
+// ElevenLabs, las puntúa con BARS y crea candidatos en el pipeline.
+export interface VoiceStatus {
+  configured: boolean;
+  has_api_key: boolean;
+  agent_id: string;
+  last_sync: null | Record<string, unknown>;
+}
+
+export interface VoiceSyncResult {
+  processed: number;
+  created: number;
+  skipped: number;
+  errors: string[];
+  details?: unknown[];
+}
+
+export const fetchVoiceStatus = () => get<VoiceStatus>("/api/voice/status");
+
+// La sincronización puede tardar 30-60s POR entrevista. No usamos el helper
+// `post` (que va sin timeout explícito pero hereda el del navegador): hacemos
+// el fetch directo para que el proxy de Next (proxyTimeout 240s) tenga margen
+// y NO abortamos en cliente. El usuario verá el spinner mientras corre.
+export const syncVoice = async (): Promise<VoiceSyncResult> => {
+  let r: Response;
+  try {
+    r = await fetch("/api/voice/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // Sin AbortController: dejamos correr la sincronización completa.
+    });
+  } catch {
+    throw networkErrorMessage();
+  }
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
+};
 

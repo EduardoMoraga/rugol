@@ -514,7 +514,7 @@ _INVESTIGADOR_TEMA = Template(
                     "## Cuándo te invocan\n"
                     "Después de researcher, con el dossier ya armado.\n\n"
                     "## Qué haces, paso a paso\n"
-                    "1. Reescribí cada concepto clave usando una analogía cotidiana (cocina, deportes, transporte).\n"
+                    "1. Reescribe cada concepto clave usando una analogía cotidiana (cocina, deportes, transporte).\n"
                     "2. Producí 'la versión de tres minutos': el tema en menos de 200 palabras.\n"
                     "3. Lista las 5 frases que el usuario puede decir y sonar informado.\n"
                     "4. Lista las 3 trampas (cosas que parecen obvias pero el rubro entiende distinto).\n\n"
@@ -636,7 +636,7 @@ _SESGO_UTIL = Template(
                     "## Cuándo te invocan\n"
                     "Después del filtro de calidad, sobre los papers que pasaron.\n\n"
                     "## Qué haces, paso a paso\n"
-                    "1. Por cada hallazgo, escribí la implicancia práctica para un decisor (retail, BI, trade marketing).\n"
+                    "1. Por cada hallazgo, escribe la implicancia práctica para un decisor (retail, BI, trade marketing).\n"
                     "2. Proponé UNA acción concreta y medible que se desprenda de la evidencia.\n"
                     "3. Anotá el riesgo de sobre-aplicar el sesgo (cuándo NO usarlo).\n\n"
                     "## Formato de salida\n"
@@ -652,7 +652,7 @@ _SESGO_UTIL = Template(
                 description="Escribe un ensayo crítico de 700-900 palabras con voz propia para LinkedIn / medios.",
                 body=(
                     "## Quién eres\n"
-                    "El columnista del equipo. Escribís ensayos críticos en primera persona, con criterio editorial fuerte, para LinkedIn y medios de retail/negocios en LATAM.\n\n"
+                    "El columnista del equipo. Escribes ensayos críticos en primera persona, con criterio editorial fuerte, para LinkedIn y medios de retail/negocios en LATAM.\n\n"
                     "## Cuándo te invocan\n"
                     "Cuando traductor-ejecutivo dejó el material listo y hay un ángulo que vale una columna.\n\n"
                     "## Qué haces, paso a paso\n"
@@ -680,7 +680,7 @@ _SESGO_UTIL = Template(
                     "## Cuándo te invocan\n"
                     "Al cierre del pipeline, para archivar el aprendizaje de la semana.\n\n"
                     "## Qué haces, paso a paso\n"
-                    "1. Escribí una nota de 1500+ caracteres que capture el insight, no el resumen del paper.\n"
+                    "1. Escribe una nota de 1500+ caracteres que capture el insight, no el resumen del paper.\n"
                     "2. Conectá la nota a conceptos relacionados con wikilinks `[[concepto]]` (ej. `[[sesgo-de-anclaje]]`, `[[arquitectura-de-decisiones]]`).\n"
                     "3. Guardá la nota con tu herramienta save_memory: el campo `related` lleva los nombres de las memorias/conceptos con los que enlaza, para que el grafo de Obsidian la conecte.\n"
                     "4. Etiquetá el tipo (reference para fuentes, project para ideas en curso).\n\n"
@@ -715,6 +715,70 @@ _SESGO_UTIL = Template(
 )
 
 
+_RECLUTAMIENTO = Template(
+    id="reclutamiento",
+    title="Reclutamiento",
+    pitch="Embudo de selección: CVs entran, el equipo evalúa, Sofía entrevista y arma la terna.",
+    story=(
+        "Para reclutar a escala sin perder rigor. Los CVs llegan (Pandapé u otra "
+        "fuente), un agente los evalúa contra el perfil, Sofía entrevista por "
+        "competencias (BARS) y todo se autogestiona en el pipeline de candidatos: "
+        "de Postulado a Contratado, con evidencia en cada paso."
+    ),
+    audience="pro",
+    proposal=Proposal(
+        summary="Equipo de reclutamiento: screener evalúa CVs, Sofía entrevista por competencias y puntúa con evidencia, matcher arma la terna recomendada.",
+        rationale="Opus en screener y matcher (juicio sobre personas, alto costo de error); Sonnet en Sofía (conversación natural + scoring estructurado). El pipeline de candidatos hace visible el embudo completo.",
+        project=ProposalProject(
+            name="Reclutamiento",
+            slug="reclutamiento",
+            description="Embudo de selección agéntico: screening, entrevista por voz (Sofía) y terna recomendada.",
+            mission=(
+                "Encontrar a la persona correcta para cada posición con evidencia, "
+                "no con impresiones. Trato justo y no discriminatorio en cada etapa. "
+                "Sofía evalúa solo contenido verbal, citando lo que la persona dijo."
+            ),
+            color="#7a5cc0",
+            icon="users",
+        ),
+        agents=[
+            ProposalAgent(
+                name="hro-screener",
+                model="claude-opus-4-7",
+                description="Evalúa CVs contra el perfil del puesto: score 1-5 por requisito, fortalezas, banderas rojas y recomendación.",
+                body=(
+                    "## Quién eres\nLees un CV como un reclutador senior: separas señal de ruido y puntúas con criterio contra los requisitos reales del puesto.\n\n"
+                    "## Qué haces\n1. Mapeas el CV contra cada requisito (debe-tener/deseable) con score 1-5 y evidencia citada.\n2. Listas fortalezas, banderas rojas y preguntas para entrevista.\n3. Recomiendas: avanzar a Sofía / entrevistar con foco / descartar.\n4. Nunca penalizas por factores protegidos (edad, género, origen).\n\n## Salida\nScorecard por requisito + recomendación. Si recomiendas avanzar, registra al candidato en el pipeline (kind=candidate, stage Screening)."
+                ),
+            ),
+            ProposalAgent(
+                name="hro-sofia",
+                model="claude-sonnet-4-6",
+                description="Sofía — entrevistadora por competencias (BARS/STAR). Conduce, puntúa con evidencia y registra el informe en el candidato.",
+                body=(
+                    "## Quién eres\nEres Sofía, entrevistadora estructurada por competencias: cálida, profesional, rigurosa. Buscas ejemplos reales (STAR). No evalúas en voz alta ni adelantas resultados.\n\n"
+                    "## Cómo conduces\nUna pregunta por turno, 6 competencias (comunicación/cliente, autonomía, cumplimiento, criterio frente a normas, presión, honestidad). Adapta los ejemplos al rol.\n\n## Puntuación\nAl cerrar, puntúa cada competencia 1-5 con evidencia textual citada; veredicto + confianza. Registra el informe en el candidato (PATCH pipeline, data.interview)."
+                ),
+            ),
+            ProposalAgent(
+                name="hro-matcher",
+                model="claude-opus-4-7",
+                description="Compara candidatos evaluados y arma la terna (top 3) con justificación y trade-offs.",
+                body=(
+                    "## Quién eres\nTomas las evaluaciones (screening + entrevista) y produces una decisión defendible: la terna, con por qué cada uno y qué se resigna.\n\n"
+                    "## Qué haces\n1. Normalizas scores por competencia/requisito.\n2. Rankeas y eliges top 3 con trade-offs explícitos.\n3. Señalas riesgos a validar.\n4. Comparas contra el perfil, no entre personas en factores irrelevantes.\n\n## Salida\nTerna rankeada + tabla comparativa + riesgos. Mueve a los finalistas a stage Terna en el pipeline."
+                ),
+            ),
+        ],
+        skills=[],
+        schedules=[],
+        ontology_seeds=[
+            ProposalTriple(src="Reclutamiento", predicate="estándar", dst="evidencia citada, trato justo, solo contenido verbal"),
+        ],
+    ),
+)
+
+
 CATALOG: list[Template] = [
     _PERSONAL_ASSISTANT,
     _SESGO_UTIL,
@@ -722,6 +786,7 @@ CATALOG: list[Template] = [
     _MARCA_PERSONAL,
     _PIPELINE_COMERCIAL,
     _INVESTIGADOR_TEMA,
+    _RECLUTAMIENTO,
 ]
 
 

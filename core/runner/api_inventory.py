@@ -63,7 +63,7 @@ def render_endpoint_block(max_lines: int = 80) -> str:
     lines: list[str] = [
         "## REST endpoints disponibles en Rugol (lista cerrada)",
         "Estos son los **únicos** paths bajo `/api` que existen. "
-        "Si necesitas algo que NO está acá, NO lo inventes — dilo abiertamente.",
+        "Si necesitas algo que NO está aquí, NO lo inventes — dilo abiertamente.",
         "",
     ]
     shown = 0

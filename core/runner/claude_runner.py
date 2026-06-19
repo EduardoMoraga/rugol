@@ -61,7 +61,7 @@ The user can ask you two very different kinds of questions, and the answer sourc
 
 (A) Questions about RUGOL ITSELF — schedules, runs, agents, projects, settings, ontology.
 - This data lives ONLY in Rugol's SQLite database. You CANNOT see it by reading files. Files in the filesystem with names like "schedule.py" or "morning_briefing" are scripts of UNRELATED projects belonging to the same user, NOT Rugol's runtime state.
-- The ONLY correct way to answer these questions is via Rugol's REST API at http://127.0.0.1:8000. Use Bash + curl:
+- The ONLY correct way to answer these questions is via Rugol's REST API at the Rugol local API (exact base URL given below under "API base"). Use Bash + curl:
     GET /api/schedules              → list schedules
     GET /api/agents                 → list agents
     GET /api/agents/<id>/source     → agent body + mcp config
@@ -159,6 +159,31 @@ async def run_agent(
     endpoint_block = render_endpoint_block()
     if endpoint_block:
         parts.append(endpoint_block)
+    # Base de API REAL (puerto dinámico en la app de escritorio empaquetada).
+    _port = get_settings().CORE_PORT
+    parts.append(
+        f"## API base\nEl API local de Rugol corre en `http://127.0.0.1:{_port}`. "
+        f"Úsalo para TODO curl al API (ej. `http://127.0.0.1:{_port}/api/...`). NUNCA uses otro puerto."
+    )
+    # Registro de actividad de dominio (solo variantes CRM/HRO): los agentes
+    # anotan prospectos/candidatos en el pipeline para que el usuario los vea.
+    _variant = os.environ.get("RUGOL_VARIANT", "rugol")
+    if _variant in ("crm", "hro"):
+        _kind = "lead" if _variant == "crm" else "candidate"
+        _label = "prospecto" if _variant == "crm" else "candidato"
+        parts.append(
+            f"## Registrar actividad en el pipeline ({_label}s)\n"
+            f"Cuando descubras, contactes, califiques o avances un {_label}, REGÍSTRALO vía el API para que "
+            f"aparezca en el tablero del usuario (es la actividad que él quiere ver). Usa siempre `kind=\"{_kind}\"`.\n"
+            f"- Crear: `curl -s -X POST http://127.0.0.1:{_port}/api/pipeline -H 'Content-Type: application/json' "
+            f"-d '{{\"kind\":\"{_kind}\",\"title\":\"<empresa o nombre>\",\"subtitle\":\"<persona+cargo o rol>\","
+            f"\"stage\":\"<etapa>\",\"score\":<1-5>,\"source_agent\":\"{agent_name}\",\"note\":\"<qué hiciste>\"}}'`\n"
+            f"- Avanzar etapa / agregar nota: `curl -s -X PATCH http://127.0.0.1:{_port}/api/pipeline/<id> "
+            f"-H 'Content-Type: application/json' -d '{{\"stage\":\"<nueva etapa>\",\"score\":<1-5>,"
+            f"\"note\":\"<qué pasó>\",\"note_agent\":\"{agent_name}\"}}'`\n"
+            f"- Ver el tablero: `GET /api/pipeline?kind={_kind}` · etapas válidas: `GET /api/pipeline/stages?kind={_kind}`.\n"
+            f"No inventes datos de contacto: si no son públicos, anótalo en la nota."
+        )
     if soul_context:
         parts.append(soul_context)
     if project_context:

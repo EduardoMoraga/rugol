@@ -1,0 +1,68 @@
+<title>Rugol HRO — cómo funciona y dónde se configura</title>
+<style>
+  :root{--cream:#fbf9f4;--beige:#eae4d7;--ink:#1e1b17;--muted:#6f6a60;--violet:#7a5cc0;--ok:#3f8f6f;--gold:#b88a2e}
+  *{box-sizing:border-box}body{margin:0;background:var(--cream);color:var(--ink);font-family:Inter,-apple-system,system-ui,sans-serif;line-height:1.55}
+  .wrap{max-width:980px;margin:0 auto;padding:38px 22px 80px}
+  h1{font-size:28px;letter-spacing:-.03em;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 28px;font-size:15px}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.09em;color:var(--violet);margin:32px 0 12px}
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0}
+  .step{flex:1;min-width:150px;background:#fff;border:1px solid var(--beige);border-radius:12px;padding:14px;position:relative}
+  .step .n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--violet);font-weight:700}
+  .step b{display:block;font-size:14px;margin:3px 0 4px}.step p{margin:0;font-size:12.5px;color:var(--muted)}
+  .arrow{display:flex;align-items:center;justify-content:center;padding:0 6px;color:var(--violet);font-size:20px;font-weight:700}
+  @media(max-width:760px){.flow{flex-direction:column}.arrow{transform:rotate(90deg);padding:4px 0}}
+  table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--beige);border-radius:12px;overflow:hidden;font-size:13.5px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--beige);vertical-align:top}
+  th{background:#f6f3ec;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .on{background:rgba(63,143,111,.14);color:var(--ok)}.soon{background:rgba(184,138,46,.16);color:var(--gold)}
+  code{font-family:'JetBrains Mono',monospace;font-size:12px;background:#f6f3ec;padding:1px 6px;border-radius:5px}
+  .link{background:#fff;border:1.5px solid var(--violet);border-radius:12px;padding:16px 18px;margin:6px 0}
+  .link a{color:var(--violet);font-weight:600;word-break:break-all;text-decoration:none}
+  .where{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--violet)}
+</style>
+<div class="wrap">
+  <h1>Rugol HRO — cómo funciona</h1>
+  <p class="sub">El embudo de reclutamiento, de punta a punta, y dónde se configura cada cosa. Local-first: todo corre en tu Mac, tus datos no salen.</p>
+
+  <h2>El flujo</h2>
+  <div class="flow">
+    <div class="step"><span class="n">01</span><b>Llega el candidato</b><p>Por Pandapé (CV) o le compartes el link de entrevista directo.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">02</span><b>Screening</b><p>El agente <code>hro-screener</code> evalúa el CV vs el perfil y recomienda entrevistar.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">03</span><b>Sofía entrevista</b><p>Entrevista por voz (ElevenLabs) por 6 competencias BARS, con evidencia.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">04</span><b>Pipeline auto</b><p>Rugol trae la entrevista, la puntúa y crea el candidato en <b>Candidatos / Entrevistas</b>.</p></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">05</span><b>Terna</b><p><code>hro-matcher</code> compara y arma el top-3 recomendado.</p></div>
+  </div>
+
+  <h2>El link que compartes para la entrevista</h2>
+  <div class="link">
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">Esto es lo que le mandas al candidato (WhatsApp/email). Abre la landing de Sofía y hace la entrevista por voz:</div>
+    <a href="https://hro-entrevista.vercel.app/">https://hro-entrevista.vercel.app/</a>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px">Dentro de la app: botón <b>"Lanzar entrevista de voz"</b> (en Entrevistas) lo abre. Cuando el candidato termina, le das <b>"Sincronizar con ElevenLabs"</b> (o espera al sync automático cada 5 min) y aparece puntuado.</div>
+  </div>
+
+  <h2>Dónde se configura cada herramienta</h2>
+  <table>
+    <tr><th>Herramienta</th><th>Para qué</th><th>Dónde la configuras</th><th>Estado</th></tr>
+    <tr><td><b>Cuenta Anthropic</b></td><td>El cerebro de todos los agentes (tu suscripción)</td><td class="where">Onboarding / login al abrir</td><td><span class="pill on">activo</span></td></tr>
+    <tr><td><b>ElevenLabs (Sofía)</b></td><td>La voz de la entrevista</td><td class="where">Settings → "Entrevistas por voz · Sofía" → API key + Agent ID</td><td><span class="pill on">activo</span></td></tr>
+    <tr><td><b>Telegram</b></td><td>Hablarle a tus agentes por chat</td><td class="where">Settings → Telegram → pegar token (y listo, sin User ID)</td><td><span class="pill on">activo</span></td></tr>
+    <tr><td><b>Herramientas por agente (MCP)</b></td><td>Conectar Asana/Notion/lo-tuyo a UN agente</td><td class="where">Agentes → abrir un agente → pestaña Tools / MCP</td><td><span class="pill on">activo</span></td></tr>
+    <tr><td><b>Pandapé (CV intake)</b></td><td>Importar candidatos del ATS</td><td class="where">— (próximo: Settings → Pandapé token)</td><td><span class="pill soon">próximo</span></td></tr>
+  </table>
+
+  <h2>Dónde ves cada cosa en la app</h2>
+  <table>
+    <tr><th>Quiero…</th><th>Voy a…</th></tr>
+    <tr><td>Ver candidatos y su etapa</td><td><b>Candidatos</b> (kanban: Postulado → … → Contratado)</td></tr>
+    <tr><td>Ver las entrevistas de Sofía y sus puntajes</td><td><b>Entrevistas</b> (6 competencias + evidencia + veredicto)</td></tr>
+    <tr><td>Traer entrevistas nuevas / lanzar una</td><td><b>Entrevistas</b> → "Sincronizar con ElevenLabs" / "Lanzar entrevista de voz"</td></tr>
+    <tr><td>Configurar a Sofía (qué pregunta, por posición)</td><td><b>Agentes → hro-sofia → Edit spec</b></td></tr>
+    <tr><td>Conectar mis herramientas / tokens</td><td><b>Settings</b> (cuenta, ElevenLabs, Telegram)</td></tr>
+  </table>
+</div>

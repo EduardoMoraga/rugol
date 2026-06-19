@@ -15,15 +15,22 @@ import {
   DollarSign,
   Brain,
   X,
+  FolderOpen,
+  ScanSearch,
+  Plug,
 } from "lucide-react";
 import {
   addProjectLesson,
+  connectSource,
   deleteProject,
+  fetchHealth,
   fetchProject,
   fetchProjectAgents,
   fetchProjectRuns,
   removeProjectLesson,
+  screenCvs,
   updateProject,
+  type ConnectSourceKind,
   type Lesson,
   type Project,
   type ProjectUpdate,
@@ -36,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
+import { useI18n } from "@/lib/i18n";
 
 const PALETTE = [
   "#7280a8", "#5b8def", "#7c5cff", "#c44d8c",
@@ -43,10 +51,16 @@ const PALETTE = [
 ];
 
 export default function ProjectDetail() {
+  const { t } = useI18n();
   const params = useParams<{ slug: string }>();
   const slug = params.slug;
   const router = useRouter();
   const qc = useQueryClient();
+
+  // En HRO un proyecto ES una búsqueda: cambiamos los labels (misión → alcance)
+  // y mostramos la descripción de cargo.
+  const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth });
+  const isHro = health.data?.variant === "hro";
 
   const project = useQuery({
     queryKey: ["project", slug],
@@ -120,7 +134,7 @@ export default function ProjectDetail() {
           <p className="text-sm text-[--color-fg-muted] mt-1">{p.description || "(sin descripción)"}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <EditProjectDialog project={p} />
+          <EditProjectDialog project={p} isHro={isHro} />
           {!isWorkspace && (
             <Button
               variant="ghost"
@@ -149,11 +163,28 @@ export default function ProjectDetail() {
       {p.mission && (
         <Card className="space-y-2 border-l-4" style={{ borderLeftColor: p.color }}>
           <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium">
-            Misión
+            {isHro ? t("project.scope") : "Misión"}
           </p>
           <p className="text-[14px] leading-relaxed text-[--color-fg]">{p.mission}</p>
         </Card>
       )}
+
+      {isHro && (
+        <Card className="space-y-2 border-l-4" style={{ borderLeftColor: p.color }}>
+          <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium">
+            {t("project.jobDescription")}
+          </p>
+          {p.job_description ? (
+            <p className="text-[14px] leading-relaxed text-[--color-fg] whitespace-pre-wrap">
+              {p.job_description}
+            </p>
+          ) : (
+            <p className="text-[13px] text-[--color-fg-muted]">{t("project.noJobDescription")}</p>
+          )}
+        </Card>
+      )}
+
+      {isHro && <CvSourceCard project={p} />}
 
       <Tabs defaultValue="team">
         <TabsList>
@@ -265,6 +296,231 @@ export default function ProjectDetail() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function CvSourceCard({ project }: { project: Project }) {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  const folder = project.cv_folder ?? "";
+
+  const connect = useMutation({
+    mutationFn: async () => {
+      // Selector NATIVO de Electron; fallback a prompt() en el navegador.
+      const picked =
+        (await window.rugol?.pickFolder?.()) ??
+        window.prompt(t("cvSource.prompt")) ??
+        null;
+      const path = picked?.trim();
+      if (!path) return null; // cancelado: no mutamos
+      return updateProject(project.slug, { cv_folder: path });
+    },
+    onSuccess: (res) => {
+      if (!res) return; // cancelado
+      toast({ tone: "success", title: t("cvSource.connected") });
+      qc.invalidateQueries({ queryKey: ["project", project.slug] });
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: t("cvSource.connectError"), body: e.message }),
+  });
+
+  const analyze = useMutation({
+    mutationFn: () => screenCvs(project.slug),
+    onSuccess: () => toast({ tone: "success", title: t("cvSource.analyzeStarted") }),
+    onError: (e: Error) =>
+      toast({ tone: "error", title: t("cvSource.analyzeError"), body: e.message }),
+  });
+
+  return (
+    <Card className="space-y-3 border-l-4" style={{ borderLeftColor: project.color }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium inline-flex items-center gap-1.5">
+            <FolderOpen size={12} /> {t("cvSource.title")}
+          </p>
+          {folder ? (
+            <p
+              className="text-[13px] text-[--color-fg] font-mono break-all"
+              title={folder}
+            >
+              {folder}
+            </p>
+          ) : (
+            <p className="text-[13px] text-[--color-fg-muted]">{t("cvSource.none")}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => connect.mutate()}
+            disabled={connect.isPending}
+          >
+            <FolderOpen size={13} />
+            {folder ? t("cvSource.change") : t("cvSource.connect")}
+          </Button>
+          <ConnectSourceDialog project={project} onPickFolder={() => connect.mutate()} />
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => analyze.mutate()}
+            disabled={!folder || analyze.isPending}
+            title={!folder ? t("cvSource.needFolder") : undefined}
+          >
+            <ScanSearch size={13} />
+            {analyze.isPending ? t("cvSource.analyzing") : t("cvSource.analyze")}
+          </Button>
+        </div>
+      </div>
+      <p className="text-xs text-[--color-fg-muted] leading-relaxed">{t("cvSource.help")}</p>
+    </Card>
+  );
+}
+
+// Diálogo para conectar una fuente EXTERNA de CVs a la búsqueda.
+//  - Drive/OneDrive → reutiliza el flujo de pickFolder (setea cv_folder), NO /connect.
+//  - API/Pandapé y Web → dispara al agente conector vía POST /connect.
+type SourceChoice = "drive" | "api" | "web";
+
+function ConnectSourceDialog({
+  project,
+  onPickFolder,
+}: {
+  project: Project;
+  onPickFolder: () => void;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState<SourceChoice>("api");
+  const [goal, setGoal] = useState("");
+  const [credentials, setCredentials] = useState("");
+
+  const connect = useMutation({
+    mutationFn: () => {
+      // Para API/Pandapé y Web sí llamamos al conector. Si el goal menciona
+      // pandapé, mandamos kind="pandape"; si no, kind según el tipo elegido.
+      const mentionsPandape = /pandap[ée]/i.test(goal);
+      const kind: ConnectSourceKind =
+        choice === "web" ? "web" : mentionsPandape ? "pandape" : "api";
+      return connectSource(project.slug, {
+        kind,
+        goal: goal.trim(),
+        credentials: credentials.trim() || undefined,
+      });
+    },
+    onSuccess: () => {
+      toast({ tone: "success", title: t("connect.started") });
+      setOpen(false);
+      setGoal("");
+      setCredentials("");
+    },
+    onError: (e: Error) =>
+      toast({ tone: "error", title: t("connect.error"), body: e.message }),
+  });
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!goal.trim()) return;
+    connect.mutate();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Plug size={13} />
+          {t("connect.button")}
+        </Button>
+      </DialogTrigger>
+      <DialogContent
+        title={t("connect.dialogTitle")}
+        description={t("connect.dialogDescription")}
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <FieldLabel>{t("connect.typeLabel")}</FieldLabel>
+            <Select
+              value={choice}
+              onChange={(e) => setChoice(e.target.value as SourceChoice)}
+            >
+              <option value="drive">{t("connect.type.drive")}</option>
+              <option value="api">{t("connect.type.api")}</option>
+              <option value="web">{t("connect.type.web")}</option>
+            </Select>
+          </div>
+
+          {choice === "drive" ? (
+            <div className="space-y-3">
+              <p className="text-[13px] text-[--color-fg-muted] leading-relaxed">
+                {t("connect.driveNote")}
+              </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setOpen(false);
+                  onPickFolder();
+                }}
+              >
+                <FolderOpen size={13} />
+                {t("connect.drivePick")}
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={submit} className="space-y-4">
+              <div className="space-y-1.5">
+                <FieldLabel>{t("connect.goalLabel")}</FieldLabel>
+                <Textarea
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  rows={3}
+                  placeholder={t("connect.goalPlaceholder")}
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <FieldLabel hint={t("connect.credentialsHint")}>
+                  {t("connect.credentialsLabel")}
+                </FieldLabel>
+                <Textarea
+                  value={credentials}
+                  onChange={(e) => setCredentials(e.target.value)}
+                  rows={2}
+                  placeholder={t("connect.credentialsPlaceholder")}
+                  spellCheck={false}
+                  autoComplete="off"
+                  className="[-webkit-text-security:disc]"
+                />
+                <p className="text-xs text-[--color-fg-subtle] leading-relaxed">
+                  {t("connect.credentialsSecurity")}
+                </p>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setOpen(false)}
+                >
+                  {t("connect.cancel")}
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={connect.isPending || !goal.trim()}
+                  title={!goal.trim() ? t("connect.needGoal") : undefined}
+                >
+                  <Plug size={13} />
+                  {connect.isPending
+                    ? t("connect.submitting")
+                    : t("connect.submit")}
+                </Button>
+              </div>
+            </form>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -399,13 +655,21 @@ function LessonsPane({ project }: { project: Project }) {
 }
 
 
-function EditProjectDialog({ project }: { project: ReturnType<typeof useQuery<any>>["data"] | any }) {
+function EditProjectDialog({
+  project,
+  isHro,
+}: {
+  project: ReturnType<typeof useQuery<any>>["data"] | any;
+  isHro: boolean;
+}) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState<ProjectUpdate>({
     name: project.name,
     description: project.description,
     mission: project.mission,
+    job_description: project.job_description ?? "",
     color: project.color,
     icon: project.icon,
   });
@@ -454,13 +718,26 @@ function EditProjectDialog({ project }: { project: ReturnType<typeof useQuery<an
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel>Misión</FieldLabel>
+            <FieldLabel>{isHro ? t("project.scope") : "Misión"}</FieldLabel>
             <Textarea
               value={body.mission ?? ""}
               onChange={(e) => setBody({ ...body, mission: e.target.value })}
               rows={4}
             />
           </div>
+          {isHro && (
+            <div className="space-y-1.5">
+              <FieldLabel hint={t("project.jobDescriptionHint")}>
+                {t("project.jobDescription")}
+              </FieldLabel>
+              <Textarea
+                value={body.job_description ?? ""}
+                onChange={(e) => setBody({ ...body, job_description: e.target.value })}
+                rows={6}
+                placeholder={t("project.jobDescriptionPlaceholder")}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <FieldLabel>Ícono</FieldLabel>

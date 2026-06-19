@@ -376,7 +376,7 @@ function PersistentMemoriesSection({
               type="text"
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
-              placeholder="(opcional, se usa el título si lo dejás vacío)"
+              placeholder="(opcional, se usa el título si lo dejas vacío)"
               className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent]"
             />
           </div>
@@ -416,7 +416,7 @@ function PersistentMemoriesSection({
         <Card className="text-center py-8">
           <p className="text-sm text-[--color-fg-muted]">
             {agentName} no tiene memorias persistentes todavía. Agregá una arriba o
-            mandá <code className="font-mono">/remember</code> al bot por Telegram.
+            envía <code className="font-mono">/remember</code> al bot por Telegram.
           </p>
         </Card>
       )}

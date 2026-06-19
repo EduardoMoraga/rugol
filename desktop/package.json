@@ -1,0 +1,28 @@
+{
+  "name": "rugol-desktop-app",
+  "version": "0.8.0",
+  "private": true,
+  "description": "Rugol — la suite agéntica completa, como app de escritorio.",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.eduardomoraga.rugol",
+    "productName": "Rugol",
+    "asar": false,
+    "directories": { "output": "release" },
+    "files": ["main.cjs", "preload.cjs", "assets/**/*"],
+    "extraResources": [{ "from": "build-payload", "to": "payload" }],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"],
+      "identity": null
+    }
+  }
+}

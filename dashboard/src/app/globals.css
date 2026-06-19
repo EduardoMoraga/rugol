@@ -1,25 +1,26 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #08080a;
-  --color-bg-elev: #0f0f12;
-  --color-bg-elev-2: #15151a;
-  --color-border: #1e1e24;
-  --color-border-strong: #2a2a32;
-  --color-fg: #f4f4f5;
-  --color-fg-muted: #8b8b94;
-  --color-fg-subtle: #5a5a63;
-  --color-accent: #6366f1;
+  /* Paleta de marca Rugol (rugol-company.vercel.app): editorial cálida, crema. */
+  --color-bg: #fbf9f4;          /* crema base */
+  --color-bg-elev: #f6f3ec;     /* superficie */
+  --color-bg-elev-2: #eae4d7;   /* superficie elevada / cards */
+  --color-border: #ded8ca;      /* borde cálido */
+  --color-border-strong: #cfc9bc;
+  --color-fg: #1e1b17;          /* tinta */
+  --color-fg-muted: #6f6a60;
+  --color-fg-subtle: #928d83;
+  --color-accent: #dd4524;      /* terracota (default; cada variante lo override en runtime) */
   --color-accent-fg: #ffffff;
-  --color-accent-soft: rgba(99, 102, 241, 0.15);
-  --color-accent-strong: #818cf8;
-  --color-success: #4ade80;
-  --color-warn: #f59e0b;
-  --color-error: #f87171;
-  --color-running: #4ade80;
-  --color-idle: #6b7280;
-  --font-sans: "Geist Sans", "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  --color-accent-soft: rgba(221, 69, 36, 0.10);
+  --color-accent-strong: #c63d1f;
+  --color-success: #3f8f6f;     /* salvia */
+  --color-warn: #b88a2e;        /* oro */
+  --color-error: #c63d1f;       /* terracota oscura */
+  --color-running: #3f8f6f;
+  --color-idle: #928d83;
+  --font-sans: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, monospace;
 }
 
 * {
@@ -28,8 +29,8 @@
 
 html, body {
   background:
-    radial-gradient(circle at 20% -10%, rgba(99, 102, 241, 0.08), transparent 40%),
-    radial-gradient(circle at 80% 110%, rgba(99, 102, 241, 0.05), transparent 40%),
+    radial-gradient(circle at 20% -10%, rgba(221, 69, 36, 0.05), transparent 42%),
+    radial-gradient(circle at 80% 110%, rgba(111, 174, 151, 0.05), transparent 42%),
     var(--color-bg);
   background-attachment: fixed;
   color: var(--color-fg);

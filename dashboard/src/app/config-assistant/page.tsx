@@ -92,7 +92,7 @@ export default function ConfigAssistantPage() {
     <div className="p-8 space-y-6 max-w-4xl mx-auto">
       <PageHeader
         title="Asistente de configuración"
-        description="Pegá un JSON, un .env, o cualquier texto con credenciales. El asistente detecta qué hay y propone configuraciones aplicables. Los tokens nunca se muestran completos en pantalla."
+        description="Pega un JSON, un .env, o cualquier texto con credenciales. El asistente detecta qué hay y propone configuraciones aplicables. Los tokens nunca se muestran completos en pantalla."
         actions={
           parsed ? (
             <Button variant="ghost" size="sm" onClick={reset}>
@@ -107,7 +107,7 @@ export default function ConfigAssistantPage() {
           <form onSubmit={submit} className="space-y-3">
             <label className="block">
               <span className="text-xs uppercase tracking-widest text-[--color-fg-muted] font-medium">
-                Pegá tu input
+                Pega tu input
               </span>
               <textarea
                 value={text}
@@ -147,7 +147,7 @@ export default function ConfigAssistantPage() {
                 <p className="text-xs text-[--color-fg-muted] mt-0.5">
                   {parsed.plan.actions.length} acción
                   {parsed.plan.actions.length === 1 ? "" : "es"} detectada
-                  {parsed.plan.actions.length === 1 ? "" : "s"}. Marcá las que querés
+                  {parsed.plan.actions.length === 1 ? "" : "s"}. Marca las que quieres
                   aplicar.
                 </p>
               </div>
@@ -165,7 +165,7 @@ export default function ConfigAssistantPage() {
 
             {parsed.plan.actions.length === 0 ? (
               <p className="text-sm text-[--color-fg-muted] py-6 text-center">
-                El asistente no detectó nada accionable. Probá con un input distinto.
+                El asistente no detectó nada accionable. Prueba con un input distinto.
               </p>
             ) : (
               <ul className="space-y-2">
@@ -243,7 +243,7 @@ export default function ConfigAssistantPage() {
               </ul>
               <p className="text-[11px] text-[--color-fg-muted] pt-2 border-t border-[--color-border]">
                 Recordá: si configuraste tokens de Telegram o Slack, reiniciá el backend
-                (Ctrl+C en uvicorn + relanzar) o usá el botón Restart en Settings para que
+                (Ctrl+C en uvicorn + relanzar) o usa el botón Restart en Settings para que
                 los adapters arranquen con los tokens nuevos.
               </p>
             </Card>

@@ -169,7 +169,7 @@ class _TelegramBot:
         if not user:
             return False
         if not allowed:
-            return False  # no allowlist = nobody (deliberate)
+            return True  # token-only: sin allowlist, el dueno del token autoriza a todos
         return user.id in allowed
 
     # Commands ---------------------------------------------------------------
@@ -335,7 +335,7 @@ class _TelegramBot:
         bound = await _lookup_binding(self._chat_key(chat_id))
         if not bound:
             await update.message.reply_text(
-                "Antes de recordar algo, vinculá el chat a un agente con /bind."
+                "Antes de recordar algo, vincula el chat a un agente con /bind."
             )
             return
         text = (update.message.text or "").strip()
@@ -371,7 +371,7 @@ class _TelegramBot:
         bound = await _lookup_binding(self._chat_key(chat_id))
         if not bound:
             await update.message.reply_text(
-                "Antes de listar memorias, vinculá el chat a un agente con /bind."
+                "Antes de listar memorias, vincula el chat a un agente con /bind."
             )
             return
         mems = list_memories(bound["agent_name"])
@@ -398,7 +398,7 @@ class _TelegramBot:
             "Anti-patrones a evitar:\n"
             "• Restricciones temporales en el body (\"sin Gmail por ahora\") → contaminan al modelo después.\n"
             "• Roles superpuestos entre agentes.\n"
-            "• Detalles de implementación (paquetes npm, comandos) → eso lo configurás con /setup_mcp.\n\n"
+            "• Detalles de implementación (paquetes npm, comandos) → eso lo configuras con /setup_mcp.\n\n"
             "Guía completa con ejemplos copiables: dashboard → /architect → expandí 'Cómo armar un buen prompt'."
         )
 
@@ -491,7 +491,7 @@ class _TelegramBot:
         bound = await _resolve_binding_or_default(self._chat_key(chat_id), self.default_agent)
         if not bound:
             await update.message.reply_text(
-                f"Este chat ({chat_id}) no está vinculado. Usá /bind <agente> o /agents.",
+                f"Este chat ({chat_id}) no está vinculado. Usa /bind <agente> o /agents.",
             )
             return
         placeholder = await update.message.reply_text(
@@ -537,7 +537,7 @@ class _TelegramBot:
         prompt = (
             (f"{caption}\n\n" if caption else "")
             + "El usuario te envió una imagen por Telegram. "
-            + "Usá tu herramienta Read para abrirla y describí/respondé según corresponda. "
+            + "Usa tu herramienta Read para abrirla y describe/responde según corresponda. "
             + f"Path absoluto del archivo: {local_path}"
         )
         await self._dispatch_with_prompt(update, chat_id, prompt)
@@ -567,7 +567,7 @@ class _TelegramBot:
                 prompt = (
                     (f"{caption}\n\n" if caption else "")
                     + f"El usuario te envió el archivo {local_path.name}. "
-                    + "No pude extraer texto automáticamente. Usá Read si querés inspeccionarlo. "
+                    + "No pude extraer texto automáticamente. Usa Read si quieres inspeccionarlo. "
                     + f"Path: {local_path}"
                 )
             else:
@@ -584,15 +584,15 @@ class _TelegramBot:
             prompt = (
                 (f"{caption}\n\n" if caption else "")
                 + f"El usuario te envió un {local_path.suffix.lstrip('.').upper()} "
-                + f"({local_path.name}). Usá tu herramienta Read para abrirlo "
-                + "(soporta imágenes y PDFs nativos) y respondé al usuario.\n\n"
+                + f"({local_path.name}). Usa tu herramienta Read para abrirlo "
+                + "(soporta imágenes y PDFs nativos) y responde al usuario.\n\n"
                 + f"Path absoluto: {local_path}"
             )
         else:
             prompt = (
                 (f"{caption}\n\n" if caption else "")
                 + f"El usuario te envió un archivo de tipo desconocido: {local_path.name}. "
-                + "Probá con tu herramienta Read; si no podés leerlo, decile al usuario qué tipo de archivo te sirve.\n\n"
+                + "Prueba con tu herramienta Read; si no puedes leerlo, dile al usuario qué tipo de archivo te sirve.\n\n"
                 + f"Path absoluto: {local_path}"
             )
 
@@ -646,7 +646,7 @@ class _TelegramBot:
 
         if not text.strip():
             await notice.edit_text(
-                "No se entendió nada en el audio (silencio o ruido). Probá hablando más cerca del micrófono."
+                "No se entendió nada en el audio (silencio o ruido). Prueba hablando más cerca del micrófono."
             )
             return
 

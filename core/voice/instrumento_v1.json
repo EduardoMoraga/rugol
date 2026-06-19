@@ -1,0 +1,199 @@
+{
+  "instrumento": "HRO Entrevista Estructurada por Voz",
+  "version": "1.0",
+  "fecha": "2026-06-11",
+  "perfil_objetivo": "Promovendedor / Merchandiser / Promotor de retail (perfiles operativos masivos)",
+  "duracion_objetivo_min": 15,
+  "fundamento": "Entrevista estructurada conductual con scoring BARS sobre contenido verbal exclusivamente. Constructos de dominio público: dimensiones de integridad genéricas (conciencia, cumplimiento de normas, estabilidad emocional, honestidad-humildad — Big Five/HEXACO) + Retail Industry Competency Model (CareerOneStop, US DoL). Referencias: Sackett et al. 2022 (entrevista estructurada r=.42); Kell et al. 2017 ETS (BARS aumenta validez y reduce sesgo).",
+  "reglas_scoring": {
+    "base": "Solo contenido verbal del transcript. Prohibido puntuar tono, emociones, acento, fluidez o cualquier señal paraverbal.",
+    "evidencia": "Cada puntaje debe citar textualmente la(s) frase(s) del candidato que lo justifican. Sin evidencia citada, la competencia se marca como 'no observada' (no se penaliza con nota baja).",
+    "escala": "BARS 1-5 por competencia. Overall = promedio ponderado * 20 (escala 0-100).",
+    "red_flags": "Solo conductas verbalizadas concretas (admisión de incumplimiento grave sin aprendizaje, hostilidad explícita, mentira detectada por inconsistencia interna del relato). Nunca por nerviosismo, pausas o forma de hablar.",
+    "no_observada": "Si el candidato no responde o la respuesta no permite evaluar, score null y flag 'no_observada'. El reporte lo indica para repregunta humana."
+  },
+  "competencias": [
+    {
+      "id": "confiabilidad",
+      "nombre": "Confiabilidad y responsabilidad",
+      "constructo": "Conciencia (Big Five)",
+      "peso": 0.20,
+      "definicion": "Cumple compromisos de asistencia, puntualidad y tareas sin necesidad de control permanente.",
+      "preguntas": [
+        {
+          "id": "P1",
+          "tipo": "conductual_pasado",
+          "texto": "CuÃ©ntame de una época en la que tuviste que cumplir un horario o una rutina exigente durante varios meses. ¿Cómo te organizabas y qué pasaba cuando surgía un imprevisto?",
+          "sondeos": ["¿Qué hacías cuando no llegabas a tiempo?", "¿Cuántas veces faltaste y cómo lo manejaste?"]
+        },
+        {
+          "id": "P2",
+          "tipo": "situacional",
+          "texto": "Imagina que es tu día de visita a una tienda lejana, te levantas y hay paro de transporte. ¿Qué haces, paso por paso?",
+          "sondeos": ["¿A quién avisas y cuándo?", "¿Qué pasa si no puedes llegar de ninguna forma?"]
+        }
+      ],
+      "bars": {
+        "1": "Relata incumplimientos repetidos sin plan ni aviso; culpa solo a factores externos; en el escenario, no avisa o espera instrucciones sin actuar.",
+        "2": "Cumplimiento irregular; avisa tarde; plan vago ('vería qué hacer').",
+        "3": "Cumple en general; ante imprevistos avisa al supervisor y propone al menos una alternativa concreta.",
+        "4": "Historial sostenido de cumplimiento verificable en el relato; anticipa imprevistos (sale antes, plan B de transporte); avisa de inmediato con propuesta.",
+        "5": "Además de 4: ejemplos de hacerse cargo del resultado (recuperar la visita, reorganizar la ruta) y de crear hábitos propios de organización que sostuvo por meses."
+      }
+    },
+    {
+      "id": "normas",
+      "nombre": "Cumplimiento de normas y procedimientos",
+      "constructo": "Integridad-conciencia (cumplimiento)",
+      "peso": 0.20,
+      "definicion": "Respeta procesos, reportes y reglas del cliente/tienda aun sin supervisión presente.",
+      "preguntas": [
+        {
+          "id": "P3",
+          "tipo": "conductual_pasado",
+          "texto": "CuÃ©ntame una situación real en la que una regla o procedimiento del trabajo te pareció innecesario o injusto. ¿Qué hiciste?",
+          "sondeos": ["¿Lo planteaste a alguien? ¿Cómo?", "¿Seguiste cumpliéndolo mientras tanto?"]
+        },
+        {
+          "id": "P4",
+          "tipo": "situacional",
+          "texto": "Estás en la tienda y el encargado del local te pide hacer algo que va contra las instrucciones de tu empresa, por ejemplo mover la exhibición de la marca a un lugar peor. Él insiste y tú estás solo. ¿Qué haces?",
+          "sondeos": ["¿Qué le dices exactamente al encargado?", "¿Lo reportás? ¿A quién y cuándo?"]
+        }
+      ],
+      "bars": {
+        "1": "Relata haber ignorado reglas porque 'nadie controlaba'; en el conflicto cede sin avisar o se enfrenta agresivamente.",
+        "2": "Cumple solo bajo supervisión; en el conflicto cede 'para evitar problemas' y no reporta.",
+        "3": "Cumple las reglas; en el conflicto busca no confrontar, consulta a su supervisor antes de actuar.",
+        "4": "Cumple y canaliza desacuerdos por la vía correcta (lo planteó, siguió cumpliendo); en el conflicto explica con respeto la instrucción, propone alternativa y reporta de inmediato.",
+        "5": "Además de 4: ejemplo real donde sostener la norma tuvo costo personal y lo asumió; entiende el porqué de las reglas y lo explica."
+      }
+    },
+    {
+      "id": "honestidad",
+      "nombre": "Honestidad ante dilemas",
+      "constructo": "Honestidad-humildad (HEXACO)",
+      "peso": 0.15,
+      "definicion": "Actúa con honestidad ante dinero, productos y información, y reconoce errores propios.",
+      "preguntas": [
+        {
+          "id": "P5",
+          "tipo": "conductual_pasado",
+          "texto": "CuÃ©ntame de un error tuyo en un trabajo que nadie había notado. ¿Qué hiciste?",
+          "sondeos": ["¿Qué pasó después de contarlo (o de no contarlo)?", "¿Qué harías distinto hoy?"]
+        },
+        {
+          "id": "P6",
+          "tipo": "situacional",
+          "texto": "Al cerrar tu jornada en la tienda encontrás en el depósito un producto de la marca dañado en su caja, que igual funciona. Un compañero te dice 'llevátelo, total lo dan de baja'. ¿Qué haces?",
+          "sondeos": ["¿Qué le respondes al compañero?", "¿Lo registrás en algún lado?"]
+        }
+      ],
+      "bars": {
+        "1": "Admite ocultamiento sin reflexión o normaliza llevarse producto ('todos lo hacen'); justifica al compañero.",
+        "2": "Evade la respuesta o depende de si 'alguien se entera'; no registra el producto dañado.",
+        "3": "Reconoce el error cuando se lo preguntan y reporta el producto por canal formal, aunque sin manejar el conflicto con el compañero.",
+        "4": "Reportó el error proactivamente; en el dilema rechaza la propuesta, registra el producto y le explica al compañero sin escalar innecesariamente.",
+        "5": "Además de 4: relato con costo real asumido por ser honesto y aprendizaje explícito; distingue entre el compañero y la conducta (reporta la situación, no persigue a la persona)."
+      }
+    },
+    {
+      "id": "cliente",
+      "nombre": "Orientación al cliente y comunicación",
+      "constructo": "Retail Competency Model — customer focus",
+      "peso": 0.20,
+      "definicion": "Aborda, escucha y asesora al shopper; representa la marca con claridad y amabilidad.",
+      "preguntas": [
+        {
+          "id": "P7",
+          "tipo": "conductual_pasado",
+          "texto": "CuÃ©ntame de una vez en que un cliente llegó molesto o desconfiado y tÃº lograste darlo vuelta. ¿Qué dijiste y qué hiciste?",
+          "sondeos": ["¿Cómo te diste cuenta de lo que realmente necesitaba?", "¿En qué terminó?"]
+        },
+        {
+          "id": "P8",
+          "tipo": "situacional",
+          "texto": "Un cliente está mirando un producto de la competencia que es más barato que el tuyo. Te pregunta directamente: '¿y por qué pagaría más por el tuyo?'. ¿Qué le dices?",
+          "sondeos": ["¿Y si te dice que igual se lleva el otro?"]
+        }
+      ],
+      "bars": {
+        "1": "Relato sin acción propia ('lo atendí normal'); en la objeción critica al cliente o a la competencia sin argumento.",
+        "2": "Respuestas genéricas de manual sin ejemplo concreto; argumenta solo precio/descuento.",
+        "3": "Ejemplo real con escucha y resolución básica; argumenta 2+ beneficios concretos del producto.",
+        "4": "Ejemplo con diagnóstico de la necesidad (preguntó antes de ofrecer) y cierre verificable; en la objeción conecta beneficios con la necesidad específica del cliente y acepta con elegancia si no compra.",
+        "5": "Además de 4: convierte la objeción en relación (invita a volver, fideliza), distingue tipos de shopper y adapta el discurso; resultado medible relatado (ventas, felicitación, cliente recurrente)."
+      }
+    },
+    {
+      "id": "ejecucion",
+      "nombre": "Ejecución en punto de venta con supervisión remota",
+      "constructo": "Retail Competency Model — task execution / atención al detalle",
+      "peso": 0.15,
+      "definicion": "Ejecuta exhibición, reposición y reportes con calidad trabajando solo, con supervisor a distancia.",
+      "preguntas": [
+        {
+          "id": "P9",
+          "tipo": "conductual_pasado",
+          "texto": "CuÃ©ntame de un trabajo o actividad donde nadie te controlaba en el día a día. ¿Cómo sabías si estabas haciendo bien tu trabajo?",
+          "sondeos": ["¿Qué rutina sigueas al llegar?", "¿Cómo reportabas lo que hacías?"]
+        },
+        {
+          "id": "P10",
+          "tipo": "situacional",
+          "texto": "Llegas a la tienda y la exhibición de tu marca está desarmada: faltan precios, hay productos de otra marca mezclados y poco stock en góndola. Tienes una hora. ¿Qué haces primero y qué dejas para después?",
+          "sondeos": ["¿Qué reportás y con qué evidencia?"]
+        }
+      ],
+      "bars": {
+        "1": "Sin método propio ('hacía lo que me decían'); en el escenario actúa sin priorizar ni reportar.",
+        "2": "Método vago; prioriza mal (empieza por lo cosmético); reporte solo si se lo piden.",
+        "3": "Rutina básica de trabajo (checklist mental); prioriza disponibilidad/precios primero; reporta con foto al final.",
+        "4": "Método claro de autoverificación (orden de pasos, evidencia fotográfica antes/después, registro); prioriza por impacto en venta y explica por qué; reporte proactivo con faltantes de stock.",
+        "5": "Además de 4: ejemplos de mejorar el estándar (propuso cambios de exhibición con resultado), gestiona la relación con el personal de la tienda para sostener la ejecución cuando él no está."
+      }
+    },
+    {
+      "id": "estabilidad",
+      "nombre": "Estabilidad bajo presión",
+      "constructo": "Estabilidad emocional (Big Five)",
+      "peso": 0.10,
+      "definicion": "Mantiene conducta constructiva ante reclamos, rechazo, frustración o sobrecarga.",
+      "preguntas": [
+        {
+          "id": "P11",
+          "tipo": "conductual_pasado",
+          "texto": "CuÃ©ntame del día más difícil que recuerdes en un trabajo: mucha presión, gente difícil o todo saliendo mal. ¿Qué hiciste y cómo terminó?",
+          "sondeos": ["¿Qué hiciste apenas terminó ese día?", "¿Qué aprendiste para la próxima?"]
+        },
+        {
+          "id": "P12",
+          "tipo": "situacional",
+          "texto": "Llevas cuatro horas de jornada, un cliente te trató mal sin razón y justo te llama tu supervisor para pedirte un reporte urgente que implica quedarte más tiempo. ¿Qué haces y qué le dices?",
+          "sondeos": ["¿Cómo evitás que el mal momento con el cliente afecte lo que sigue?"]
+        }
+      ],
+      "bars": {
+        "1": "Relata reacciones impulsivas (gritos, abandono, conflicto) sin autocrítica; en el escenario se niega o descarga el enojo en el supervisor.",
+        "2": "Se desborda y lo resuelve evitando (se aísla, se va); cumple el pedido pero con queja hostil.",
+        "3": "Mantiene la calma razonable; cumple el pedido urgente; reconoce el mal momento sin dramatizar.",
+        "4": "Estrategias concretas de autorregulación relatadas (pausa, respirar, separar el problema de la persona); negocia el pedido con datos ('lo tengo en una hora') y cumple.",
+        "5": "Además de 4: convirtió un día crítico en aprendizaje aplicado después; en el escenario protege la calidad del trabajo Y su propio límite de forma madura."
+      }
+    }
+  ],
+  "estructura_entrevista": {
+    "apertura_min": 1.5,
+    "preguntas": "Una pregunta principal por competencia como mínimo (6); la segunda pregunta se usa si hay tiempo o si la primera no dio evidencia. Máximo 2 sondeos por pregunta.",
+    "cierre_min": 1.5,
+    "time_box_total_min": 16,
+    "orden": ["apertura", "cliente", "ejecucion", "confiabilidad", "normas", "estabilidad", "honestidad", "preguntas_del_candidato", "cierre"]
+  },
+  "umbral_recomendacion": {
+    "RECOMENDADO": "overall >= 70 y sin red flags y sin competencia con score 1",
+    "CONSIDERAR": "overall 55-69 sin red flags",
+    "REVISAR_HUMANO": "cualquier red flag, score 1 en alguna competencia, o 2+ competencias no observadas",
+    "NO_RECOMENDADO": "overall < 55",
+    "nota": "Toda recomendación es insumo para decisión humana. Ningún descarte es automático."
+  }
+}

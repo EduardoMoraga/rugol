@@ -60,6 +60,25 @@ class RugolScheduler:
         except Exception:
             pass
 
+    def add_voice_sync_job(self, interval_minutes: int = 5) -> None:
+        """Job interno que sincroniza entrevistas de voz cada N minutos.
+
+        No es un Schedule de usuario (no toca la tabla schedules ni el
+        orchestrator): es un job de mantenimiento de la integración de voz.
+        Idempotente — sync_interviews no reprocesa conversaciones ya en el
+        pipeline. Se registra solo si hay ELEVENLABS_API_KEY (lo decide main).
+        """
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        self._scheduler.add_job(
+            _fire_voice_sync,
+            trigger=IntervalTrigger(minutes=interval_minutes),
+            id="voice:sync",
+            replace_existing=True,
+            next_run_time=None,  # arranca en el primer intervalo, no al boot
+        )
+        logger.info("voice sync job programado cada %s min", interval_minutes)
+
     def list_jobs(self) -> list[dict]:
         """Return live state of every job APScheduler currently has loaded.
 
@@ -111,6 +130,18 @@ async def _fire_schedule(schedule_id: int, agent_name: str, prompt: str) -> None
         ))
     except Exception:
         logger.exception("schedule %s failed to enqueue", schedule_id)
+
+
+async def _fire_voice_sync() -> None:
+    """Job target — sincroniza entrevistas de voz de ElevenLabs al pipeline."""
+    from core.voice import sync_interviews
+
+    try:
+        result = await sync_interviews()
+        if result.get("created") or result.get("errors"):
+            logger.info("voice sync: %s", result)
+    except Exception:
+        logger.exception("voice sync job falló")
 
 
 _scheduler_instance: RugolScheduler | None = None

@@ -181,6 +181,7 @@ export function InterviewConsole() {
             {linkUrl && (
               <div className="surface px-3 py-2.5 space-y-2">
                 <p className="text-[12px] text-[--color-fg-muted] leading-relaxed">{t("interviews.live.linkReady")}</p>
+                <p className="text-[11px] text-[--color-fg-subtle] leading-relaxed">{t("interviews.live.linkLocalNote")}</p>
                 <div className="flex items-center gap-2">
                   <code className="flex-1 min-w-0 text-[12px] font-mono text-[--color-fg] truncate">{linkUrl}</code>
                   <Button

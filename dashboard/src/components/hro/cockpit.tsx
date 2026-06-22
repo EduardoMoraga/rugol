@@ -26,8 +26,6 @@ import {
   Trophy,
   Sparkles,
   Bot,
-  Copy,
-  ExternalLink,
   RefreshCw,
   Users,
   ClipboardCheck,
@@ -55,17 +53,6 @@ import { OnboardingWizard } from "@/components/hro/onboarding-wizard";
 import { TalentSearch } from "@/components/hro/talent-search";
 import { Database } from "lucide-react";
 
-// Landing externa de la entrevista de voz (Sofía). Se comparte con el candidato.
-const VOICE_LANDING_URL = "https://hro-entrevista.vercel.app/";
-
-function openExternal(url: string) {
-  if (typeof window === "undefined") return;
-  if (window.rugol?.openExternal) {
-    window.rugol.openExternal(url);
-  } else {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-}
 
 // Un candidato "tiene entrevista" cuando Sofía dejó su informe en data.interview.
 function hasInterview(item: PipelineItem): boolean {
@@ -144,14 +131,6 @@ export function HroCockpit() {
       toast({ tone: "error", title: t("voice.syncError"), body: e.message }),
   });
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(VOICE_LANDING_URL);
-      toast({ tone: "success", title: t("hro.cockpit.link.copied") });
-    } catch {
-      toast({ tone: "error", title: t("hro.cockpit.link.copyFailed") });
-    }
-  }
 
   // --- Embudo: cada paso con el agente que lo hace (legibilidad del flujo) ---
   const steps = [
@@ -198,6 +177,17 @@ export function HroCockpit() {
 
       {/* ---- Copiloto: el centro de la experiencia ---- */}
       <CopilotPanel />
+
+      {/* ---- Banco de talento (buscador interno / recomendación) ---- */}
+      <TalentSearch />
+
+      {/* ---- Configuración y herramientas (plegable — menos empalagoso) ---- */}
+      <details className="surface px-5 py-4">
+        <summary className="cursor-pointer list-none text-sm font-semibold tracking-tight inline-flex items-center gap-2">
+          <SettingsIcon size={14} className="text-[--color-accent-strong]" /> {t("hro.cockpit.toolsHeading")}
+        </summary>
+        <p className="text-[12px] text-[--color-fg-muted] mt-1">{t("hro.cockpit.toolsHint")}</p>
+        <div className="pt-6 space-y-8">
 
       {/* ---- Embudo: el equipo que coordina el copiloto (qué hace cada agente) ---- */}
       <section className="space-y-4">
@@ -279,9 +269,6 @@ export function HroCockpit() {
         </div>
       </section>
 
-      {/* ---- Banco de talento (buscador interno / recomendación) ---- */}
-      <TalentSearch />
-
       {/* ---- Fuentes de CV ---- */}
       <section className="space-y-4">
         <div className="flex items-center gap-2">
@@ -293,39 +280,8 @@ export function HroCockpit() {
         </p>
         <CvSourcesManager />
       </section>
-
-      {/* ---- Link de entrevista (destacado) ---- */}
-      <section>
-        <Card className="border-[--color-accent]/40 space-y-4">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-[--color-accent-soft] text-[--color-accent-strong]">
-              <Mic size={17} />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold tracking-tight">
-                {t("hro.cockpit.link.heading")}
-              </h2>
-              <p className="text-sm text-[--color-fg-muted] mt-0.5">
-                {t("hro.cockpit.link.body")}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <code className="flex-1 min-w-0 surface px-3 py-2.5 font-mono text-[13px] text-[--color-fg] truncate">
-              {VOICE_LANDING_URL}
-            </code>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button variant="primary" size="md" onClick={copyLink}>
-                <Copy size={14} /> {t("hro.cockpit.link.copy")}
-              </Button>
-              <Button variant="secondary" size="md" onClick={() => openExternal(VOICE_LANDING_URL)}>
-                <ExternalLink size={14} /> {t("hro.cockpit.link.open")}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </section>
+        </div>
+      </details>
 
       {/* ---- Acciones rápidas ---- */}
       <section className="space-y-4">
@@ -363,10 +319,10 @@ export function HroCockpit() {
             </p>
           </button>
           <ActionCard
-            href="/agents"
-            icon={<Mic size={16} />}
-            title={t("hro.cockpit.actions.configureSofia.title")}
-            body={t("hro.cockpit.actions.configureSofia.body")}
+            href="/projects"
+            icon={<Trophy size={16} />}
+            title={t("hro.cockpit.actions.searches.title")}
+            body={t("hro.cockpit.actions.searches.body")}
           />
         </div>
       </section>

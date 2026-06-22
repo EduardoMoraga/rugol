@@ -245,6 +245,7 @@ const ES: Dict = {
   "interviews.live.genLink": "Generar link de entrevista",
   "interviews.live.generating": "Generando…",
   "interviews.live.linkReady": "Comparte este link con el candidato: lo abre, Sofía lo entrevista y entra solo a tu pipeline.",
+  "interviews.live.linkLocalNote": "Este link abre en este equipo o en un tablet en sitio (es local). Para enviarlo a distancia hay que publicar la app en un servidor.",
   "interviews.live.copy": "Copiar",
   "interviews.live.linkCopied": "Link copiado",
   "interviews.live.linkError": "No se pudo generar el link",
@@ -320,6 +321,10 @@ const ES: Dict = {
   "hro.cockpit.actions.sync.body": "Trae las últimas entrevistas de ElevenLabs.",
   "hro.cockpit.actions.configureSofia.title": "Configurar a Sofía",
   "hro.cockpit.actions.configureSofia.body": "Ajusta a tu entrevistadora de voz.",
+  "hro.cockpit.actions.searches.title": "Búsquedas",
+  "hro.cockpit.actions.searches.body": "Tus posiciones abiertas y su descripción de cargo.",
+  "hro.cockpit.toolsHeading": "Configuración y herramientas",
+  "hro.cockpit.toolsHint": "Conexiones, fuentes de CV y el flujo del equipo. Despliega cuando lo necesites.",
 
   // ---- Copiloto (HRO home) ----
   "hro.copilot.name": "Copiloto",
@@ -1016,6 +1021,7 @@ const EN: Dict = {
   "interviews.live.genLink": "Generate interview link",
   "interviews.live.generating": "Generating…",
   "interviews.live.linkReady": "Share this link with the candidate: they open it, Sofía interviews them and they enter your pipeline on their own.",
+  "interviews.live.linkLocalNote": "This link opens on this computer or an on-site tablet (it's local). To send it remotely, the app must be published to a server.",
   "interviews.live.copy": "Copy",
   "interviews.live.linkCopied": "Link copied",
   "interviews.live.linkError": "Couldn't generate the link",
@@ -1091,6 +1097,10 @@ const EN: Dict = {
   "hro.cockpit.actions.sync.body": "Pull the latest interviews from ElevenLabs.",
   "hro.cockpit.actions.configureSofia.title": "Configure Sofía",
   "hro.cockpit.actions.configureSofia.body": "Tune your voice interviewer.",
+  "hro.cockpit.actions.searches.title": "Searches",
+  "hro.cockpit.actions.searches.body": "Your open positions and their job descriptions.",
+  "hro.cockpit.toolsHeading": "Setup & tools",
+  "hro.cockpit.toolsHint": "Connections, CV sources and the team flow. Expand when you need them.",
 
   // ---- Copilot (HRO home) ----
   "hro.copilot.name": "Copilot",

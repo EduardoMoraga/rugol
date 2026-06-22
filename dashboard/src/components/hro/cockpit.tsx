@@ -23,7 +23,6 @@ import {
   UserPlus,
   ScanSearch,
   Mic,
-  KanbanSquare,
   Trophy,
   Sparkles,
   Bot,
@@ -39,6 +38,7 @@ import {
   fetchSettingsStatus,
   fetchVoiceStatus,
   fetchPipeline,
+  fetchAgents,
   syncVoice,
   type PipelineItem,
 } from "@/lib/api";
@@ -48,6 +48,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
+import { AgentChat } from "@/components/agents/agent-chat";
 
 // Landing externa de la entrevista de voz (Sofía). Se comparte con el candidato.
 const VOICE_LANDING_URL = "https://hro-entrevista.vercel.app/";
@@ -137,13 +138,14 @@ export function HroCockpit() {
     }
   }
 
-  // --- Pasos del flujo ---
+  // --- Embudo: cada paso con el agente que lo hace (legibilidad del flujo) ---
   const steps = [
-    { n: "01", icon: UserPlus, title: t("hro.cockpit.flow.s1.title"), body: t("hro.cockpit.flow.s1.body") },
-    { n: "02", icon: ScanSearch, title: t("hro.cockpit.flow.s2.title"), body: t("hro.cockpit.flow.s2.body") },
-    { n: "03", icon: Mic, title: t("hro.cockpit.flow.s3.title"), body: t("hro.cockpit.flow.s3.body") },
-    { n: "04", icon: KanbanSquare, title: t("hro.cockpit.flow.s4.title"), body: t("hro.cockpit.flow.s4.body") },
-    { n: "05", icon: Trophy, title: t("hro.cockpit.flow.s5.title"), body: t("hro.cockpit.flow.s5.body") },
+    { n: "01", icon: UserPlus, title: t("hro.funnel.s1.title"), body: t("hro.funnel.s1.body"), agent: t("hro.funnel.s1.agent") },
+    { n: "02", icon: ScanSearch, title: t("hro.funnel.s2.title"), body: t("hro.funnel.s2.body"), agent: t("hro.funnel.s2.agent") },
+    { n: "03", icon: SettingsIcon, title: t("hro.funnel.s3.title"), body: t("hro.funnel.s3.body"), agent: t("hro.funnel.s3.agent") },
+    { n: "04", icon: Mic, title: t("hro.funnel.s4.title"), body: t("hro.funnel.s4.body"), agent: t("hro.funnel.s4.agent") },
+    { n: "05", icon: Trophy, title: t("hro.funnel.s5.title"), body: t("hro.funnel.s5.body"), agent: t("hro.funnel.s5.agent") },
+    { n: "06", icon: ClipboardCheck, title: t("hro.funnel.s6.title"), body: t("hro.funnel.s6.body"), agent: t("hro.funnel.s6.agent") },
   ];
 
   return (
@@ -177,11 +179,19 @@ export function HroCockpit() {
         </div>
       </header>
 
-      {/* ---- Flujo visual: 5 pasos ---- */}
+      {/* ---- Copiloto: el centro de la experiencia ---- */}
+      <CopilotPanel />
+
+      {/* ---- Embudo: el equipo que coordina el copiloto (qué hace cada agente) ---- */}
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold tracking-tight">{t("hro.cockpit.flow.heading")}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {steps.map(({ n, icon: Icon, title, body }) => (
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">{t("hro.funnel.heading")}</h2>
+          <p className="text-[12.5px] text-[--color-fg-muted] leading-relaxed mt-1 max-w-3xl">
+            {t("hro.funnel.note")}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          {steps.map(({ n, icon: Icon, title, body, agent }) => (
             <div
               key={n}
               className="surface p-4 flex flex-col gap-2.5 relative overflow-hidden"
@@ -195,7 +205,10 @@ export function HroCockpit() {
               <h3 className="text-[13.5px] font-semibold tracking-tight leading-tight">
                 {title}
               </h3>
-              <p className="text-[12px] text-[--color-fg-muted] leading-relaxed">{body}</p>
+              <p className="text-[12px] text-[--color-fg-muted] leading-relaxed flex-1">{body}</p>
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-[--color-fg-subtle] mt-1">
+                <Bot size={10} /> {t("hro.funnel.driver")}: {agent}
+              </span>
             </div>
           ))}
         </div>
@@ -326,6 +339,48 @@ export function HroCockpit() {
         </div>
       </section>
     </div>
+  );
+}
+
+// Copiloto: la cara de HRO. La reclutadora le habla en lenguaje natural y él
+// orquesta al equipo (assistant tiene el prompt de orquestación + RAG).
+function CopilotPanel() {
+  const { t } = useI18n();
+  const agentsQ = useQuery({ queryKey: ["agents"], queryFn: () => fetchAgents(), retry: false });
+  const assistant = (agentsQ.data ?? []).find((a) => a.name === "assistant");
+  const examples = [
+    t("hro.copilot.ex1"),
+    t("hro.copilot.ex2"),
+    t("hro.copilot.ex3"),
+    t("hro.copilot.ex4"),
+  ];
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-xl grid place-items-center shrink-0 bg-[--color-accent-soft] text-[--color-accent-strong]">
+          <Sparkles size={17} />
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold tracking-tight">{t("hro.copilot.title")}</h2>
+          <p className="text-sm text-[--color-fg-muted] mt-0.5 max-w-2xl">{t("hro.copilot.subtitle")}</p>
+        </div>
+      </div>
+      {assistant ? (
+        <AgentChat
+          agentId={assistant.id}
+          agentName={t("hro.copilot.name")}
+          modelLabel={(assistant.model || "").replace("claude-", "")}
+          agentBusy={assistant.status === "running"}
+          projectSlug={null}
+          examples={examples}
+        />
+      ) : (
+        <Card>
+          <p className="text-sm text-[--color-fg-muted]">{t("hro.copilot.unavailable")}</p>
+        </Card>
+      )}
+    </section>
   );
 }
 

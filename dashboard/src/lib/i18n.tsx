@@ -310,6 +310,42 @@ const ES: Dict = {
   "hro.cockpit.actions.configureSofia.title": "Configurar a Sofía",
   "hro.cockpit.actions.configureSofia.body": "Ajusta a tu entrevistadora de voz.",
 
+  // ---- Copiloto (HRO home) ----
+  "hro.copilot.name": "Copiloto",
+  "hro.copilot.title": "Tu copiloto de reclutamiento",
+  "hro.copilot.subtitle":
+    "Pídele en lenguaje natural: abrir una búsqueda, analizar CVs, recomendar candidatos. Él coordina al equipo y te trae resultados — tú decides.",
+  "hro.copilot.ex1": "Tengo una vacante de promotor retail en Maipú. ¿Qué necesitas de mí?",
+  "hro.copilot.ex2": "Recomiéndame candidatos de mi pipeline para una posición de promotor.",
+  "hro.copilot.ex3": "Analiza los CVs de mi última búsqueda y arma el ranking.",
+  "hro.copilot.ex4": "¿A quién debería entrevistar primero y por qué?",
+  "hro.copilot.unavailable":
+    "El copiloto se está preparando. Si no aparece, revisa que el agente 'assistant' exista en Agentes.",
+
+  // ---- Embudo con agentes (qué hace cada uno) ----
+  "hro.funnel.heading": "El equipo que coordina tu copiloto",
+  "hro.funnel.note":
+    "Tú le hablas al copiloto en lenguaje natural; él decide y coordina a este equipo. No es un flujo rígido A→B: se adapta a lo que pides.",
+  "hro.funnel.driver": "Lo hace",
+  "hro.funnel.s1.title": "Llegan los CVs",
+  "hro.funnel.s1.body": "Desde tus fuentes (Pandapé, portales, Drive, carpeta) o el link de entrevista.",
+  "hro.funnel.s1.agent": "Conector",
+  "hro.funnel.s2.title": "Screening",
+  "hro.funnel.s2.body": "Evalúa cada CV contra el perfil y puntúa 1-5 con evidencia.",
+  "hro.funnel.s2.agent": "Screener",
+  "hro.funnel.s3.title": "Filtro duro",
+  "hro.funnel.s3.body": "Aplica los requisitos no negociables (ubicación, disponibilidad).",
+  "hro.funnel.s3.agent": "Knockout",
+  "hro.funnel.s4.title": "Entrevista",
+  "hro.funnel.s4.body": "Sofía entrevista por competencias (BARS) y deja su informe.",
+  "hro.funnel.s4.agent": "Sofía",
+  "hro.funnel.s5.title": "Terna",
+  "hro.funnel.s5.body": "Compara a los entrevistados y arma el top 3 recomendado.",
+  "hro.funnel.s5.agent": "Matcher",
+  "hro.funnel.s6.title": "Oferta",
+  "hro.funnel.s6.body": "Redacta la comunicación al elegido y a los no seleccionados.",
+  "hro.funnel.s6.agent": "Oferta",
+
   // ---- Memory graph ----
   "memgraph.title": "Red de memoria",
   "memgraph.desc":
@@ -944,6 +980,42 @@ const EN: Dict = {
   "hro.cockpit.actions.sync.body": "Pull the latest interviews from ElevenLabs.",
   "hro.cockpit.actions.configureSofia.title": "Configure Sofía",
   "hro.cockpit.actions.configureSofia.body": "Tune your voice interviewer.",
+
+  // ---- Copilot (HRO home) ----
+  "hro.copilot.name": "Copilot",
+  "hro.copilot.title": "Your recruiting copilot",
+  "hro.copilot.subtitle":
+    "Ask in plain language: open a search, screen CVs, recommend candidates. It coordinates the team and brings you results — you decide.",
+  "hro.copilot.ex1": "I have a retail promoter opening in Maipú. What do you need from me?",
+  "hro.copilot.ex2": "Recommend candidates from my pipeline for a promoter position.",
+  "hro.copilot.ex3": "Screen the CVs from my latest search and build the ranking.",
+  "hro.copilot.ex4": "Who should I interview first, and why?",
+  "hro.copilot.unavailable":
+    "The copilot is getting ready. If it doesn't show up, check that the 'assistant' agent exists in Agents.",
+
+  // ---- Funnel with agents (what each one does) ----
+  "hro.funnel.heading": "The team your copilot coordinates",
+  "hro.funnel.note":
+    "You talk to the copilot in plain language; it decides and coordinates this team. It's not a rigid A→B flow — it adapts to what you ask.",
+  "hro.funnel.driver": "Done by",
+  "hro.funnel.s1.title": "CVs arrive",
+  "hro.funnel.s1.body": "From your sources (Pandapé, job boards, Drive, folder) or the interview link.",
+  "hro.funnel.s1.agent": "Connector",
+  "hro.funnel.s2.title": "Screening",
+  "hro.funnel.s2.body": "Scores each CV against the profile, 1-5 with evidence.",
+  "hro.funnel.s2.agent": "Screener",
+  "hro.funnel.s3.title": "Hard filter",
+  "hro.funnel.s3.body": "Applies the non-negotiable requirements (location, availability).",
+  "hro.funnel.s3.agent": "Knockout",
+  "hro.funnel.s4.title": "Interview",
+  "hro.funnel.s4.body": "Sofía runs a competency interview (BARS) and leaves her report.",
+  "hro.funnel.s4.agent": "Sofía",
+  "hro.funnel.s5.title": "Shortlist",
+  "hro.funnel.s5.body": "Compares the interviewed and builds the recommended top 3.",
+  "hro.funnel.s5.agent": "Matcher",
+  "hro.funnel.s6.title": "Offer",
+  "hro.funnel.s6.body": "Drafts the message to the chosen one and to those not selected.",
+  "hro.funnel.s6.agent": "Offer",
 
   // ---- Memory graph ----
   "memgraph.title": "Memory network",

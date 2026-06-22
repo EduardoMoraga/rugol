@@ -56,6 +56,8 @@ interface Props {
   projectName?: string | null;
   projectMission?: string | null;
   projectLessonCount?: number;
+  /** Ejemplos clicables que se muestran cuando el chat está vacío (copiloto). */
+  examples?: string[];
 }
 
 /**
@@ -75,6 +77,7 @@ export function AgentChat({
   projectName,
   projectMission,
   projectLessonCount = 0,
+  examples,
 }: Props) {
   const { t } = useI18n();
   const qc = useQueryClient();
@@ -426,6 +429,8 @@ export function AgentChat({
             projectName={projectName}
             projectMission={projectMission}
             projectLessonCount={projectLessonCount}
+            examples={examples}
+            onPickExample={(s) => setDraft(s)}
           />
         ) : (
           turns.map((t) => <TurnView key={t.id} turn={t} projectSlug={projectSlug} />)
@@ -510,11 +515,15 @@ function EmptyChat({
   projectName,
   projectMission,
   projectLessonCount = 0,
+  examples,
+  onPickExample,
 }: {
   agentName: string;
   projectName?: string | null;
   projectMission?: string | null;
   projectLessonCount?: number;
+  examples?: string[];
+  onPickExample?: (s: string) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -523,6 +532,20 @@ function EmptyChat({
       <p>
         {t("chat.empty")} <span className="text-[--color-fg]">{agentName}</span>.
       </p>
+      {examples && examples.length > 0 && (
+        <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto pt-1">
+          {examples.map((ex, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onPickExample?.(ex)}
+              className="text-left text-[12.5px] px-3 py-1.5 rounded-full border border-[--color-border] bg-[--color-bg-elev] text-[--color-fg] hover:border-[--color-accent] hover:text-[--color-accent-strong] transition"
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
       {(projectMission || projectLessonCount > 0) && (
         <div className="surface text-left max-w-lg mx-auto px-4 py-3 space-y-2">
           <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium">

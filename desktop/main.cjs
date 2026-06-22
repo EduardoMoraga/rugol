@@ -11,9 +11,10 @@
 // completo: Architect, Asistente de config, agentes con Soul/Memory/Tools/MCP,
 // ontología, self-improving.
 
-const { app, BrowserWindow, Menu, shell, nativeTheme, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, Menu, Tray, nativeImage, shell, nativeTheme, ipcMain, dialog } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
 const net = require("node:net");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
@@ -42,6 +43,8 @@ let dashProc = null;
 let proxyServer = null;
 let mainWindow = null;
 let dashUrl = null;
+let tray = null;
+let isQuitting = false;
 
 function log(...a) { console.log("[rugol-desktop]", ...a); }
 function safeExists(p) { try { return fs.existsSync(p); } catch { return false; } }
@@ -198,7 +201,7 @@ function errorPage(msg) {
     `<!doctype html><meta charset="utf-8"><style>body{font-family:-apple-system,sans-serif;background:#0a0e14;color:#e8eef7;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:10px;text-align:center;padding:40px}h1{color:#e0654b}code{color:#7d8aa0;font-size:12px;white-space:pre-wrap;max-width:80ch}</style><h1>${APP_NAME} no pudo arrancar</h1><code>${String(msg)}</code>`);
 }
 
-async function createWindow() {
+async function createWindow(startHidden = false) {
   nativeTheme.themeSource = "dark";
   mainWindow = new BrowserWindow({
     width: 1440, height: 920, minWidth: 1080, minHeight: 700,
@@ -207,8 +210,13 @@ async function createWindow() {
     show: false,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, sandbox: false },
   });
+  // Cerrar la ventana NO cierra la app: se oculta y sigue en segundo plano
+  // (backend + Telegram vivos). Se sale de verdad desde el menú de la barra.
+  mainWindow.on("close", (e) => {
+    if (!isQuitting) { e.preventDefault(); mainWindow.hide(); }
+  });
   mainWindow.loadURL(splash());
-  mainWindow.once("ready-to-show", () => mainWindow.show());
+  mainWindow.once("ready-to-show", () => { if (!startHidden) mainWindow.show(); });
   try {
     const workingDir = resolveWorkingDir();
     const backendPort = await getFreePort();
@@ -233,6 +241,87 @@ function killChildren() {
   setTimeout(() => { for (const p of [backendProc, dashProc]) { if (p && !p.killed) { try { p.kill("SIGKILL"); } catch { /* noop */ } } } }, 1500);
 }
 
+// --- Auto-arranque + ícono en la barra de menú (la app vive en segundo plano) ---
+function brandVariant() {
+  if (BRAND.variant) return BRAND.variant;
+  const id = (BRAND.id || "").toLowerCase();
+  if (id.includes("crm")) return "crm";
+  if (id.includes("hro")) return "hro";
+  return "rugol";
+}
+function brandIconImage() {
+  try {
+    const img = nativeImage.createFromPath(path.join(__dirname, "assets", `icon-${brandVariant()}.png`));
+    if (!img.isEmpty()) return img.resize({ width: 18, height: 18, quality: "best" });
+  } catch { /* noop */ }
+  return nativeImage.createEmpty();
+}
+function showWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show(); mainWindow.focus();
+  } else {
+    createWindow();
+  }
+  if (process.platform === "darwin") { try { app.dock.show(); } catch { /* noop */ } }
+}
+// Auto-arranque robusto vía LaunchAgent por variante (el mismo mecanismo probado
+// de la plataforma). Cada app escribe su propio ~/Library/LaunchAgents/<label>.plist
+// que launchd ejecuta al iniciar sesión con RUGOL_AUTOSTART=1 (arranque oculto).
+// Es fiable para apps SIN firmar — a diferencia de setLoginItemSettings, que en
+// macOS moderno colapsa los registros de apps sin Developer ID.
+function autostartLabel() { return `com.eduardomoraga.rugol.${brandVariant()}.autostart`; }
+function autostartPlistPath() { return path.join(os.homedir(), "Library", "LaunchAgents", `${autostartLabel()}.plist`); }
+function writeAutostart() {
+  if (process.platform !== "darwin" || !PACKAGED) return;
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>${autostartLabel()}</string>
+  <key>ProgramArguments</key><array><string>${process.execPath}</string></array>
+  <key>EnvironmentVariables</key><dict><key>RUGOL_AUTOSTART</key><string>1</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+</dict></plist>
+`;
+  try { fs.mkdirSync(path.dirname(autostartPlistPath()), { recursive: true }); fs.writeFileSync(autostartPlistPath(), plist); }
+  catch (e) { log("writeAutostart:", e.message); }
+}
+function removeAutostart() {
+  try { if (safeExists(autostartPlistPath())) fs.unlinkSync(autostartPlistPath()); } catch (e) { log("removeAutostart:", e.message); }
+}
+function getOpenAtLogin() { return safeExists(autostartPlistPath()); }
+function setOpenAtLogin(v) { if (v) writeAutostart(); else removeAutostart(); buildTray(); }
+// Activa el arranque al inicio de sesión UNA sola vez (1er arranque); después
+// respeta lo que el usuario elija desde el menú de la barra.
+function initAutostartOnce() {
+  if (!PACKAGED) return;
+  const marker = path.join(app.getPath("userData"), ".autostart-init");
+  if (!safeExists(marker)) {
+    writeAutostart();
+    try { fs.writeFileSync(marker, "1"); } catch { /* noop */ }
+    log("auto-arranque activado (1er arranque) →", autostartPlistPath());
+  }
+}
+function buildTray() {
+  try {
+    if (!tray) {
+      tray = new Tray(brandIconImage());
+      tray.setToolTip(`${APP_NAME} — corriendo en segundo plano`);
+      tray.on("click", () => showWindow());
+    }
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: `Abrir ${APP_NAME}`, click: () => showWindow() },
+      { label: "Recargar panel", click: () => { if (mainWindow && dashUrl) mainWindow.loadURL(dashUrl); showWindow(); } },
+      { type: "separator" },
+      { label: "Mantiene Telegram y los agentes activos", enabled: false },
+      { label: "Abrir al iniciar sesión", type: "checkbox", checked: getOpenAtLogin(), click: (mi) => setOpenAtLogin(mi.checked) },
+      { type: "separator" },
+      { label: `Salir de ${APP_NAME}`, click: () => { isQuitting = true; app.quit(); } },
+    ]));
+  } catch (e) { log("tray no disponible:", e.message); }
+}
+
 function buildMenu() {
   const isMac = process.platform === "darwin";
   Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -252,7 +341,16 @@ ipcMain.handle("rugol:pickFolder", async () => {
   return r.canceled || !r.filePaths.length ? null : r.filePaths[0];
 });
 
-app.whenReady().then(() => { buildMenu(); createWindow(); app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); }); });
-app.on("window-all-closed", () => { killChildren(); if (process.platform !== "darwin") app.quit(); });
-app.on("before-quit", killChildren);
+app.whenReady().then(() => {
+  initAutostartOnce();
+  const startHidden = PACKAGED && process.env.RUGOL_AUTOSTART === "1";
+  buildMenu();
+  buildTray();
+  createWindow(startHidden);
+  app.on("activate", () => showWindow());
+});
+// En segundo plano: cerrar todas las ventanas NO mata el backend (la app vive en
+// la barra de menú). Solo se limpia al salir de verdad (before-quit / no-mac).
+app.on("window-all-closed", () => { if (process.platform !== "darwin") { isQuitting = true; killChildren(); app.quit(); } });
+app.on("before-quit", () => { isQuitting = true; killChildren(); });
 process.on("exit", killChildren);

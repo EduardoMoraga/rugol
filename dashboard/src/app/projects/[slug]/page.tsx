@@ -84,23 +84,29 @@ export default function ProjectDetail() {
   const remove = useMutation({
     mutationFn: () => deleteProject(slug),
     onSuccess: () => {
-      toast({ tone: "success", title: "Proyecto eliminado" });
+      toast({ tone: "success", title: isHro ? t("searchDetail.deleted") : t("projectDetail.deleted") });
       qc.invalidateQueries({ queryKey: ["projects"] });
       router.push("/projects");
     },
-    onError: (e: Error) => toast({ tone: "error", title: "No se pudo eliminar", body: e.message }),
+    onError: (e: Error) => toast({ tone: "error", title: t("projectDetail.deleteFailed"), body: e.message }),
   });
 
   if (project.isLoading) {
-    return <div className="p-8 text-sm text-[--color-fg-muted]">Cargando proyecto…</div>;
+    return (
+      <div className="p-8 text-sm text-[--color-fg-muted]">
+        {isHro ? t("searchDetail.loading") : t("projectDetail.loading")}
+      </div>
+    );
   }
   if (!project.data) {
     return (
       <div className="p-8 space-y-3">
         <Link href="/projects" className="text-xs text-[--color-fg-muted] inline-flex items-center gap-1.5">
-          <ArrowLeft size={12} /> Proyectos
+          <ArrowLeft size={12} /> {isHro ? t("searches.title") : t("projects.title")}
         </Link>
-        <p className="text-sm text-[--color-fg-muted]">Proyecto no encontrado.</p>
+        <p className="text-sm text-[--color-fg-muted]">
+          {isHro ? t("searchDetail.notFound") : t("projectDetail.notFound")}
+        </p>
       </div>
     );
   }
@@ -115,7 +121,7 @@ export default function ProjectDetail() {
         href="/projects"
         className="text-xs text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1.5"
       >
-        <ArrowLeft size={12} /> Proyectos
+        <ArrowLeft size={12} /> {isHro ? t("searches.title") : t("projects.title")}
       </Link>
 
       <header className="flex items-start gap-4">
@@ -131,7 +137,7 @@ export default function ProjectDetail() {
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
-          <p className="text-sm text-[--color-fg-muted] mt-1">{p.description || "(sin descripción)"}</p>
+          <p className="text-sm text-[--color-fg-muted] mt-1">{p.description || t("projectDetail.noDescription")}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <EditProjectDialog project={p} isHro={isHro} />
@@ -140,12 +146,13 @@ export default function ProjectDetail() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                if (confirm(`Eliminar el proyecto "${p.name}"? Solo es posible si no tiene agentes.`)) {
+                const msg = (isHro ? t("searchDetail.deleteConfirm") : t("projectDetail.deleteConfirm")).replace("{name}", p.name);
+                if (confirm(msg)) {
                   remove.mutate();
                 }
               }}
               disabled={remove.isPending || p.agent_count > 0}
-              title={p.agent_count > 0 ? "Movéte los agentes primero" : "Eliminar proyecto"}
+              title={p.agent_count > 0 ? t("projectDetail.moveAgentsFirst") : (isHro ? t("searchDetail.deleteTitle") : t("projectDetail.deleteTitle"))}
             >
               <Trash2 size={13} />
             </Button>
@@ -154,16 +161,16 @@ export default function ProjectDetail() {
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Agentes" value={p.agent_count} />
-        <Stat label="Runs · 24h" value={p.runs_24h} />
-        <Stat label="Costo · 24h" value={`$${p.cost_24h.toFixed(3)}`} />
-        <Stat label="Estado" value={p.status} />
+        <Stat label={t("projectDetail.statAgents")} value={p.agent_count} />
+        <Stat label={t("projects.runs24h")} value={p.runs_24h} />
+        <Stat label={t("projects.cost24h")} value={`$${p.cost_24h.toFixed(3)}`} />
+        <Stat label={t("projectDetail.statStatus")} value={p.status} />
       </div>
 
       {p.mission && (
         <Card className="space-y-2 border-l-4" style={{ borderLeftColor: p.color }}>
           <p className="text-[10px] uppercase tracking-widest text-[--color-fg-muted] font-medium">
-            {isHro ? t("project.scope") : "Misión"}
+            {isHro ? t("project.scope") : t("projectDetail.mission")}
           </p>
           <p className="text-[14px] leading-relaxed text-[--color-fg]">{p.mission}</p>
         </Card>
@@ -190,31 +197,33 @@ export default function ProjectDetail() {
         <TabsList>
           <TabsTrigger value="team">
             <Users size={12} />
-            <span className="ml-1.5">Equipo ({p.agent_count})</span>
+            <span className="ml-1.5">{t("projectDetail.tabTeam")} ({p.agent_count})</span>
           </TabsTrigger>
           <TabsTrigger value="lessons">
             <Brain size={12} />
-            <span className="ml-1.5">Lecciones ({p.lessons.length})</span>
+            <span className="ml-1.5">{t("projectDetail.tabLessons")} ({p.lessons.length})</span>
           </TabsTrigger>
           <TabsTrigger value="runs">
             <Activity size={12} />
-            <span className="ml-1.5">Runs recientes</span>
+            <span className="ml-1.5">{t("projectDetail.tabRuns")}</span>
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="team" className="mt-5">
           <CardSection>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold tracking-tight">Plantilla del proyecto</h2>
+              <h2 className="text-sm font-semibold tracking-tight">
+                {isHro ? t("searchDetail.teamHeading") : t("projectDetail.teamHeading")}
+              </h2>
               <div className="flex gap-2">
                 <Link href={`/architect?project=${p.slug}`}>
                   <Button variant="outline" size="sm">
-                    <Sparkles size={12} /> Sumar con Architect
+                    <Sparkles size={12} /> {t("projectDetail.addArchitect")}
                   </Button>
                 </Link>
                 <Link href={`/agents/new?project=${p.slug}`}>
                   <Button variant="ghost" size="sm">
-                    <Plus size={12} /> Nuevo agente
+                    <Plus size={12} /> {t("projectDetail.newAgent")}
                   </Button>
                 </Link>
               </div>
@@ -222,11 +231,10 @@ export default function ProjectDetail() {
             {agents.data && agents.data.length === 0 ? (
               <Card className="text-center py-10 space-y-2">
                 <p className="text-sm text-[--color-fg-muted]">
-                  Este proyecto todavía no tiene agentes asignados.
+                  {isHro ? t("searchDetail.teamEmpty") : t("projectDetail.teamEmpty")}
                 </p>
                 <p className="text-xs text-[--color-fg-subtle] max-w-md mx-auto">
-                  Usa Architect para diseñar el equipo a partir de una idea, o crea uno
-                  manualmente y elige este proyecto.
+                  {isHro ? t("searchDetail.teamEmptyHint") : t("projectDetail.teamEmptyHint")}
                 </p>
               </Card>
             ) : (
@@ -240,7 +248,7 @@ export default function ProjectDetail() {
                     <div className="min-w-0">
                       <p className="font-medium truncate">{a.name}</p>
                       <p className="text-xs text-[--color-fg-muted] truncate mt-0.5">
-                        {a.description || "(sin descripción)"}
+                        {a.description || t("projectDetail.noDescription")}
                       </p>
                       <p className="text-[11px] font-mono text-[--color-fg-subtle] mt-1">
                         {a.model.replace("claude-", "")}
@@ -255,16 +263,18 @@ export default function ProjectDetail() {
         </TabsContent>
 
         <TabsContent value="lessons" className="mt-5">
-          <LessonsPane project={p} />
+          <LessonsPane project={p} isHro={isHro} />
         </TabsContent>
 
         <TabsContent value="runs" className="mt-5">
           <CardSection>
-            <h2 className="text-sm font-semibold tracking-tight mb-3">Últimos {(runs.data ?? []).length} runs</h2>
+            <h2 className="text-sm font-semibold tracking-tight mb-3">
+              {t("projectDetail.runsHeading").replace("{n}", String((runs.data ?? []).length))}
+            </h2>
             {runs.data && runs.data.length === 0 ? (
               <Card>
                 <p className="text-sm text-[--color-fg-muted]">
-                  Todavía no hay runs en este proyecto.
+                  {isHro ? t("searchDetail.runsEmpty") : t("projectDetail.runsEmpty")}
                 </p>
               </Card>
             ) : (
@@ -524,7 +534,8 @@ function ConnectSourceDialog({
   );
 }
 
-function LessonsPane({ project }: { project: Project }) {
+function LessonsPane({ project, isHro }: { project: Project; isHro: boolean }) {
+  const { t } = useI18n();
   const qc = useQueryClient();
   const [draft, setDraft] = useState("");
   const [kind, setKind] = useState<Lesson["kind"]>("lesson");
@@ -535,17 +546,17 @@ function LessonsPane({ project }: { project: Project }) {
     onSuccess: () => {
       setDraft("");
       qc.invalidateQueries({ queryKey: ["project", project.slug] });
-      toast({ tone: "success", title: "Lección guardada" });
+      toast({ tone: "success", title: t("lessons.saved") });
     },
     onError: (e: Error) =>
-      toast({ tone: "error", title: "No se pudo guardar", body: e.message }),
+      toast({ tone: "error", title: t("lessons.saveFailed"), body: e.message }),
   });
 
   const remove = useMutation({
     mutationFn: (index: number) => removeProjectLesson(project.slug, index),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", project.slug] }),
     onError: (e: Error) =>
-      toast({ tone: "error", title: "No se pudo borrar", body: e.message }),
+      toast({ tone: "error", title: t("lessons.deleteFailed"), body: e.message }),
   });
 
   function submit(e: React.FormEvent) {
@@ -560,31 +571,28 @@ function LessonsPane({ project }: { project: Project }) {
         <header>
           <h2 className="text-sm font-semibold tracking-tight inline-flex items-center gap-2">
             <Brain size={13} className="text-[--color-accent-strong]" />
-            Lecciones vivas del proyecto
+            {isHro ? t("lessons.headingSearch") : t("lessons.heading")}
           </h2>
           <p className="text-xs text-[--color-fg-muted] mt-1 max-w-2xl">
-            Cada agente del equipo lee esta lista <strong>antes</strong> de cada
-            run. Funciona como anclaje: lo que el equipo aprendió de la mala,
-            las decisiones tomadas, los sesgos detectados. Pensalo como las
-            "reglas de la casa" — no más de 10-15 ítems o pierde foco.
+            {t("lessons.description")}
           </p>
         </header>
         <form onSubmit={submit} className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
-            <FieldLabel hint="qué tipo de aprendizaje es">
-              Nueva lección
+            <FieldLabel hint={t("lessons.newLessonHint")}>
+              {t("lessons.newLesson")}
             </FieldLabel>
             <input
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder='ej: "El cliente Acme prefiere correos cortos sin asunto en mayúsculas"'
+              placeholder={t("lessons.placeholder")}
               className="w-full px-3 py-2 bg-transparent border border-[--color-border] rounded-md text-sm focus:outline-none focus:border-[--color-accent] transition"
               maxLength={500}
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel>Tipo</FieldLabel>
+            <FieldLabel>{t("lessons.type")}</FieldLabel>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as Lesson["kind"])}
@@ -596,7 +604,7 @@ function LessonsPane({ project }: { project: Project }) {
             </select>
           </div>
           <Button type="submit" variant="primary" disabled={add.isPending || draft.trim().length < 4}>
-            <Plus size={13} /> Agregar
+            <Plus size={13} /> {t("lessons.add")}
           </Button>
         </form>
       </Card>
@@ -604,12 +612,10 @@ function LessonsPane({ project }: { project: Project }) {
       {project.lessons.length === 0 ? (
         <Card className="text-center py-10 space-y-2">
           <p className="text-sm text-[--color-fg-muted]">
-            Todavía no hay lecciones registradas para este proyecto.
+            {isHro ? t("lessons.emptySearch") : t("lessons.empty")}
           </p>
           <p className="text-xs text-[--color-fg-subtle] max-w-md mx-auto">
-            Empezá con 2-3 reglas que el equipo nunca debería romper. Las
-            siguientes van a aparecer cuando aprueves propuestas de mejora
-            (Improvements) y las promueves a lección.
+            {t("lessons.emptyHint")}
           </p>
         </Card>
       ) : (
@@ -641,7 +647,7 @@ function LessonsPane({ project }: { project: Project }) {
               <button
                 onClick={() => remove.mutate(i)}
                 disabled={remove.isPending}
-                title="Borrar"
+                title={t("lessons.delete")}
                 className="opacity-50 hover:opacity-100 hover:text-[--color-error] transition shrink-0"
               >
                 <X size={13} />
@@ -676,13 +682,13 @@ function EditProjectDialog({
   const update = useMutation({
     mutationFn: (b: ProjectUpdate) => updateProject(project.slug, b),
     onSuccess: () => {
-      toast({ tone: "success", title: "Proyecto actualizado" });
+      toast({ tone: "success", title: isHro ? t("searchDetail.updated") : t("projectDetail.updated") });
       qc.invalidateQueries({ queryKey: ["project", project.slug] });
       qc.invalidateQueries({ queryKey: ["projects"] });
       setOpen(false);
     },
     onError: (e: Error) =>
-      toast({ tone: "error", title: "No se pudo actualizar", body: e.message }),
+      toast({ tone: "error", title: t("projectDetail.updateFailed"), body: e.message }),
   });
 
   function submit(e: React.FormEvent) {
@@ -694,16 +700,16 @@ function EditProjectDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="secondary" size="sm">
-          <Pencil size={13} /> Editar
+          <Pencil size={13} /> {t("projectDetail.edit")}
         </Button>
       </DialogTrigger>
       <DialogContent
-        title={`Editar ${project.name}`}
-        description="Cambios se guardan en la DB. El slug es inmutable."
+        title={t("projectDetail.editTitle").replace("{name}", project.name)}
+        description={t("projectDetail.editDescription")}
       >
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1.5">
-            <FieldLabel>Nombre</FieldLabel>
+            <FieldLabel>{t("projectDetail.fieldName")}</FieldLabel>
             <Input
               value={body.name ?? ""}
               onChange={(e) => setBody({ ...body, name: e.target.value })}
@@ -711,14 +717,14 @@ function EditProjectDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel>Descripción corta</FieldLabel>
+            <FieldLabel>{t("projectDetail.fieldShortDesc")}</FieldLabel>
             <Input
               value={body.description ?? ""}
               onChange={(e) => setBody({ ...body, description: e.target.value })}
             />
           </div>
           <div className="space-y-1.5">
-            <FieldLabel>{isHro ? t("project.scope") : "Misión"}</FieldLabel>
+            <FieldLabel>{isHro ? t("project.scope") : t("projectDetail.mission")}</FieldLabel>
             <Textarea
               value={body.mission ?? ""}
               onChange={(e) => setBody({ ...body, mission: e.target.value })}
@@ -740,7 +746,7 @@ function EditProjectDialog({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <FieldLabel>Ícono</FieldLabel>
+              <FieldLabel>{t("projectDetail.fieldIcon")}</FieldLabel>
               <Select
                 value={body.icon ?? "briefcase"}
                 onChange={(e) => setBody({ ...body, icon: e.target.value })}
@@ -751,7 +757,7 @@ function EditProjectDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <FieldLabel>Color</FieldLabel>
+              <FieldLabel>{t("projectDetail.fieldColor")}</FieldLabel>
               <div className="flex flex-wrap gap-1.5">
                 {PALETTE.map((c) => (
                   <button
@@ -770,10 +776,10 @@ function EditProjectDialog({
           </div>
           <div className="flex items-center justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Cancelar
+              {t("common.cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={update.isPending}>
-              {update.isPending ? "Guardando…" : "Guardar"}
+              {update.isPending ? t("projectDetail.saving") : t("common.save")}
             </Button>
           </div>
         </form>

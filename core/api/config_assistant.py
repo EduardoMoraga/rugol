@@ -60,9 +60,12 @@ async def parse(body: ParseBody) -> dict[str, Any]:
         plan = await parse_user_input(body.text)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
+    except Exception:
         logger.exception("config-assistant parse failed")
-        raise HTTPException(status_code=500, detail=f"parse failed: {e!s}")
+        raise HTTPException(
+            status_code=500,
+            detail="No pude interpretar el texto. Revisa que contenga una configuración válida (tokens, claves) e intenta de nuevo.",
+        )
 
     plan_token = _secrets.token_urlsafe(16)
     _PLAN_CACHE[plan_token] = (time.time(), plan)
@@ -88,9 +91,12 @@ async def apply(body: ApplyBody) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="No seleccionaste ninguna acción.")
     try:
         outcome = await apply_plan(plan, selected)
-    except Exception as e:
+    except Exception:
         logger.exception("config-assistant apply failed")
-        raise HTTPException(status_code=500, detail=f"apply failed: {e!s}")
+        raise HTTPException(
+            status_code=500,
+            detail="No se pudo aplicar la configuración. Revisa los datos e intenta de nuevo.",
+        )
     # Once applied, drop the plan from cache to prevent reuse.
     _PLAN_CACHE.pop(body.plan_token, None)
     return outcome

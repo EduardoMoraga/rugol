@@ -218,6 +218,7 @@ async def screen_cvs(id_or_slug: str, body: ScreenBody) -> dict:
     """Fuente de CVs: dispara al agente screener sobre una carpeta para esta
     búsqueda. El agente lee cada CV, lo evalúa contra la job description y
     registra a los candidatos en el pipeline ligados a la búsqueda."""
+    from pathlib import Path as _Path
     from core.runner.orchestrator import RunRequest, get_orchestrator
     async with async_session_factory() as session:
         p = await _resolve(session, id_or_slug)
@@ -226,6 +227,18 @@ async def screen_cvs(id_or_slug: str, body: ScreenBody) -> dict:
         folder = (body.folder or getattr(p, "cv_folder", "") or "").strip()
         if not folder:
             raise HTTPException(status_code=400, detail="Conecta una carpeta de CVs a esta búsqueda primero.")
+        # Validar que la carpeta exista en disco ANTES de gastar una corrida del agente.
+        _fp = _Path(folder).expanduser()
+        if not _fp.exists():
+            raise HTTPException(status_code=400, detail=f"La carpeta «{folder}» no existe. Revisa la ruta en Fuente de CVs.")
+        if not _fp.is_dir():
+            raise HTTPException(status_code=400, detail=f"«{folder}» no es una carpeta. Conecta una carpeta con los CVs.")
+        try:
+            _has_files = any(_fp.iterdir())
+        except PermissionError:
+            raise HTTPException(status_code=400, detail=f"No tengo permiso para leer la carpeta «{folder}».")
+        if not _has_files:
+            raise HTTPException(status_code=400, detail=f"La carpeta «{folder}» está vacía. Agrega los CVs y vuelve a intentar.")
         jd = (getattr(p, "job_description", "") or p.mission or p.description or p.name).strip()
         slug, name = p.slug, p.name
     prompt = (

@@ -5,7 +5,10 @@
 .env.*-bak
 *.key
 *.pem
+*.secret
 secrets/
+connectors/
+data/connectors/
 
 # Python
 __pycache__/

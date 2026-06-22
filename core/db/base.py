@@ -58,15 +58,36 @@ async def init_db() -> None:
             ("runs", "classifier_rationale", "TEXT"),
             # Soul-3 (ADR-008): which system-prompt version ran.
             ("runs", "agent_version_id", "TEXT"),
+            # HRO: una búsqueda es una posición a cubrir (descripción de cargo +
+            # carpeta de CVs).
+            ("projects", "job_description", "TEXT"),
+            ("projects", "cv_folder", "TEXT"),
+            # HRO voz: id de conversación indexado para idempotencia O(1) de la
+            # sync de entrevistas (antes vivía en data JSON → scan O(N)).
+            ("pipeline_items", "conversation_id", "VARCHAR(64)"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:
-            return {c["name"] for c in inspect(sync_conn).get_columns(table)}
+            try:
+                return {c["name"] for c in inspect(sync_conn).get_columns(table)}
+            except Exception:
+                return set()  # tabla aún no existe (create_all la creará completa)
 
         for table, column, ddl in nullable_additions:
             cols = await conn.run_sync(_existing, table)
-            if column not in cols:
+            if cols and column not in cols:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}"))
+
+        # Backfill conversation_id desde data JSON (SQLite) para no reprocesar
+        # entrevistas ya cargadas tras añadir la columna. Idempotente.
+        if _settings.DATABASE_URL.startswith("sqlite"):
+            try:
+                await conn.execute(text(
+                    "UPDATE pipeline_items SET conversation_id = json_extract(data, '$.conversation_id') "
+                    "WHERE conversation_id IS NULL AND json_extract(data, '$.conversation_id') IS NOT NULL"
+                ))
+            except Exception:
+                pass  # json_extract no disponible o tabla vacía → no es crítico
 
     # ADR-005 backfill: ensure a Workspace project exists and that every
     # orphan agent belongs to it. Idempotent — safe to run on every boot.

@@ -50,13 +50,23 @@ type Confidence = "alta" | "media" | "baja";
 interface Competency {
   name: string;
   score: number | null; // 1-5 o null
-  evidence?: string | null;
+  evidence?: string | string[] | null; // el scorer puede mandar lista de citas
 }
 interface InterviewReport {
   competencies?: Competency[];
   verdict?: Verdict | string;
   confidence?: Confidence | string;
+  summary?: string;
   risks?: string[];
+}
+
+const KNOWN_VERDICTS = ["avanzar", "dudoso", "descartar"];
+const KNOWN_CONFIDENCE = ["alta", "media", "baja"];
+
+// Evidencia robusta: lista de citas → texto; string → tal cual.
+function evidenceText(ev: string | string[] | null | undefined): string {
+  if (Array.isArray(ev)) return ev.map((x) => String(x).trim()).filter(Boolean).join("\n");
+  return (ev ?? "").toString().trim();
 }
 
 function getInterview(item: PipelineItem): InterviewReport | null {
@@ -251,14 +261,18 @@ function InterviewCard({ item, report }: { item: PipelineItem; report: Interview
   const competencies = report.competencies ?? [];
   const risks = report.risks ?? [];
   const notes = item.notes ?? [];
-  const verdict = report.verdict as Verdict | undefined;
-  const confidence = report.confidence as Confidence | undefined;
+
+  // Robustez: el veredicto debe ser un enum conocido; si llega una frase (data
+  // vieja), la tratamos como resumen y no rompemos el layout ni mostramos la key.
+  const verdictRaw = (report.verdict ?? "").toString();
+  const verdict = KNOWN_VERDICTS.includes(verdictRaw) ? (verdictRaw as Verdict) : undefined;
+  const confRaw = (report.confidence ?? "").toString();
+  const confidence = KNOWN_CONFIDENCE.includes(confRaw) ? (confRaw as Confidence) : undefined;
 
   const verdictLabel = verdict ? t(`interviews.verdict.${verdict}`) : null;
   const tone = verdict && verdict in verdictTone ? verdictTone[verdict] : "idle";
-  const confidenceLabel = confidence
-    ? t(`interviews.confidence.${confidence}`)
-    : null;
+  const confidenceLabel = confidence ? t(`interviews.confidence.${confidence}`) : null;
+  const summary = (report.summary || (!verdict ? verdictRaw : "")).trim();
 
   return (
     <Card className="space-y-4">
@@ -287,6 +301,11 @@ function InterviewCard({ item, report }: { item: PipelineItem; report: Interview
           )}
         </div>
       </div>
+
+      {/* Resumen del veredicto (frase del scorer), como texto legible */}
+      {summary && (
+        <p className="text-[13px] leading-relaxed text-[--color-fg-muted]">{summary}</p>
+      )}
 
       {/* Las 6 competencias con score y evidencia (preview) */}
       {competencies.length > 0 && (
@@ -372,7 +391,8 @@ function CompetencyRow({
   expanded: boolean;
 }) {
   const { t, locale } = useI18n();
-  const { name, score, evidence } = competency;
+  const { name, score } = competency;
+  const evidence = evidenceText(competency.evidence);
   const hasScore = typeof score === "number";
 
   return (

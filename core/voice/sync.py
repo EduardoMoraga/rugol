@@ -59,6 +59,31 @@ def _overall_to_score(overall: int | float | None) -> int | None:
     return 5
 
 
+# El scorer recomienda con este enum; el dashboard muestra veredicto/confianza
+# con sus propios enums. Mapeamos para que la UI no reciba frases crudas (lo que
+# rompía el layout y dejaba "interviews.verdict.<frase>" como key-leak).
+_VERDICT_BY_RECO: dict[str, str] = {
+    "RECOMENDADO": "avanzar",
+    "CONSIDERAR": "dudoso",
+    "REVISAR_HUMANO": "dudoso",
+    "NO_RECOMENDADO": "descartar",
+}
+_CONFIDENCE_BY_RECO: dict[str, str] = {
+    "RECOMENDADO": "alta",
+    "NO_RECOMENDADO": "alta",
+    "CONSIDERAR": "media",
+    "REVISAR_HUMANO": "baja",
+}
+
+
+def _evidence_to_text(ev) -> str:
+    """La evidencia del scorer puede venir como lista de citas; la unimos en
+    texto legible (antes se renderizaba como array → 'productolos procesadores')."""
+    if isinstance(ev, list):
+        return "\n".join(str(x).strip() for x in ev if str(x).strip())
+    return str(ev or "").strip()
+
+
 def _build_interview_data(scorecard: dict) -> dict:
     """Extrae el bloque `interview` compacto que queda en data del pipeline."""
     scores = scorecard.get("scores") or {}
@@ -66,17 +91,18 @@ def _build_interview_data(scorecard: dict) -> dict:
         {
             "name": c.get("competencia") or c.get("competencia_id"),
             "score": c.get("score_bars"),
-            "evidence": c.get("evidencia") or [],
+            "evidence": _evidence_to_text(c.get("evidencia")),
             "no_observada": c.get("no_observada", False),
         }
         for c in (scores.get("por_competencia") or [])
     ]
     overall = scores.get("overall")
-    reco = scorecard.get("recommendation")
+    reco = (scorecard.get("recommendation") or "REVISAR_HUMANO").upper()
     return {
         "competencies": competencies,
-        "verdict": scorecard.get("recommendation_summary") or "",
-        "confidence": reco,
+        "verdict": _VERDICT_BY_RECO.get(reco, "dudoso"),
+        "confidence": _CONFIDENCE_BY_RECO.get(reco, "media"),
+        "summary": scorecard.get("recommendation_summary") or "",
         "overall": overall,
         "recommendation": reco,
         "red_flags": scorecard.get("red_flags") or [],

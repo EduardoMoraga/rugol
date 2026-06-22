@@ -62,6 +62,77 @@ async def list_pipeline(kind: str | None = None, project: str | None = None, q: 
     return items
 
 
+def _rank_score(item: dict) -> float:
+    """Puntaje compuesto para recomendar: prioriza la entrevista (BARS 0-100),
+    cae al score de screening (1-5→0-100), y ajusta por veredicto."""
+    data = item.get("data") or {}
+    interview = data.get("interview") or {}
+    overall = interview.get("overall")
+    base = 0.0
+    if isinstance(overall, (int, float)):
+        base = float(overall)
+    elif isinstance(item.get("score"), int):
+        base = float(item["score"]) * 20.0
+    verdict = interview.get("verdict")
+    if verdict == "avanzar":
+        base += 8
+    elif verdict == "descartar":
+        base -= 15
+    return base
+
+
+def _why(item: dict) -> str:
+    """Una línea de por qué se recomienda (para que la reclutadora decida)."""
+    data = item.get("data") or {}
+    interview = data.get("interview") or {}
+    parts: list[str] = []
+    overall = interview.get("overall")
+    verdict = interview.get("verdict")
+    if isinstance(overall, (int, float)):
+        v = f" ({verdict})" if verdict else ""
+        parts.append(f"Entrevista {int(overall)}/100{v}")
+    elif item.get("score"):
+        parts.append(f"Screening {item['score']}/5")
+    elif item.get("stage"):
+        parts.append(item["stage"])
+    strengths = data.get("strengths") or data.get("fortalezas") or []
+    if isinstance(strengths, list) and strengths:
+        parts.append(", ".join(str(x) for x in strengths[:2]))
+    return " · ".join(parts)
+
+
+@router.get("/pipeline/recommend")
+async def recommend_candidates(
+    q: str | None = None, project: str | None = None, limit: int = 5
+) -> list[dict]:
+    """Banco de talento: recomienda candidatos del pipeline para una posición.
+    Rankea por última entrevista (BARS) + score de screening. `q` busca en
+    nombre/subtítulo/fortalezas/notas (sirve incluso para búsquedas de otros
+    proyectos: reaprovecha candidatos calificados)."""
+    async with async_session_factory() as s:
+        query = select(PipelineItem).where(PipelineItem.kind == "candidate")
+        if project:
+            query = query.where(PipelineItem.project_slug == project)
+        rows = (await s.execute(query)).scalars().all()
+    items = [_ser(r) for r in rows]
+
+    if q:
+        ql = q.strip().lower()
+
+        def _matches(i: dict) -> bool:
+            hay = " ".join([
+                i.get("title") or "",
+                i.get("subtitle") or "",
+                " ".join(str(x) for x in ((i.get("data") or {}).get("strengths") or (i.get("data") or {}).get("fortalezas") or [])),
+                " ".join(str(n.get("text", "")) for n in (i.get("notes") or [])),
+            ]).lower()
+            return ql in hay
+        items = [i for i in items if _matches(i)]
+
+    ranked = sorted(items, key=_rank_score, reverse=True)[: max(1, min(limit, 50))]
+    return [{**i, "rank_score": round(_rank_score(i), 1), "why": _why(i)} for i in ranked]
+
+
 class CreateBody(BaseModel):
     kind: str
     title: str

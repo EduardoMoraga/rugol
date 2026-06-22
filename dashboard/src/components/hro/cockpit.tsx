@@ -52,6 +52,7 @@ import { cn } from "@/lib/cn";
 import { AgentChat } from "@/components/agents/agent-chat";
 import { CvSourcesManager } from "@/components/hro/cv-sources";
 import { OnboardingWizard } from "@/components/hro/onboarding-wizard";
+import { TalentSearch } from "@/components/hro/talent-search";
 import { Database } from "lucide-react";
 
 // Landing externa de la entrevista de voz (Sofía). Se comparte con el candidato.
@@ -277,6 +278,9 @@ export function HroCockpit() {
           />
         </div>
       </section>
+
+      {/* ---- Banco de talento (buscador interno / recomendación) ---- */}
+      <TalentSearch />
 
       {/* ---- Fuentes de CV ---- */}
       <section className="space-y-4">

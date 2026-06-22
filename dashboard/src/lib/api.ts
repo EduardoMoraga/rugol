@@ -506,6 +506,21 @@ export const fetchPipeline = (
 };
 export const fetchPipelineStages = (kind: PipelineKind) =>
   get<PipelineStages>(`/api/pipeline/stages?kind=${kind}`);
+
+// Banco de talento: recomienda candidatos del pipeline para una posición.
+export interface RecommendedCandidate extends PipelineItem {
+  rank_score: number;
+  why: string;
+}
+export const recommendCandidates = (
+  q: string,
+  opts: { project?: string; limit?: number } = {},
+) => {
+  const params = new URLSearchParams({ q });
+  if (opts.project) params.set("project", opts.project);
+  if (opts.limit) params.set("limit", String(opts.limit));
+  return get<RecommendedCandidate[]>(`/api/pipeline/recommend?${params.toString()}`);
+};
 export const createPipelineItem = (body: PipelineCreate) =>
   post<PipelineItem>("/api/pipeline", body);
 export const updatePipelineItem = async (

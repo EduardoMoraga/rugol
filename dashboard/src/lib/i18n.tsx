@@ -424,6 +424,16 @@ const ES: Dict = {
   "cand.minTurns": "Responde al menos un par de preguntas antes de terminar.",
   "cand.poweredBy": "Entrevista asistida por IA · Rugol HRO",
 
+  // ---- Banco de talento (buscador interno / recomendación) ----
+  "talent.title": "Banco de talento",
+  "talent.subtitle": "Busca candidatos de tu pipeline para una posición — sirve también para vacantes que recién surgen.",
+  "talent.placeholder": "Ej: promotor retail con experiencia en terreno",
+  "talent.search": "Buscar",
+  "talent.searching": "Buscando…",
+  "talent.empty": "Sin coincidencias. Prueba con otras palabras o entrevista a más candidatos.",
+  "talent.error": "No se pudo buscar",
+  "talent.results": "Mejores candidatos",
+
   // ---- Memory graph ----
   "memgraph.title": "Red de memoria",
   "memgraph.desc":
@@ -1168,6 +1178,16 @@ const EN: Dict = {
   "cand.thanksBody": "Your interview has been recorded. The hiring team will review it and get in touch. You can close this window now.",
   "cand.minTurns": "Please answer at least a couple of questions before finishing.",
   "cand.poweredBy": "AI-assisted interview · Rugol HRO",
+
+  // ---- Talent pool (internal search / recommendation) ----
+  "talent.title": "Talent pool",
+  "talent.subtitle": "Find candidates from your pipeline for a position — also useful for openings that just came up.",
+  "talent.placeholder": "e.g. retail promoter with field experience",
+  "talent.search": "Search",
+  "talent.searching": "Searching…",
+  "talent.empty": "No matches. Try other words or interview more candidates.",
+  "talent.error": "Couldn't search",
+  "talent.results": "Top candidates",
 
   // ---- Memory graph ----
   "memgraph.title": "Memory network",

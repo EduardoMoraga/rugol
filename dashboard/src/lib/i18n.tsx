@@ -637,7 +637,7 @@ const ES: Dict = {
     "Después de la respuesta, dispara un segundo run con Opus que la cuestiona.",
   "chat.placeholderBusy": "El agente está respondiendo… espera a que termine",
   "chat.placeholder": "Pídele algo a",
-  "chat.placeholderHint": "(Ctrl+Enter para enviar)",
+  "chat.placeholderHint": "(Enter envía · Shift+Enter salto de línea)",
   "chat.sessionContinues":
     "Cada mensaje continúa la sesión — el agente recuerda. Reinicia para empezar de cero.",
   "chat.firstMessage": "El primer mensaje crea una sesión nueva.",
@@ -1393,7 +1393,7 @@ const EN: Dict = {
     "After the reply, fires a second run with Opus that challenges it.",
   "chat.placeholderBusy": "The agent is replying… wait until it finishes",
   "chat.placeholder": "Ask",
-  "chat.placeholderHint": "(Ctrl+Enter to send)",
+  "chat.placeholderHint": "(Enter sends · Shift+Enter for a new line)",
   "chat.sessionContinues":
     "Every message continues the session — the agent remembers. Restart to start fresh.",
   "chat.firstMessage": "The first message creates a new session.",

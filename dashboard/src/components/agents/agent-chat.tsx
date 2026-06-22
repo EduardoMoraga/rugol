@@ -482,7 +482,8 @@ export function AgentChat({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              // Enter envía; Shift+Enter hace salto de línea (intuitivo).
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 submit(e as unknown as FormEvent);
               }

@@ -138,6 +138,9 @@ export function NavRail() {
     if (h.accent) { root.style.setProperty("--color-accent", h.accent); root.style.setProperty("--color-accent-soft", h.accent + "26"); }
     if (h.accent_strong) root.style.setProperty("--color-accent-strong", h.accent_strong);
   }, [health.data, brand]);
+  // La entrevista del candidato (/interview/<token>) es una experiencia limpia,
+  // sin la nav del programa — el candidato no debe ver el panel del reclutador.
+  if (path?.startsWith("/interview/")) return null;
   return (
     <nav className="w-60 shrink-0 border-r border-[--color-border] flex flex-col p-3 bg-gradient-to-b from-[--color-bg-elev] to-[--color-bg]">
       <Link href="/" className="px-3 py-3 mb-2 group block">

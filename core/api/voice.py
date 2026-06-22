@@ -19,6 +19,8 @@ from pydantic import BaseModel
 from core.config import get_settings
 from core.voice import elevenlabs
 from core.voice.sync import sync_interviews
+from core.voice.voice_scorer import score_transcript
+from core.voice.sync import _upsert_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -83,3 +85,102 @@ async def voice_sync(body: SyncBody | None = None) -> dict:
         "errors": len(result.get("errors") or []),
     }
     return result
+
+
+class Turn(BaseModel):
+    role: str   # "sofia" | "candidate" (el rol importa para el scorer)
+    text: str
+
+
+class ScoreTextBody(BaseModel):
+    title: str                       # nombre del candidato
+    subtitle: str | None = None      # rol / seniority
+    project_slug: str | None = None  # búsqueda a la que se liga
+    turns: list[Turn]
+
+
+@router.post("/score-text")
+async def score_text_interview(body: ScoreTextBody) -> dict:
+    """Entrevista in-app: puntúa una transcripción de TEXTO con el instrumento
+    BARS (misma metodología que Sofía por voz) y registra al candidato en el
+    pipeline. NO requiere ElevenLabs — Sofía vive dentro de la app.
+
+    El frontend conduce la conversación con el agente hro-sofia y, al cerrar,
+    manda los turnos aquí. Devuelve el item del pipeline y el resumen.
+    """
+    import uuid
+
+    name = (body.title or "").strip()
+    if not name:
+        raise HTTPException(400, "Falta el nombre del candidato.")
+    cand_turns = [t for t in body.turns if (t.role or "").lower().startswith("cand")]
+    if not cand_turns or sum(len(t.text.strip()) for t in cand_turns) < 40:
+        raise HTTPException(
+            400,
+            "La entrevista es muy corta para evaluar. Necesito al menos un par de respuestas del candidato.",
+        )
+
+    transcript = {
+        "candidate": {"name": name, "position": (body.subtitle or "").strip() or None},
+        "turns": [{"role": t.role, "text": t.text} for t in body.turns],
+        "date": dt.date.today().isoformat(),
+        "source": "in-app",
+    }
+    try:
+        scorecard = await score_transcript(transcript)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("voice: score-text falló")
+        raise HTTPException(
+            502,
+            "No se pudo evaluar la entrevista (el modelo no respondió). Revisa tu conexión/cuenta e intenta de nuevo.",
+        ) from e
+
+    conversation_id = f"inapp-{uuid.uuid4().hex[:12]}"
+    item_id = await _upsert_candidate(
+        conversation_id, transcript, scorecard, project_slug=body.project_slug
+    )
+    scores = scorecard.get("scores") or {}
+    return {
+        "ok": True,
+        "item_id": item_id,
+        "overall": scores.get("overall"),
+        "recommendation": scorecard.get("recommendation"),
+        "conversation_id": conversation_id,
+    }
+
+
+class InterviewTurnBody(BaseModel):
+    project_slug: str | None = None  # de qué búsqueda toma el perfil del cargo
+    turns: list[Turn] = []
+
+
+async def _job_description_for(slug: str | None) -> str:
+    if not slug:
+        return ""
+    from sqlalchemy import select
+    from core.db import async_session_factory
+    from core.db.models import Project
+    async with async_session_factory() as s:
+        p = (await s.execute(select(Project).where(Project.slug == slug))).scalar_one_or_none()
+        if p is None:
+            return ""
+        return (getattr(p, "job_description", "") or p.mission or p.description or "").strip()
+
+
+@router.post("/interview-turn")
+async def interview_turn(body: InterviewTurnBody) -> dict:
+    """Devuelve la siguiente intervención de Sofía (entrevista in-app por texto).
+    No puntúa ni registra: solo conduce la conversación, una pregunta por turno."""
+    from core.voice.interview import next_question
+
+    jd = await _job_description_for(body.project_slug)
+    turns = [{"role": t.role, "text": t.text} for t in body.turns]
+    try:
+        message = await next_question(jd, turns)
+    except Exception as e:  # noqa: BLE001
+        logger.exception("voice: interview-turn falló")
+        raise HTTPException(
+            502,
+            "Sofía no pudo responder (el modelo no contestó). Revisa tu cuenta de Anthropic e intenta de nuevo.",
+        ) from e
+    return {"message": message}

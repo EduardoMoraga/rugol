@@ -194,8 +194,17 @@ async def sync_interviews(limit: int | None = None) -> dict:
     }
 
 
-async def _upsert_candidate(conversation_id: str, transcript: dict, scorecard: dict) -> None:
-    """Crea (o actualiza) el PipelineItem candidato de esta entrevista."""
+async def _upsert_candidate(
+    conversation_id: str,
+    transcript: dict,
+    scorecard: dict,
+    project_slug: str | None = None,
+) -> int:
+    """Crea (o actualiza) el PipelineItem candidato de esta entrevista.
+
+    Si `project_slug` se entrega, liga el candidato a esa búsqueda. Devuelve el
+    id del PipelineItem creado o actualizado. Reusado por la sync de ElevenLabs
+    y por la entrevista in-app (POST /api/voice/score-text)."""
     cand = transcript.get("candidate") or {}
     scores = scorecard.get("scores") or {}
     overall = scores.get("overall")
@@ -238,18 +247,25 @@ async def _upsert_candidate(conversation_id: str, transcript: dict, scorecard: d
                 stage=stage,
                 score=score,
                 source_agent="hro-sofia",
+                project_slug=project_slug,
                 notes=[{"at": now, "agent": "hro-sofia", "text": note_text}],
                 data=data,
             )
             s.add(it)
+            await s.commit()
+            await s.refresh(it)
+            return it.id
         else:
             existing.title = name[:200]
             existing.subtitle = position
             existing.stage = stage
             existing.score = score
             existing.source_agent = "hro-sofia"
+            if project_slug:
+                existing.project_slug = project_slug
             existing.data = {**(existing.data or {}), **data}
             notes = list(existing.notes or [])
             notes.append({"at": now, "agent": "hro-sofia", "text": note_text})
             existing.notes = notes
-        await s.commit()
+            await s.commit()
+            return existing.id

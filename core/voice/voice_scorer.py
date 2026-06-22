@@ -271,3 +271,59 @@ async def score_transcript(transcript: dict) -> dict:
         ),
     }
     return scorecard
+
+
+# --- Texto libre reutilizable (entrevista in-app) ----------------------------
+# Mismo orden de intentos que el scorer, pero devuelve texto plano en vez de
+# JSON. Lo usa core/voice/interview.py para conducir la conversación de Sofía.
+
+async def _text_via_sdk(system: str, user: str) -> str:
+    from claude_agent_sdk import ClaudeAgentOptions, query
+
+    env = dict(os.environ)
+    env.pop("ANTHROPIC_API_KEY", None)
+    env.pop("ANTHROPIC_AUTH_TOKEN", None)
+    options = ClaudeAgentOptions(
+        system_prompt=system,
+        permission_mode="bypassPermissions",
+        setting_sources=["user"],
+        tools=[],
+        env=env,
+        max_turns=1,
+    )
+    parts: list[str] = []
+    async for message in query(prompt=user, options=options):
+        if type(message).__name__ == "AssistantMessage":
+            for block in getattr(message, "content", []) or []:
+                btype = getattr(block, "type", None) or type(block).__name__.lower()
+                if btype in {"text", "textblock"}:
+                    parts.append(getattr(block, "text", "") or "")
+    text = "".join(parts).strip()
+    if not text:
+        raise RuntimeError("claude-agent-sdk no devolvió texto")
+    return text
+
+
+def _text_via_api(api_key: str, system: str, user: str) -> str:
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    return next(b.text for b in response.content if getattr(b, "type", None) == "text").strip()
+
+
+async def complete_text(system: str, user: str) -> str:
+    """Una vuelta de texto libre. Suscripción (SDK) → API key → error claro."""
+    try:
+        return await _text_via_sdk(system, user)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("interview: SDK falló (%s) → API key", e)
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
+        return _text_via_api(api_key, system, user)
+    raise RuntimeError("No hay forma de generar texto: ni suscripción (~/.claude) ni ANTHROPIC_API_KEY.")

@@ -28,7 +28,6 @@ import {
   ChevronRight,
   AlertTriangle,
   RefreshCw,
-  ExternalLink,
 } from "lucide-react";
 import {
   fetchHealth,
@@ -43,19 +42,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
-
-// Landing externa de la entrevista de voz (Sofía). Se abre en el navegador del
-// sistema vía el puente Electron si existe; si no, en una pestaña nueva. No se
-// embebe el widget — abrir la landing evita problemas de CSP.
-const VOICE_LANDING_URL = "https://hro-entrevista.vercel.app/";
-function openVoiceLanding() {
-  if (typeof window === "undefined") return;
-  if (window.rugol?.openExternal) {
-    window.rugol.openExternal(VOICE_LANDING_URL);
-  } else {
-    window.open(VOICE_LANDING_URL, "_blank", "noopener,noreferrer");
-  }
-}
+import { InterviewConsole } from "@/components/hro/interview-console";
 
 // --- Forma del informe de Sofía (cast suave: data es Record<string, unknown>) ---
 type Verdict = "avanzar" | "dudoso" | "descartar";
@@ -191,13 +178,7 @@ function InterviewsBoard() {
                 {interviews.length} {t("interviews.count")}
               </span>
             )}
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={openVoiceLanding}
-            >
-              <ExternalLink size={13} /> {t("voice.launch")}
-            </Button>
+            <InterviewConsole />
             <Button
               variant="primary"
               size="sm"

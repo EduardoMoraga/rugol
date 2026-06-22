@@ -866,6 +866,60 @@ export interface VoiceSyncResult {
 
 export const fetchVoiceStatus = () => get<VoiceStatus>("/api/voice/status");
 
+// ---- Entrevista in-app de Sofía (texto) — no requiere ElevenLabs ----
+export interface InterviewTurnInput {
+  role: "sofia" | "candidate";
+  text: string;
+}
+
+// Sofía hace su siguiente pregunta. LLM detrás → puede tardar; sin abortar.
+export const interviewTurn = async (
+  project_slug: string | null,
+  turns: InterviewTurnInput[],
+): Promise<{ message: string }> => {
+  let r: Response;
+  try {
+    r = await fetch("/api/voice/interview-turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_slug, turns }),
+    });
+  } catch {
+    throw networkErrorMessage();
+  }
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
+};
+
+export interface ScoreTextResult {
+  ok: boolean;
+  item_id: number;
+  overall: number | null;
+  recommendation: string | null;
+  conversation_id: string;
+}
+
+// Cierra la entrevista: puntúa BARS y registra al candidato en el pipeline.
+export const scoreTextInterview = async (input: {
+  title: string;
+  subtitle?: string | null;
+  project_slug?: string | null;
+  turns: InterviewTurnInput[];
+}): Promise<ScoreTextResult> => {
+  let r: Response;
+  try {
+    r = await fetch("/api/voice/score-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw networkErrorMessage();
+  }
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
+};
+
 // La sincronización puede tardar 30-60s POR entrevista. No usamos el helper
 // `post` (que va sin timeout explícito pero hereda el del navegador): hacemos
 // el fetch directo para que el proxy de Next (proxyTimeout 240s) tenga margen

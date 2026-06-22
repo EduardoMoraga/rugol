@@ -65,6 +65,9 @@ async def init_db() -> None:
             # HRO voz: id de conversación indexado para idempotencia O(1) de la
             # sync de entrevistas (antes vivía en data JSON → scan O(N)).
             ("pipeline_items", "conversation_id", "VARCHAR(64)"),
+            # HRO: perfil de entrevista por búsqueda + por link de entrevista.
+            ("projects", "interview_profile", "VARCHAR(40) DEFAULT 'general'"),
+            ("interview_links", "profile", "VARCHAR(40)"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

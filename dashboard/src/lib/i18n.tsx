@@ -249,6 +249,8 @@ const ES: Dict = {
   "interviews.live.linkCopied": "Link copiado",
   "interviews.live.linkError": "No se pudo generar el link",
   "interviews.live.candidateHint": "El candidato toma la entrevista por su cuenta (preclasificación ex-ante).",
+  "interviews.live.profile": "Perfil de entrevista",
+  "interviews.live.profileHint": "Sofía adapta las preguntas al tipo de cargo",
 
   // ---- Voz Sofía (ElevenLabs) ----
   "voice.sync": "Sincronizar con ElevenLabs",
@@ -1008,6 +1010,8 @@ const EN: Dict = {
   "interviews.live.linkCopied": "Link copied",
   "interviews.live.linkError": "Couldn't generate the link",
   "interviews.live.candidateHint": "The candidate takes the interview on their own (ex-ante pre-screening).",
+  "interviews.live.profile": "Interview profile",
+  "interviews.live.profileHint": "Sofía adapts the questions to the role type",
 
   // ---- Voice Sofía (ElevenLabs) ----
   "voice.sync": "Sync with ElevenLabs",

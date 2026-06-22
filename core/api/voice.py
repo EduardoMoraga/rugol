@@ -174,19 +174,33 @@ async def score_text_interview(body: ScoreTextBody) -> dict:
 class InterviewTurnBody(BaseModel):
     project_slug: str | None = None  # de qué búsqueda toma el perfil del cargo
     turns: list[Turn] = []
+    profile: str | None = None       # perfil de entrevista (promotor, etc.)
 
 
-async def _job_description_for(slug: str | None) -> str:
+async def _project_jd_profile(slug: str | None) -> tuple[str, str | None]:
+    """Devuelve (job_description, interview_profile) de la búsqueda."""
     if not slug:
-        return ""
+        return "", None
     from sqlalchemy import select
     from core.db import async_session_factory
     from core.db.models import Project
     async with async_session_factory() as s:
         p = (await s.execute(select(Project).where(Project.slug == slug))).scalar_one_or_none()
         if p is None:
-            return ""
-        return (getattr(p, "job_description", "") or p.mission or p.description or "").strip()
+            return "", None
+        jd = (getattr(p, "job_description", "") or p.mission or p.description or "").strip()
+        return jd, getattr(p, "interview_profile", None)
+
+
+async def _job_description_for(slug: str | None) -> str:
+    jd, _ = await _project_jd_profile(slug)
+    return jd
+
+
+@router.get("/profiles")
+async def voice_profiles() -> dict:
+    from core.voice.profiles import list_profiles
+    return {"profiles": list_profiles()}
 
 
 @router.post("/interview-turn")
@@ -195,10 +209,11 @@ async def interview_turn(body: InterviewTurnBody) -> dict:
     No puntúa ni registra: solo conduce la conversación, una pregunta por turno."""
     from core.voice.interview import next_question
 
-    jd = await _job_description_for(body.project_slug)
+    jd, proj_profile = await _project_jd_profile(body.project_slug)
+    profile = body.profile or proj_profile  # explícito > el de la búsqueda
     turns = [{"role": t.role, "text": t.text} for t in body.turns]
     try:
-        message = await next_question(jd, turns)
+        message = await next_question(jd, turns, profile)
     except Exception as e:  # noqa: BLE001
         logger.exception("voice: interview-turn falló")
         raise HTTPException(
@@ -213,6 +228,7 @@ async def interview_turn(body: InterviewTurnBody) -> dict:
 class InterviewLinkBody(BaseModel):
     project_slug: str | None = None
     candidate_name: str | None = None
+    profile: str | None = None
 
 
 @router.post("/interview-link")
@@ -222,13 +238,17 @@ async def create_interview_link(body: InterviewLinkBody) -> dict:
     import uuid as _uuid
     from core.db import async_session_factory
     from core.db.models import InterviewLink
+    from core.voice.profiles import profile_id
 
+    _, proj_profile = await _project_jd_profile(body.project_slug)
+    profile = profile_id(body.profile or proj_profile)
     token = _uuid.uuid4().hex[:16]
     async with async_session_factory() as s:
         link = InterviewLink(
             token=token,
             project_slug=body.project_slug,
             candidate_name=(body.candidate_name or "").strip() or None,
+            profile=profile,
         )
         s.add(link)
         await s.commit()
@@ -237,6 +257,7 @@ async def create_interview_link(body: InterviewLinkBody) -> dict:
         "path": f"/interview/{token}",
         "project_slug": body.project_slug,
         "candidate_name": body.candidate_name,
+        "profile": profile,
     }
 
 
@@ -251,11 +272,12 @@ async def get_interview_link(token: str) -> dict:
         link = (await s.execute(select(InterviewLink).where(InterviewLink.token == token))).scalar_one_or_none()
         if link is None:
             raise HTTPException(404, "Link de entrevista no encontrado o expirado.")
-        jd = await _job_description_for(link.project_slug)
+        jd, proj_profile = await _project_jd_profile(link.project_slug)
         return {
             "found": True,
             "project_slug": link.project_slug,
             "candidate_name": link.candidate_name,
+            "profile": getattr(link, "profile", None) or proj_profile or "general",
             "job_description": jd,
             "used": link.used,
         }

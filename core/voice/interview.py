@@ -29,7 +29,9 @@ def _competency_names() -> list[str]:
     return out
 
 
-def _system_prompt(job_description: str) -> str:
+def _system_prompt(job_description: str, profile: str | None = None) -> str:
+    from core.voice.profiles import get_profile
+
     comps = _competency_names()
     comp_block = (
         "Competencias a explorar (usa el método STAR para sacar ejemplos reales):\n- "
@@ -39,10 +41,20 @@ def _system_prompt(job_description: str) -> str:
     )
     jd = (job_description or "").strip()
     jd_block = f"\n\nPerfil del cargo para esta búsqueda:\n{jd}" if jd else ""
+
+    prof = get_profile(profile)
+    prof_block = (
+        f"\n\nPERFIL A ENTREVISTAR: {prof['label']}.\n"
+        f"Foco de este perfil: {prof['focus']}\n"
+        "Preguntas guía (adáptalas, no las leas literal; profundiza con repreguntas):\n- "
+        + "\n- ".join(prof["questions"])
+    )
     return (
-        "Eres Sofía, entrevistadora del equipo de selección. Conduces una entrevista "
-        "estructurada por competencias: cálida, profesional y rigurosa. Hablas en "
-        "español neutro latino (NO uses voseo argentino: di 'tú', 'cuéntame', 'dame un ejemplo').\n\n"
+        "Eres Sofía, entrevistadora del equipo de selección en CHILE. Conduces una entrevista "
+        "estructurada por competencias: cálida, profesional y rigurosa.\n"
+        "REGISTRO: español de Chile, neutro y profesional. Usa 'tú' ('cuéntame', 'dame un ejemplo', "
+        "'¿cómo lo hiciste?'). NUNCA uses voseo argentino ('contame', 'tenés', 'vos'). Un tono cercano "
+        "y respetuoso, chileno natural pero formal — nada de modismos excesivos ni garabatos.\n\n"
         "Reglas de la entrevista:\n"
         "- Haz UNA sola pregunta por intervención. Nada de listas de preguntas.\n"
         "- Busca ejemplos concretos y reales (Situación, Tarea, Acción, Resultado).\n"
@@ -52,6 +64,7 @@ def _system_prompt(job_description: str) -> str:
         "- Si la respuesta fue vaga, repregunta pidiendo el ejemplo concreto antes de avanzar.\n"
         "- Mantén tus intervenciones breves (1-3 oraciones).\n\n"
         + comp_block
+        + prof_block
         + jd_block
         + "\n\nDevuelve ÚNICAMENTE tu siguiente intervención como Sofía (texto plano, "
         "sin prefijos como 'Sofía:'). Si todavía no empezó la entrevista, preséntate en una "
@@ -71,9 +84,9 @@ def _format_turns(turns: list[dict], max_turns: int = 40) -> str:
     return "\n".join(lines)
 
 
-async def next_question(job_description: str, turns: list[dict]) -> str:
+async def next_question(job_description: str, turns: list[dict], profile: str | None = None) -> str:
     """Devuelve la siguiente intervención de Sofía dada la conversación hasta ahora."""
-    system = _system_prompt(job_description)
+    system = _system_prompt(job_description, profile)
     convo = _format_turns(turns)
     if not convo:
         user = "Empieza la entrevista: preséntate en una línea y haz tu primera pregunta."

@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, User, Send, ClipboardCheck, MessageSquarePlus, Link2, Copy } from "lucide-react";
 import {
   fetchProjects,
+  fetchVoiceProfiles,
   interviewTurn,
   scoreTextInterview,
   createInterviewLink,
@@ -38,8 +39,10 @@ export function InterviewConsole() {
   const [turns, setTurns] = useState<InterviewTurnInput[]>([]);
   const [draft, setDraft] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
+  const [profile, setProfile] = useState("general");
 
   const projects = useQuery({ queryKey: ["projects"], queryFn: () => fetchProjects(), enabled: open });
+  const profilesQ = useQuery({ queryKey: ["voice-profiles"], queryFn: fetchVoiceProfiles, enabled: open });
   const scrollRef = useRef<HTMLDivElement>(null);
 
   function reset() {
@@ -50,11 +53,12 @@ export function InterviewConsole() {
     setRole("");
     setSlug("");
     setLinkUrl("");
+    setProfile("general");
   }
 
   // Modo ex-ante: genera un link que toma el CANDIDATO.
   const genLink = useMutation({
-    mutationFn: () => createInterviewLink({ project_slug: slug || null, candidate_name: name.trim() || null }),
+    mutationFn: () => createInterviewLink({ project_slug: slug || null, candidate_name: name.trim() || null, profile }),
     onSuccess: (res) => {
       const url = `${window.location.origin}${res.path}`;
       setLinkUrl(url);
@@ -73,7 +77,7 @@ export function InterviewConsole() {
 
   // Una vuelta de Sofía: manda los turnos y agrega su respuesta.
   const ask = useMutation({
-    mutationFn: (current: InterviewTurnInput[]) => interviewTurn(slug || null, current),
+    mutationFn: (current: InterviewTurnInput[]) => interviewTurn(slug || null, current, profile),
     onSuccess: (res) => {
       setTurns((prev) => [...prev, { role: "sofia", text: res.message }]);
     },
@@ -159,6 +163,16 @@ export function InterviewConsole() {
                 {(projects.data ?? []).map((p) => (
                   <option key={p.slug} value={p.slug}>
                     {p.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel hint={t("interviews.live.profileHint")}>{t("interviews.live.profile")}</FieldLabel>
+              <Select value={profile} onChange={(e) => setProfile(e.target.value)}>
+                {(profilesQ.data?.profiles ?? [{ id: "general", label: "General" }]).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
                   </option>
                 ))}
               </Select>

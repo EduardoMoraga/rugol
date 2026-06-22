@@ -32,6 +32,7 @@ class ProjectDTO(BaseModel):
     mission: str
     job_description: str = ""
     cv_folder: str = ""
+    interview_profile: str = "general"
     color: str
     icon: str
     status: str
@@ -55,6 +56,7 @@ class ProjectCreate(BaseModel):
     mission: str = ""
     job_description: str = ""
     cv_folder: str = ""
+    interview_profile: str = "general"
     color: str = "#7280a8"
     icon: str = "briefcase"
 
@@ -65,6 +67,7 @@ class ProjectUpdate(BaseModel):
     mission: str | None = None
     job_description: str | None = None
     cv_folder: str | None = None
+    interview_profile: str | None = None
     color: str | None = None
     icon: str | None = None
     status: str | None = None
@@ -92,6 +95,7 @@ def _to_dto(p: Project, agent_count: int, runs_24h: int, cost_24h: float) -> Pro
         mission=p.mission,
         job_description=getattr(p, "job_description", "") or "",
         cv_folder=getattr(p, "cv_folder", "") or "",
+        interview_profile=getattr(p, "interview_profile", "general") or "general",
         color=p.color,
         icon=p.icon,
         status=p.status,
@@ -161,6 +165,7 @@ async def create_project(body: ProjectCreate) -> ProjectDTO:
             mission=body.mission.strip(),
             job_description=body.job_description.strip(),
             cv_folder=body.cv_folder.strip(),
+            interview_profile=(body.interview_profile or "general").strip() or "general",
             color=body.color.strip() or "#7280a8",
             icon=body.icon.strip() or "briefcase",
         )
@@ -197,6 +202,8 @@ async def update_project(id_or_slug: str, body: ProjectUpdate) -> ProjectDTO:
             p.job_description = body.job_description.strip()
         if body.cv_folder is not None:
             p.cv_folder = body.cv_folder.strip()
+        if body.interview_profile is not None:
+            p.interview_profile = body.interview_profile.strip() or "general"
         if body.color is not None:
             p.color = body.color.strip() or p.color
         if body.icon is not None:

@@ -53,9 +53,10 @@ export default function CandidateInterviewPage() {
   }, [turns]);
 
   const slug = linkQ.data?.project_slug ?? null;
+  const profile = linkQ.data?.profile ?? null;
 
   const ask = useMutation({
-    mutationFn: (current: InterviewTurnInput[]) => interviewTurn(slug, current),
+    mutationFn: (current: InterviewTurnInput[]) => interviewTurn(slug, current, profile),
     onSuccess: (res) => setTurns((prev) => [...prev, { role: "sofia", text: res.message }]),
   });
 

@@ -27,6 +27,7 @@ import {
   fetchProject,
   fetchProjectAgents,
   fetchProjectRuns,
+  fetchVoiceProfiles,
   removeProjectLesson,
   screenCvs,
   updateProject,
@@ -671,11 +672,13 @@ function EditProjectDialog({
   const { t } = useI18n();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const profilesQ = useQuery({ queryKey: ["voice-profiles"], queryFn: fetchVoiceProfiles, enabled: isHro && open });
   const [body, setBody] = useState<ProjectUpdate>({
     name: project.name,
     description: project.description,
     mission: project.mission,
     job_description: project.job_description ?? "",
+    interview_profile: project.interview_profile ?? "general",
     color: project.color,
     icon: project.icon,
   });
@@ -742,6 +745,19 @@ function EditProjectDialog({
                 rows={6}
                 placeholder={t("project.jobDescriptionPlaceholder")}
               />
+            </div>
+          )}
+          {isHro && (
+            <div className="space-y-1.5">
+              <FieldLabel hint={t("interviews.live.profileHint")}>{t("interviews.live.profile")}</FieldLabel>
+              <Select
+                value={body.interview_profile ?? "general"}
+                onChange={(e) => setBody({ ...body, interview_profile: e.target.value })}
+              >
+                {(profilesQ.data?.profiles ?? [{ id: "general", label: "General" }]).map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </Select>
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">

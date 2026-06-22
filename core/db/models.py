@@ -46,6 +46,9 @@ class Project(Base):
     job_description: Mapped[str] = mapped_column(Text, default="")
     # Carpeta de CVs conectada a esta búsqueda (fuente local que el screener lee).
     cv_folder: Mapped[str] = mapped_column(Text, default="")
+    # Perfil de entrevista de Sofía para esta búsqueda (promotor, merchandising,
+    # ejecutivo_comercial, telemarketing, general…). Adapta foco y preguntas.
+    interview_profile: Mapped[str] = mapped_column(String(40), default="general")
     color: Mapped[str] = mapped_column(String(16), default="#7280a8")
     icon: Mapped[str] = mapped_column(String(32), default="briefcase")
     status: Mapped[str] = mapped_column(String(16), default="active")  # active|archived
@@ -313,5 +316,6 @@ class InterviewLink(Base):
     token: Mapped[str] = mapped_column(String(40), unique=True, index=True)
     project_slug: Mapped[str | None] = mapped_column(String(80), default=None)
     candidate_name: Mapped[str | None] = mapped_column(String(200), default=None)
+    profile: Mapped[str | None] = mapped_column(String(40), default=None)
     used: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)

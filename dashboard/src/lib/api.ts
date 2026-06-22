@@ -17,6 +17,8 @@ export interface Project {
   job_description?: string;
   // Carpeta del sistema con los CVs a analizar (HRO). String simple (ruta).
   cv_folder?: string;
+  // Perfil de entrevista de Sofía para esta búsqueda (HRO).
+  interview_profile?: string;
   color: string;
   icon: string;
   status: "active" | "archived";
@@ -35,6 +37,7 @@ export interface ProjectCreate {
   mission?: string;
   job_description?: string;
   cv_folder?: string;
+  interview_profile?: string;
   color?: string;
   icon?: string;
 }
@@ -45,6 +48,7 @@ export interface ProjectUpdate {
   mission?: string;
   job_description?: string;
   cv_folder?: string;
+  interview_profile?: string;
   color?: string;
   icon?: string;
   status?: "active" | "archived";
@@ -922,17 +926,25 @@ export interface InterviewTurnInput {
   text: string;
 }
 
+export interface VoiceProfile {
+  id: string;
+  label: string;
+}
+export const fetchVoiceProfiles = () =>
+  get<{ profiles: VoiceProfile[] }>("/api/voice/profiles");
+
 // Sofía hace su siguiente pregunta. LLM detrás → puede tardar; sin abortar.
 export const interviewTurn = async (
   project_slug: string | null,
   turns: InterviewTurnInput[],
+  profile?: string | null,
 ): Promise<{ message: string }> => {
   let r: Response;
   try {
     r = await fetch("/api/voice/interview-turn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_slug, turns }),
+      body: JSON.stringify({ project_slug, turns, profile: profile ?? null }),
     });
   } catch {
     throw networkErrorMessage();
@@ -950,8 +962,12 @@ export interface ScoreTextResult {
 }
 
 // Crea un link de entrevista ex-ante (lo toma el candidato).
-export const createInterviewLink = (body: { project_slug?: string | null; candidate_name?: string | null }) =>
-  post<{ token: string; path: string; project_slug: string | null; candidate_name: string | null }>(
+export const createInterviewLink = (body: {
+  project_slug?: string | null;
+  candidate_name?: string | null;
+  profile?: string | null;
+}) =>
+  post<{ token: string; path: string; project_slug: string | null; candidate_name: string | null; profile: string }>(
     "/api/voice/interview-link",
     body,
   );
@@ -960,6 +976,7 @@ export interface InterviewLinkInfo {
   found: boolean;
   project_slug: string | null;
   candidate_name: string | null;
+  profile: string;
   job_description: string;
   used: boolean;
 }

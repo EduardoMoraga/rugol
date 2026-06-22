@@ -95,19 +95,58 @@ def _build_note(scorecard: dict, transcript: dict) -> str:
     return f"Entrevista de voz evaluada (BARS): {overall}/100 — {reco}{dur_txt}. {summary}".strip()
 
 
+_columns_ensured = False
+
+
+async def _ensure_pipeline_columns() -> None:
+    """Asegura la columna indexada `conversation_id` en pipeline_items (SQLite).
+
+    `create_all` no agrega columnas a tablas existentes, así que migramos en
+    caliente (idempotente) y backfilleamos desde el JSON `data` para que las
+    entrevistas ya cargadas no se reprocesen. Si algo falla, no rompe la sync:
+    el lookup cae al escaneo del JSON."""
+    global _columns_ensured
+    if _columns_ensured:
+        return
+    from sqlalchemy import text
+    try:
+        async with async_session_factory() as s:
+            rows = (await s.execute(text("PRAGMA table_info(pipeline_items)"))).all()
+            cols = {r[1] for r in rows}
+            if cols and "conversation_id" not in cols:
+                await s.execute(text("ALTER TABLE pipeline_items ADD COLUMN conversation_id VARCHAR(64)"))
+                # Backfill desde data.conversation_id para no reprocesar lo ya cargado.
+                await s.execute(text(
+                    "UPDATE pipeline_items SET conversation_id = json_extract(data, '$.conversation_id') "
+                    "WHERE conversation_id IS NULL AND json_extract(data, '$.conversation_id') IS NOT NULL"
+                ))
+                await s.commit()
+                logger.info("voice sync: columna conversation_id agregada + backfill a pipeline_items")
+    except Exception:  # noqa: BLE001
+        logger.exception("voice sync: no pude asegurar la columna conversation_id (sigo con scan JSON)")
+    _columns_ensured = True
+
+
 async def _existing_conversation_ids(session) -> set[str]:
-    """conversation_id ya presentes en el pipeline de candidatos."""
-    rows = (
-        await session.execute(
-            select(PipelineItem).where(PipelineItem.kind == "candidate")
-        )
-    ).scalars().all()
-    ids: set[str] = set()
-    for it in rows:
-        cid = (it.data or {}).get("conversation_id")
-        if cid:
-            ids.add(cid)
-    return ids
+    """conversation_id ya presentes en el pipeline de candidatos (O(1) por índice)."""
+    await _ensure_pipeline_columns()
+    try:
+        rows = (
+            await session.execute(
+                select(PipelineItem.conversation_id).where(
+                    PipelineItem.kind == "candidate",
+                    PipelineItem.conversation_id.is_not(None),
+                )
+            )
+        ).scalars().all()
+        return {c for c in rows if c}
+    except Exception:  # noqa: BLE001 — DB vieja sin la columna → fallback al scan
+        rows2 = (
+            await session.execute(
+                select(PipelineItem).where(PipelineItem.kind == "candidate")
+            )
+        ).scalars().all()
+        return {cid for it in rows2 if (cid := (it.data or {}).get("conversation_id"))}
 
 
 async def sync_interviews(limit: int | None = None) -> dict:
@@ -226,18 +265,27 @@ async def _upsert_candidate(
     note_text = _build_note(scorecard, transcript)
     now = dt.datetime.now(dt.UTC).isoformat()
 
+    await _ensure_pipeline_columns()
     async with async_session_factory() as s:
-        # Buscar por conversation_id (idempotencia). No hay índice JSON portable
-        # entre SQLite/PG, así que filtramos en Python sobre los candidatos.
-        rows = (
-            await s.execute(
-                select(PipelineItem).where(PipelineItem.kind == "candidate")
+        # Idempotencia O(1) por la columna indexada conversation_id; si la DB es
+        # vieja y no tiene la columna, cae al escaneo en Python.
+        try:
+            existing = (
+                await s.execute(
+                    select(PipelineItem).where(
+                        PipelineItem.kind == "candidate",
+                        PipelineItem.conversation_id == conversation_id,
+                    )
+                )
+            ).scalar_one_or_none()
+        except Exception:  # noqa: BLE001
+            rows = (
+                await s.execute(select(PipelineItem).where(PipelineItem.kind == "candidate"))
+            ).scalars().all()
+            existing = next(
+                (it for it in rows if (it.data or {}).get("conversation_id") == conversation_id),
+                None,
             )
-        ).scalars().all()
-        existing = next(
-            (it for it in rows if (it.data or {}).get("conversation_id") == conversation_id),
-            None,
-        )
 
         if existing is None:
             it = PipelineItem(
@@ -248,6 +296,7 @@ async def _upsert_candidate(
                 score=score,
                 source_agent="hro-sofia",
                 project_slug=project_slug,
+                conversation_id=conversation_id,
                 notes=[{"at": now, "agent": "hro-sofia", "text": note_text}],
                 data=data,
             )
@@ -261,6 +310,7 @@ async def _upsert_candidate(
             existing.stage = stage
             existing.score = score
             existing.source_agent = "hro-sofia"
+            existing.conversation_id = conversation_id
             if project_slug:
                 existing.project_slug = project_slug
             existing.data = {**(existing.data or {}), **data}

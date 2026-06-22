@@ -10,6 +10,7 @@ que a su vez caen a las variables de entorno del mismo nombre.
 """
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import logging
 
@@ -29,6 +30,10 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 # Memoria liviana de la última sync (no persiste entre reinicios; el estado
 # real de los candidatos vive en el pipeline).
 _LAST_SYNC: dict | None = None
+
+# Evita sincronizaciones concurrentes: el scoring BARS es caro (30-60s por
+# entrevista) y dos corridas en paralelo duplicarían trabajo y costo.
+_SYNC_LOCK = asyncio.Lock()
 
 
 def _creds() -> tuple[str, str]:
@@ -75,8 +80,11 @@ async def voice_sync(body: SyncBody | None = None) -> dict:
     api_key, agent_id = _creds()
     if not api_key or not agent_id:
         raise HTTPException(503, "ElevenLabs no configurado (falta ELEVENLABS_API_KEY/ELEVENLABS_AGENT_ID)")
+    if _SYNC_LOCK.locked():
+        raise HTTPException(429, "Ya hay una sincronización de entrevistas en curso. Espera a que termine.")
     limit = body.limit if body else None
-    result = await sync_interviews(limit=limit)
+    async with _SYNC_LOCK:
+        result = await sync_interviews(limit=limit)
     _LAST_SYNC = {
         "at": dt.datetime.now(dt.UTC).isoformat(),
         "processed": result.get("processed"),

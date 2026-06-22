@@ -569,6 +569,21 @@ const ES: Dict = {
   "settings.elevenlabs.notConfigured": "sin configurar",
   "settings.elevenlabs.saved": "Ajustes de voz guardados",
 
+  // ---- Settings · Telegram ----
+  "settings.telegram.title": "Telegram",
+  "settings.telegram.body":
+    "Pega el token de @BotFather y listo: el bot empieza a responder al instante. No necesita nada más — cualquiera que le escriba habla con tu asistente.",
+  "settings.telegram.connected": "conectado",
+  "settings.telegram.configuredNotRunning": "configurado · sin iniciar",
+  "settings.telegram.notConfigured": "sin configurar",
+  "settings.telegram.tokenLabel": "Token del bot",
+  "settings.telegram.tokenHintCurrent": "token actual {hint}",
+  "settings.telegram.tokenHintNone": "sin token guardado",
+  "settings.telegram.tokenPlaceholderSet":
+    "(déjalo en blanco para mantener el actual; escribe uno nuevo para reemplazar)",
+  "settings.telegram.save": "Guardar e iniciar",
+  "settings.telegram.saving": "Guardando…",
+
   // ---- Architect ----
   "architect.title": "Architect",
   "architect.description":
@@ -1189,6 +1204,21 @@ const EN: Dict = {
   "settings.elevenlabs.configured": "configured",
   "settings.elevenlabs.notConfigured": "not configured",
   "settings.elevenlabs.saved": "Voice settings saved",
+
+  // ---- Settings · Telegram ----
+  "settings.telegram.title": "Telegram",
+  "settings.telegram.body":
+    "Paste the token from @BotFather and you're set: the bot starts replying instantly. Nothing else needed — anyone who messages it talks to your assistant.",
+  "settings.telegram.connected": "connected",
+  "settings.telegram.configuredNotRunning": "configured · not running",
+  "settings.telegram.notConfigured": "not configured",
+  "settings.telegram.tokenLabel": "Bot token",
+  "settings.telegram.tokenHintCurrent": "current token {hint}",
+  "settings.telegram.tokenHintNone": "no token saved",
+  "settings.telegram.tokenPlaceholderSet":
+    "(leave blank to keep the current one; type a new one to replace)",
+  "settings.telegram.save": "Save & start",
+  "settings.telegram.saving": "Saving…",
 
   // ---- Architect ----
   "architect.title": "Architect",

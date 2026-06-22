@@ -291,7 +291,10 @@ class PipelineItem(Base):
     source_agent: Mapped[str | None] = mapped_column(String(64), default=None)
     # Búsqueda/posición a la que pertenece el candidato (slug del proyecto). HRO.
     project_slug: Mapped[str | None] = mapped_column(String(80), default=None, index=True)
+    # Id de la conversación de entrevista (ElevenLabs o in-app). Indexado para
+    # idempotencia O(1) en la sync de voz (antes se escaneaba data JSON O(N)).
+    conversation_id: Mapped[str | None] = mapped_column(String(64), default=None, index=True)
     notes: Mapped[list[Any]] = mapped_column(JSON, default=list)  # [{at, agent, text}]
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now, index=True)

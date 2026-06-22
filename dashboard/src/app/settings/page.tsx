@@ -147,6 +147,7 @@ function useUpdate(qc: ReturnType<typeof useQueryClient>, label: string) {
 }
 
 function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
+  const { t } = useI18n();
   const [token, setToken] = useState("");
   const update = useUpdate(qc, "Telegram");
 
@@ -162,15 +163,15 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
     <Card>
       <SectionHeader
         icon={<Send size={14} />}
-        title="Telegram"
-        body="Pega el token de @BotFather y listo: el bot empieza a responder al instante. No necesita nada más — cualquiera que le escriba habla con tu asistente."
+        title={t("settings.telegram.title")}
+        body={t("settings.telegram.body")}
         status={
           status.running ? (
-            <Badge tone="running">conectado</Badge>
+            <Badge tone="running">{t("settings.telegram.connected")}</Badge>
           ) : status.configured ? (
-            <Badge tone="warn">configurado · sin iniciar</Badge>
+            <Badge tone="warn">{t("settings.telegram.configuredNotRunning")}</Badge>
           ) : (
-            <Badge tone="idle">sin configurar</Badge>
+            <Badge tone="idle">{t("settings.telegram.notConfigured")}</Badge>
           )
         }
       />
@@ -179,11 +180,11 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
           <FieldLabel
             hint={
               settings.telegram_bot_token_set
-                ? `token actual ${settings.telegram_bot_token_hint}`
-                : "sin token guardado"
+                ? t("settings.telegram.tokenHintCurrent").replace("{hint}", settings.telegram_bot_token_hint ?? "")
+                : t("settings.telegram.tokenHintNone")
             }
           >
-            Token del bot
+            {t("settings.telegram.tokenLabel")}
           </FieldLabel>
           <Input
             type="password"
@@ -191,7 +192,7 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
             onChange={(e) => setToken(e.target.value)}
             placeholder={
               settings.telegram_bot_token_set
-                ? "(déjalo en blanco para mantener el actual; escribe uno nuevo para reemplazar)"
+                ? t("settings.telegram.tokenPlaceholderSet")
                 : "1234567:ABC-DEF…"
             }
             autoComplete="new-password"
@@ -199,7 +200,7 @@ function TelegramSection({ settings, status, qc }: SectionProps<any, any>) {
         </div>
         <div className="flex justify-end">
           <Button type="submit" variant="primary" disabled={update.isPending}>
-            <Save size={13} /> {update.isPending ? "Guardando…" : "Guardar e iniciar"}
+            <Save size={13} /> {update.isPending ? t("settings.telegram.saving") : t("settings.telegram.save")}
           </Button>
         </div>
       </form>

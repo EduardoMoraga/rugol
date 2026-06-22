@@ -772,7 +772,8 @@ export interface CvSourcePublic {
   id: string;
   type: string;
   name: string;
-  status: string;
+  path: string;
+  status: string; // conectada | detectada | falta_ruta | falta_credencial | pendiente | configurada
   credentials_set: boolean;
   credentials_hint: string;
 }
@@ -782,12 +783,19 @@ export interface CvSourceType {
   needs_credentials: boolean;
   hint: string;
 }
+export interface DetectedDrive {
+  type: string;
+  name: string;
+  path: string;
+  added: boolean;
+}
 interface CvSourcesResponse {
   sources: CvSourcePublic[];
   types: CvSourceType[];
+  detected: DetectedDrive[];
 }
 export const fetchCvSources = () => get<CvSourcesResponse>("/api/cv-sources");
-export const addCvSource = (body: { type: string; name?: string; credentials?: string }) =>
+export const addCvSource = (body: { type: string; name?: string; credentials?: string; path?: string }) =>
   post<CvSourcesResponse>("/api/cv-sources", body);
 export const deleteCvSource = async (id: string): Promise<CvSourcesResponse> => {
   const r = await fetch(`/api/cv-sources/${encodeURIComponent(id)}`, { method: "DELETE" });

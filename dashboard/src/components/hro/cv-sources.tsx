@@ -8,7 +8,7 @@
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Database, KeyRound } from "lucide-react";
+import { Plus, Trash2, Database, KeyRound, Cloud, Link2 } from "lucide-react";
 import {
   fetchCvSources,
   addCvSource,
@@ -16,9 +16,20 @@ import {
   type CvSourceType,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { FieldLabel, Input, Select } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
+
+// Estado de una fuente → tono del badge.
+const STATUS_TONE: Record<string, "running" | "accent" | "warn" | "idle"> = {
+  conectada: "running",
+  detectada: "accent",
+  falta_ruta: "warn",
+  falta_credencial: "warn",
+  pendiente: "idle",
+  configurada: "idle",
+};
 
 export function CvSourcesManager({ compact = false }: { compact?: boolean }) {
   const { t } = useI18n();
@@ -56,6 +67,19 @@ export function CvSourcesManager({ compact = false }: { compact?: boolean }) {
     onError: (e: Error) => toast({ tone: "error", title: t("cvSources.removeError"), body: e.message }),
   });
 
+  // Conectar en un clic una carpeta de nube detectada en el equipo.
+  const connectDetected = useMutation({
+    mutationFn: (d: { name: string; path: string }) =>
+      addCvSource({ type: "drive", name: d.name, path: d.path }),
+    onSuccess: (res) => {
+      qc.setQueryData(["cv-sources"], res);
+      toast({ tone: "success", title: t("cvSources.added") });
+    },
+    onError: (e: Error) => toast({ tone: "error", title: t("cvSources.addError"), body: e.message }),
+  });
+
+  const detected = q.data?.detected ?? [];
+
   return (
     <div className="space-y-4">
       {/* Lista de fuentes */}
@@ -78,6 +102,7 @@ export function CvSourcesManager({ compact = false }: { compact?: boolean }) {
                     <p className="text-[13px] font-medium truncate">{s.name}</p>
                     <p className="text-[11px] text-[--color-fg-subtle] truncate">
                       {label}
+                      {s.path && <span className="ml-1.5 font-mono">{s.path}</span>}
                       {s.credentials_set && (
                         <span className="ml-1.5 inline-flex items-center gap-0.5">
                           <KeyRound size={9} /> {s.credentials_hint}
@@ -86,19 +111,58 @@ export function CvSourcesManager({ compact = false }: { compact?: boolean }) {
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => remove.mutate(s.id)}
-                  disabled={remove.isPending}
-                  title={t("cvSources.remove")}
-                  className="opacity-60 hover:opacity-100 hover:text-[--color-error] transition shrink-0"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge tone={STATUS_TONE[s.status] ?? "idle"} className="text-[10px]">
+                    {t(`cvSources.status.${s.status}`)}
+                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => remove.mutate(s.id)}
+                    disabled={remove.isPending}
+                    title={t("cvSources.remove")}
+                    className="opacity-60 hover:opacity-100 hover:text-[--color-error] transition"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </li>
             );
           })}
         </ul>
+      )}
+
+      {/* Detectadas en tu equipo (carpetas de nube montadas) */}
+      {detected.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Cloud size={13} className="text-[--color-accent-strong]" />
+            <p className="text-[12px] font-semibold tracking-tight">{t("cvSources.detected")}</p>
+          </div>
+          <p className="text-[11px] text-[--color-fg-subtle] -mt-1">{t("cvSources.detectedHint")}</p>
+          <ul className="space-y-1.5">
+            {detected.map((d) => (
+              <li key={d.path} className="surface px-3 py-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-medium truncate">{d.name}</p>
+                  <p className="text-[10.5px] text-[--color-fg-subtle] font-mono truncate">{d.path}</p>
+                </div>
+                {d.added ? (
+                  <Badge tone="running" className="text-[10px] shrink-0">{t("cvSources.alreadyAdded")}</Badge>
+                ) : (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => connectDetected.mutate({ name: d.name, path: d.path })}
+                    disabled={connectDetected.isPending}
+                    className="shrink-0"
+                  >
+                    <Link2 size={12} /> {t("cvSources.connectOne")}
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* Agregar fuente */}

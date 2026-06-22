@@ -376,6 +376,16 @@ const ES: Dict = {
   "cvSources.removeError": "No se pudo eliminar",
   "cvSources.connected": "configurada",
   "cvSources.secure": "Tu token se guarda solo en tu equipo.",
+  "cvSources.status.conectada": "Conectada",
+  "cvSources.status.detectada": "Detectada",
+  "cvSources.status.falta_ruta": "Falta la carpeta",
+  "cvSources.status.falta_credencial": "Falta credencial",
+  "cvSources.status.pendiente": "Pendiente",
+  "cvSources.status.configurada": "Configurada",
+  "cvSources.detected": "Detectadas en tu equipo",
+  "cvSources.detectedHint": "Carpetas de nube ya montadas en tu Mac. Conéctalas en un clic.",
+  "cvSources.connectOne": "Conectar",
+  "cvSources.alreadyAdded": "Ya conectada",
 
   // ---- Onboarding Instalar → Configurar → Enjoy ----
   "onboarding.wizard.tag": "Bienvenida",
@@ -1137,6 +1147,16 @@ const EN: Dict = {
   "cvSources.removeError": "Couldn't remove",
   "cvSources.connected": "configured",
   "cvSources.secure": "Your token is stored only on your machine.",
+  "cvSources.status.conectada": "Connected",
+  "cvSources.status.detectada": "Detected",
+  "cvSources.status.falta_ruta": "Missing folder",
+  "cvSources.status.falta_credencial": "Missing credential",
+  "cvSources.status.pendiente": "Pending",
+  "cvSources.status.configurada": "Configured",
+  "cvSources.detected": "Detected on your computer",
+  "cvSources.detectedHint": "Cloud folders already mounted on your Mac. Connect them in one click.",
+  "cvSources.connectOne": "Connect",
+  "cvSources.alreadyAdded": "Already connected",
 
   // ---- Onboarding Install → Configure → Enjoy ----
   "onboarding.wizard.tag": "Welcome",

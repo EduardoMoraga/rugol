@@ -32,6 +32,7 @@ class SettingsUpdate(BaseModel):
     default_model: str | None = None
     elevenlabs_api_key: str | None = None
     elevenlabs_agent_id: str | None = None
+    onboarding_done: bool | None = None
 
 
 @router.get("")

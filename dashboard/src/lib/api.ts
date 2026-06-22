@@ -719,6 +719,10 @@ export interface PublicSettings {
   agents_dir: string;
   skills_dir: string;
   default_model: string;
+  elevenlabs_api_key_set?: boolean;
+  elevenlabs_agent_id?: string;
+  cv_sources?: CvSourcePublic[];
+  onboarding_done?: boolean;
 }
 
 export interface SettingsStatus {
@@ -741,7 +745,36 @@ export interface SettingsUpdate {
   // Voz Sofía (ElevenLabs).
   elevenlabs_api_key?: string;
   elevenlabs_agent_id?: string;
+  onboarding_done?: boolean;
 }
+
+// --- Fuentes de CV (HRO) ---
+export interface CvSourcePublic {
+  id: string;
+  type: string;
+  name: string;
+  status: string;
+  credentials_set: boolean;
+  credentials_hint: string;
+}
+export interface CvSourceType {
+  id: string;
+  label: string;
+  needs_credentials: boolean;
+  hint: string;
+}
+interface CvSourcesResponse {
+  sources: CvSourcePublic[];
+  types: CvSourceType[];
+}
+export const fetchCvSources = () => get<CvSourcesResponse>("/api/cv-sources");
+export const addCvSource = (body: { type: string; name?: string; credentials?: string }) =>
+  post<CvSourcesResponse>("/api/cv-sources", body);
+export const deleteCvSource = async (id: string): Promise<CvSourcesResponse> => {
+  const r = await fetch(`/api/cv-sources/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!r.ok) throw new Error(await readError(r));
+  return r.json();
+};
 
 // --- Skills ---
 export interface Skill {

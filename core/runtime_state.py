@@ -38,6 +38,12 @@ class RuntimeSettings:
     # para que cada usuario use SU propia cuenta (nada hardcodeado → shareable).
     elevenlabs_api_key: str = ""
     elevenlabs_agent_id: str = ""
+    # HRO: fuentes de CV configurables (Pandapé, Chiletrabajo, Computrabajo,
+    # LinkedIn, Drive, carpeta…). Cada una: {id, type, name, credentials, status}.
+    # El connector las usa para traer candidatos al pipeline.
+    cv_sources: list = field(default_factory=list)
+    # Onboarding Instalar→Configurar→Enjoy: marca si el wizard ya se completó.
+    onboarding_done: bool = False
 
     def as_public_dict(self) -> dict[str, Any]:
         """Mask secrets for the UI — return last 4 chars only."""
@@ -67,6 +73,18 @@ class RuntimeSettings:
             "elevenlabs_api_key_set": bool(self.elevenlabs_api_key),
             "elevenlabs_api_key_hint": mask(self.elevenlabs_api_key),
             "elevenlabs_agent_id": self.elevenlabs_agent_id,
+            "cv_sources": [
+                {
+                    "id": str(s.get("id", "")),
+                    "type": s.get("type", ""),
+                    "name": s.get("name", ""),
+                    "status": s.get("status", "configurada"),
+                    "credentials_set": bool(s.get("credentials")),
+                    "credentials_hint": mask(str(s.get("credentials", ""))),
+                }
+                for s in (self.cv_sources or [])
+            ],
+            "onboarding_done": bool(self.onboarding_done),
         }
 
 
@@ -222,3 +240,9 @@ def default_model() -> str:
         return s.default_model
     from core.config import get_settings
     return get_settings().DEFAULT_MODEL
+
+
+def cv_sources_list() -> list[dict]:
+    """Lista cruda de fuentes de CV (con credenciales, para el backend/connector).
+    La UI consume la versión enmascarada de as_public_dict()."""
+    return list(load().cv_sources or [])

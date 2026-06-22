@@ -17,7 +17,7 @@
  */
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   UserPlus,
@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import {
   fetchSettingsStatus,
+  fetchSettings,
   fetchVoiceStatus,
   fetchPipeline,
   fetchAgents,
@@ -49,6 +50,9 @@ import { toast } from "@/components/ui/toast";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { AgentChat } from "@/components/agents/agent-chat";
+import { CvSourcesManager } from "@/components/hro/cv-sources";
+import { OnboardingWizard } from "@/components/hro/onboarding-wizard";
+import { Database } from "lucide-react";
 
 // Landing externa de la entrevista de voz (Sofía). Se comparte con el candidato.
 const VOICE_LANDING_URL = "https://hro-entrevista.vercel.app/";
@@ -91,6 +95,16 @@ export function HroCockpit() {
     refetchInterval: 15_000,
     retry: false,
   });
+
+  // Onboarding: se muestra el wizard en primer arranque (onboarding_done=false).
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: fetchSettings,
+    retry: false,
+  });
+  const [wizardDismissed, setWizardDismissed] = useState(false);
+  const showWizard =
+    !wizardDismissed && settingsQuery.isSuccess && settingsQuery.data?.onboarding_done === false;
 
   const voiceConfigured = voiceQuery.data?.configured ?? false;
   const telegram = statusQuery.data?.telegram;
@@ -150,6 +164,8 @@ export function HroCockpit() {
 
   return (
     <div className="p-8 space-y-10 max-w-[1200px] mx-auto">
+      {showWizard && <OnboardingWizard onDone={() => setWizardDismissed(true)} />}
+
       {/* ---- Encabezado ---- */}
       <header className="relative overflow-hidden surface px-8 py-9 md:py-11">
         <div
@@ -260,6 +276,18 @@ export function HroCockpit() {
             configureLabel={t("hro.cockpit.connections.configure")}
           />
         </div>
+      </section>
+
+      {/* ---- Fuentes de CV ---- */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Database size={16} className="text-[--color-accent-strong]" />
+          <h2 className="text-sm font-semibold tracking-tight">{t("cvSources.title")}</h2>
+        </div>
+        <p className="text-[12.5px] text-[--color-fg-muted] leading-relaxed max-w-3xl -mt-2">
+          {t("cvSources.subtitle")}
+        </p>
+        <CvSourcesManager />
       </section>
 
       {/* ---- Link de entrevista (destacado) ---- */}

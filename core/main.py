@@ -20,6 +20,7 @@ from core.api import (
     architect,
     channels,
     config_assistant,
+    cv_sources,
     evolution,
     health,
     improvements,
@@ -139,6 +140,7 @@ def create_app() -> FastAPI:
     app.include_router(pipeline.router, prefix="/api")
     app.include_router(evolution.router, prefix="/api")
     app.include_router(voice.router, prefix="/api")
+    app.include_router(cv_sources.router, prefix="/api")
 
     # Capture the app for the agent runtime's endpoint inventory (so agents
     # see the exact list of REST paths and don't hallucinate new ones).

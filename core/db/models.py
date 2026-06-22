@@ -298,3 +298,20 @@ class PipelineItem(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now, index=True)
+
+
+class InterviewLink(Base):
+    """Sesión de entrevista EX-ANTE: un link que toma el CANDIDATO (no el
+    reclutador). El reclutador lo genera para una búsqueda; el candidato abre
+    /interview/<token>, conversa con Sofía y al cerrar entra al pipeline.
+
+    Tabla nueva → create_all la crea sola; no requiere migración."""
+
+    __tablename__ = "interview_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    project_slug: Mapped[str | None] = mapped_column(String(80), default=None)
+    candidate_name: Mapped[str | None] = mapped_column(String(200), default=None)
+    used: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)

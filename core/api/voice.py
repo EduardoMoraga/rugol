@@ -105,6 +105,7 @@ class ScoreTextBody(BaseModel):
     subtitle: str | None = None      # rol / seniority
     project_slug: str | None = None  # búsqueda a la que se liga
     turns: list[Turn]
+    token: str | None = None         # si viene de un link ex-ante, lo marcamos usado
 
 
 @router.post("/score-text")
@@ -147,6 +148,19 @@ async def score_text_interview(body: ScoreTextBody) -> dict:
     item_id = await _upsert_candidate(
         conversation_id, transcript, scorecard, project_slug=body.project_slug
     )
+    # Si vino de un link ex-ante, marcamos la sesión como usada.
+    if body.token:
+        try:
+            from sqlalchemy import select
+            from core.db import async_session_factory
+            from core.db.models import InterviewLink
+            async with async_session_factory() as s:
+                link = (await s.execute(select(InterviewLink).where(InterviewLink.token == body.token))).scalar_one_or_none()
+                if link is not None:
+                    link.used = True
+                    await s.commit()
+        except Exception:
+            logger.exception("voice: no pude marcar el link de entrevista como usado")
     scores = scorecard.get("scores") or {}
     return {
         "ok": True,
@@ -192,3 +206,56 @@ async def interview_turn(body: InterviewTurnBody) -> dict:
             "Sofía no pudo responder (el modelo no contestó). Revisa tu cuenta de Anthropic e intenta de nuevo.",
         ) from e
     return {"message": message}
+
+
+# ---- Entrevista EX-ANTE: link que toma el CANDIDATO ----
+
+class InterviewLinkBody(BaseModel):
+    project_slug: str | None = None
+    candidate_name: str | None = None
+
+
+@router.post("/interview-link")
+async def create_interview_link(body: InterviewLinkBody) -> dict:
+    """El reclutador genera un link de entrevista para una búsqueda. El candidato
+    abre /interview/<token>, conversa con Sofía y al cerrar entra al pipeline."""
+    import uuid as _uuid
+    from core.db import async_session_factory
+    from core.db.models import InterviewLink
+
+    token = _uuid.uuid4().hex[:16]
+    async with async_session_factory() as s:
+        link = InterviewLink(
+            token=token,
+            project_slug=body.project_slug,
+            candidate_name=(body.candidate_name or "").strip() or None,
+        )
+        s.add(link)
+        await s.commit()
+    return {
+        "token": token,
+        "path": f"/interview/{token}",
+        "project_slug": body.project_slug,
+        "candidate_name": body.candidate_name,
+    }
+
+
+@router.get("/interview-link/{token}")
+async def get_interview_link(token: str) -> dict:
+    """Datos públicos de una sesión de entrevista (para la página del candidato)."""
+    from sqlalchemy import select
+    from core.db import async_session_factory
+    from core.db.models import InterviewLink
+
+    async with async_session_factory() as s:
+        link = (await s.execute(select(InterviewLink).where(InterviewLink.token == token))).scalar_one_or_none()
+        if link is None:
+            raise HTTPException(404, "Link de entrevista no encontrado o expirado.")
+        jd = await _job_description_for(link.project_slug)
+        return {
+            "found": True,
+            "project_slug": link.project_slug,
+            "candidate_name": link.candidate_name,
+            "job_description": jd,
+            "used": link.used,
+        }

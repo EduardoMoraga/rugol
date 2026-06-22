@@ -11,11 +11,12 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bot, User, Send, ClipboardCheck, MessageSquarePlus } from "lucide-react";
+import { Bot, User, Send, ClipboardCheck, MessageSquarePlus, Link2, Copy } from "lucide-react";
 import {
   fetchProjects,
   interviewTurn,
   scoreTextInterview,
+  createInterviewLink,
   type InterviewTurnInput,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export function InterviewConsole() {
   const [started, setStarted] = useState(false);
   const [turns, setTurns] = useState<InterviewTurnInput[]>([]);
   const [draft, setDraft] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
 
   const projects = useQuery({ queryKey: ["projects"], queryFn: () => fetchProjects(), enabled: open });
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -47,7 +49,22 @@ export function InterviewConsole() {
     setName("");
     setRole("");
     setSlug("");
+    setLinkUrl("");
   }
+
+  // Modo ex-ante: genera un link que toma el CANDIDATO.
+  const genLink = useMutation({
+    mutationFn: () => createInterviewLink({ project_slug: slug || null, candidate_name: name.trim() || null }),
+    onSuccess: (res) => {
+      const url = `${window.location.origin}${res.path}`;
+      setLinkUrl(url);
+      navigator.clipboard?.writeText(url).then(
+        () => toast({ tone: "success", title: t("interviews.live.linkCopied") }),
+        () => {},
+      );
+    },
+    onError: (e: Error) => toast({ tone: "error", title: t("interviews.live.linkError"), body: e.message }),
+  });
 
   useEffect(() => {
     // Auto-scroll al último turno.
@@ -146,7 +163,41 @@ export function InterviewConsole() {
                 ))}
               </Select>
             </div>
-            <div className="flex justify-end pt-1">
+            {/* Link ex-ante generado */}
+            {linkUrl && (
+              <div className="surface px-3 py-2.5 space-y-2">
+                <p className="text-[12px] text-[--color-fg-muted] leading-relaxed">{t("interviews.live.linkReady")}</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 min-w-0 text-[12px] font-mono text-[--color-fg] truncate">{linkUrl}</code>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      navigator.clipboard?.writeText(linkUrl).then(
+                        () => toast({ tone: "success", title: t("interviews.live.linkCopied") }),
+                        () => {},
+                      )
+                    }
+                  >
+                    <Copy size={13} /> {t("interviews.live.copy")}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <div className="min-w-0">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => genLink.mutate()}
+                  disabled={genLink.isPending}
+                  title={t("interviews.live.candidateHint")}
+                >
+                  <Link2 size={13} />
+                  {genLink.isPending ? t("interviews.live.generating") : t("interviews.live.genLink")}
+                </Button>
+              </div>
               <Button variant="primary" onClick={begin} disabled={!name.trim()}>
                 <Bot size={14} /> {t("interviews.live.begin")}
               </Button>

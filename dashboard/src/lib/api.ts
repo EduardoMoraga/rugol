@@ -934,12 +934,30 @@ export interface ScoreTextResult {
   conversation_id: string;
 }
 
+// Crea un link de entrevista ex-ante (lo toma el candidato).
+export const createInterviewLink = (body: { project_slug?: string | null; candidate_name?: string | null }) =>
+  post<{ token: string; path: string; project_slug: string | null; candidate_name: string | null }>(
+    "/api/voice/interview-link",
+    body,
+  );
+
+export interface InterviewLinkInfo {
+  found: boolean;
+  project_slug: string | null;
+  candidate_name: string | null;
+  job_description: string;
+  used: boolean;
+}
+export const fetchInterviewLink = (token: string) =>
+  get<InterviewLinkInfo>(`/api/voice/interview-link/${encodeURIComponent(token)}`);
+
 // Cierra la entrevista: puntúa BARS y registra al candidato en el pipeline.
 export const scoreTextInterview = async (input: {
   title: string;
   subtitle?: string | null;
   project_slug?: string | null;
   turns: InterviewTurnInput[];
+  token?: string | null;
 }): Promise<ScoreTextResult> => {
   let r: Response;
   try {

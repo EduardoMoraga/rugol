@@ -78,6 +78,23 @@ function scoreTone(score: number): "running" | "accent" | "warn" | "idle" {
   return "idle";
 }
 
+// Las competencias BARS las genera el scorer en español. Para el toggle EN las
+// mapeamos por keyword (robusto ante variantes del nombre) con fallback al
+// nombre original — así el contenido también es bilingüe, no solo la UI.
+const BARS_EN: { match: RegExp; en: string }[] = [
+  { match: /confiab|responsab/i, en: "Reliability & accountability" },
+  { match: /norma|procedimien|cumplimien/i, en: "Compliance with rules & procedures" },
+  { match: /honest|dilema/i, en: "Honesty under dilemmas" },
+  { match: /cliente|comunicaci/i, en: "Customer orientation & communication" },
+  { match: /ejecuci|punto de venta|supervis/i, en: "In-store execution under remote supervision" },
+  { match: /presi[oó]n|estabil/i, en: "Stability under pressure" },
+];
+function localizeCompetency(name: string, locale: string): string {
+  if (locale !== "en" || !name) return name;
+  const hit = BARS_EN.find((b) => b.match.test(name));
+  return hit ? hit.en : name;
+}
+
 export default function InterviewsPage() {
   const { t } = useI18n();
   const health = useQuery({ queryKey: ["health"], queryFn: fetchHealth, refetchInterval: 30_000 });
@@ -354,14 +371,14 @@ function CompetencyRow({
   competency: Competency;
   expanded: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { name, score, evidence } = competency;
   const hasScore = typeof score === "number";
 
   return (
     <div className="surface px-3 py-2.5 space-y-2">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-[13px] font-medium leading-tight min-w-0">{name}</span>
+        <span className="text-[13px] font-medium leading-tight min-w-0">{localizeCompetency(name, locale)}</span>
         {hasScore ? (
           <Badge tone={scoreTone(score as number)} className="shrink-0 text-[10px] tabular-nums">
             {score}/5

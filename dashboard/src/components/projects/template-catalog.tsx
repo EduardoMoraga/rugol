@@ -30,10 +30,10 @@ import { useI18n } from "@/lib/i18n";
  * the team and lets the user clone it (with optional slug override).
  */
 export function TemplateCatalog({ open = true }: { open?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const templates = useQuery({
-    queryKey: ["templates"],
-    queryFn: fetchTemplates,
+    queryKey: ["templates", locale],
+    queryFn: () => fetchTemplates(locale),
     staleTime: 60_000,
   });
 

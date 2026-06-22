@@ -41,22 +41,27 @@ _VARIANT_TEMPLATE_IDS: dict[str, set[str]] = {
 }
 
 
+def _norm_lang(lang: str | None) -> str:
+    return "en" if (lang or "").lower().startswith("en") else "es"
+
+
 @router.get("")
-async def list_templates() -> list[dict]:
+async def list_templates(lang: str | None = None) -> list[dict]:
     variant = os.environ.get("RUGOL_VARIANT", "rugol")
     allowed = _VARIANT_TEMPLATE_IDS.get(variant)  # None en rugol → todo
-    cards = [t.to_card_dict() for t in CATALOG]
+    lg = _norm_lang(lang)
+    cards = [t.to_card_dict(lg) for t in CATALOG]
     if allowed is not None:
         cards = [c for c in cards if c["id"] in allowed]
     return cards
 
 
 @router.get("/{template_id}")
-async def get_one(template_id: str) -> dict:
+async def get_one(template_id: str, lang: str | None = None) -> dict:
     t = get_template(template_id)
     if t is None:
         raise HTTPException(status_code=404, detail="template not found")
-    return t.to_full_dict()
+    return t.to_full_dict(_norm_lang(lang))
 
 
 @router.post("/{template_id}/clone")

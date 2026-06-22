@@ -31,24 +31,32 @@ class Template:
     story: str        # 2-3 sentences of "who is this for, what does it produce"
     audience: str     # "casual" | "pro" — UI sorts/colors accordingly
     proposal: Proposal
+    # Traducción EN opcional del contenido de la tarjeta. Si está vacía, el
+    # contenido cae al español (fuente). La API sirve EN cuando ?lang=en.
+    title_en: str = ""
+    pitch_en: str = ""
+    story_en: str = ""
 
-    def to_card_dict(self) -> dict:
-        """Lightweight payload for the catalog list (no proposal payload)."""
+    def to_card_dict(self, lang: str = "es") -> dict:
+        """Lightweight payload for the catalog list (no proposal payload).
+
+        `lang="en"` devuelve la traducción EN cuando existe; si no, el ES."""
+        en = lang == "en"
         return {
             "id": self.id,
-            "title": self.title,
-            "pitch": self.pitch,
-            "story": self.story,
+            "title": (self.title_en if en and self.title_en else self.title),
+            "pitch": (self.pitch_en if en and self.pitch_en else self.pitch),
+            "story": (self.story_en if en and self.story_en else self.story),
             "audience": self.audience,
             "project": self.proposal.project.__dict__ if self.proposal.project else None,
             "agent_count": len(self.proposal.agents),
             "schedule_count": len(self.proposal.schedules),
         }
 
-    def to_full_dict(self) -> dict:
+    def to_full_dict(self, lang: str = "es") -> dict:
         """Full payload with everything the deployer needs."""
         return {
-            **self.to_card_dict(),
+            **self.to_card_dict(lang),
             "proposal": self.proposal.as_dict(),
         }
 
@@ -724,6 +732,14 @@ _RECLUTAMIENTO = Template(
         "fuente), un agente los evalúa contra el perfil, Sofía entrevista por "
         "competencias (BARS) y todo se autogestiona en el pipeline de candidatos: "
         "de Postulado a Contratado, con evidencia en cada paso."
+    ),
+    title_en="Recruitment",
+    pitch_en="A hiring funnel: CVs come in, the team screens, Sofía interviews and builds the shortlist.",
+    story_en=(
+        "To recruit at scale without losing rigor. CVs arrive (Pandapé or another "
+        "source), an agent scores them against the profile, Sofía runs competency-"
+        "based interviews (BARS), and everything self-manages in the candidate "
+        "pipeline: from Applied to Hired, with evidence at every step."
     ),
     audience="pro",
     proposal=Proposal(

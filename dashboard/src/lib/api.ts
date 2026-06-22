@@ -320,8 +320,10 @@ export interface TemplateCard {
 export interface TemplateFull extends TemplateCard {
   proposal: Proposal;
 }
-export const fetchTemplates = () => get<TemplateCard[]>("/api/templates");
-export const fetchTemplate = (id: string) => get<TemplateFull>(`/api/templates/${id}`);
+export const fetchTemplates = (lang?: string) =>
+  get<TemplateCard[]>(`/api/templates${lang ? `?lang=${lang}` : ""}`);
+export const fetchTemplate = (id: string, lang?: string) =>
+  get<TemplateFull>(`/api/templates/${id}${lang ? `?lang=${lang}` : ""}`);
 export const cloneTemplate = (
   id: string,
   body: { slug_override?: string; target_agents_dir?: string; target_skills_dir?: string } = {},

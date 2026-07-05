@@ -101,6 +101,29 @@ approved live.
 - `marketing: 60-second product video`
 - `marketing: write to Anthropic devrel`
 
+## Sprint 6 — Ambient Layer / Atalaya (ADR-010)
+
+**Goal:** Rugol stops being unidirectional. The watchtower observes the user's
+world and, by its own judgment, surfaces only what matters — proactively. This
+is the "soul made outward-facing": the defensible, hard-to-commoditize core.
+
+Phasing is a *precision-discovery ladder*, validated on the author's real inbox,
+not a feature checklist (see ADR-010):
+
+- `feat(ambient): Sensor protocol + Observation/Signal/RelevanceWeight schema`
+- `feat(ambient): salience scorer (Haiku, clone of soul/dispatcher shape)`
+- `feat(ambient): fail-closed two-tier gate (interrupt budget + quiet hours)`
+- `feat(ambient): gmail sensor → daily digest to Telegram (Phase 0, no interrupts)`
+- `feat(ambient): feedback buttons + EWMA per-scope weight learning (Phase 1)`
+- `feat(ambient): interrupt tier + calendar/asana/pipeline/youtube/files sensors`
+- `feat(ambient): suggested-action one-tap (draft reply / propose task) + WhatsApp`
+- `feat(dashboard): Atalaya page — observation stream, sensor toggles, budget gauge`
+
+**Definition of done:** with `AMBIENT_ENABLED=true`, a single real sensor runs a
+full week on the author's inbox, the digest precision is measured, the noise rate
+falls measurably after feedback, and **not one** false interrupt fires before the
+scorer is tuned. The gate's asymmetry invariants are unit-tested.
+
 ## Beyond v1 (backlog)
 
 - Linux & macOS installers

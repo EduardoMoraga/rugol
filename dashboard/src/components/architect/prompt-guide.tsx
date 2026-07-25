@@ -103,28 +103,37 @@ RESTRICCIONES
 - No publicar nada automático: solo borradores, el humano decide.`,
   },
   {
-    id: "hija-aprende",
-    title: "Mi hija aprende jugando",
+    id: "analista-operaciones",
+    title: "Analista de operaciones",
     description:
-      "Dos agentes que producen mini-juegos web educativos a partir del temario semanal.",
+      "Tres agentes en cadena: auditan el dato, explican qué se movió y proponen la decisión.",
     idea:
-      "Convertir el tema de la prueba semanal de mi hija en un mini-juego web jugable que ella abra con doble click y aprenda sin darse cuenta.",
+      "Cada lunes quiero saber qué se movió en la operación de la semana pasada, si puedo confiar en esos números, y qué decisión me están pidiendo tomar.",
     constraints: `USUARIO
-- Madre/padre con hija de 8-11 años. La hija tiene pruebas semanales (biología, historia, matemáticas, etc.).
-- La meta no es asistir educativamente: es que la hija aprenda jugando, sin pelear para que se siente.
+- Responsable de operaciones, ventas o logística. Tiene los datos en planillas o exports, no en un warehouse.
+- El problema no es falta de dashboards: es que nadie interroga los números ni cierra con una recomendación.
 
-EQUIPO (2 agentes)
+EQUIPO (3 agentes, en cadena estricta)
 
-1. game-designer — recibe el tema y elige la mecánica (haiku). Output no es código: es spec clara con pantallas, reglas, colores. Mecánicas posibles: trivia visual, arrastra-y-suelta, memoria, secuencia ordenada.
+1. auditor-datos — portero de la cadena (haiku). Antes de que nadie interprete nada, revisa huecos, duplicados, saltos imposibles y variación brusca en el volumen de registros. Emite veredicto: CONFIABLE / CON RESERVAS / NO USAR. Si dice NO USAR, la cadena se detiene ahí.
 
-2. game-coder — toma la spec y genera el archivo (sonnet). Un único HTML autocontenido con CSS+JS embebidos, sin dependencias, sin build. Doble click y juega.
+2. ops-analista — interroga los números (sonnet). Toma las 3-5 métricas que mueven el resultado, calcula variación contra periodo anterior y contra mismo periodo del año pasado, y separa lo estacional de lo estructural. Declara explícitamente lo que los datos no permiten concluir.
+
+3. brief-decision — cierra con una decisión (sonnet). Nombra la decisión como pregunta cerrada, presenta 2-3 opciones costeadas incluyendo "no hacer nada", recomienda una y define qué señal indicaría que fue equivocada.
 
 LECCIONES INICIALES
-- Nada de leer instrucciones largas: el juego se entiende solo.
-- Nada de más de un click por interacción.
-- Si la hija no lee fluido, todo con íconos o imágenes (emojis o SVG inline OK).
-- Sin librerías externas (sin React, sin Phaser, sin CDN).
-- Tiene que correr en Chrome y Edge sin warnings.`,
+- Una correlación nunca se presenta como causa.
+- Si la variación cabe dentro de la variabilidad normal del proceso, se dice, no se le inventa una causa.
+- Nada de redondear para que la historia quede más limpia.
+- El veredicto de confiabilidad del dato viaja con el análisis hasta el final.
+
+SCHEDULES
+- auditor-datos: lunes 8:00 → auditar los datos de la semana pasada.
+- ops-analista: lunes 8:30 → analizar qué se movió y por qué.
+
+RESTRICCIONES
+- Ningún agente ejecuta acciones sobre sistemas productivos: solo leen y reportan.
+- Para decisiones caras de revertir, se invoca brief-decision en modo deliberar con abogado del diablo.`,
   },
   {
     id: "investigacion-tema",

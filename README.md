@@ -20,7 +20,7 @@ better process, not just more information.
 
 Rugol flips the paradigm. You don't think "what agent should I create".
 You think **what do I want to get done**: a personal assistant, your brand,
-helping your daughter learn biology through games, your sales pipeline.
+your projects, your operations, your sales pipeline.
 Each one comes with its own team of specialist agents, a written mission,
 and living rules. The agents do the work and challenge your thinking — you
 keep the decision, better informed and with less noise.
@@ -48,7 +48,7 @@ everyday life**.
 | You pick the model (haiku/sonnet/opus) | You pick the **task type** (heuristic / think / deliberate); the system routes |
 | Agent acts alone | Optional: devil's advocate challenges before acting |
 | Memory per-agent or none | Living lessons per project — every team member reads them before each task |
-| Technical templates | Emotional templates: "personal assistant", "my daughter learns through games" |
+| Technical templates | Outcome templates: "personal assistant", "project management", "operations analyst" |
 
 ### Three behavioral economics principles, embodied in software
 
@@ -62,15 +62,25 @@ everyday life**.
 
 ## Real cases
 
-### "My daughter learns through games"
+### "Personal assistant"
 
-My 9-year-old had a biology test. In 5 minutes, two agents (designer
-Haiku + builder Sonnet) generated an HTML+JS mini-game about
-photosynthesis. No libraries, no install, double-click and play. She
-learned without realizing it. She studied while laughing.
+Morning brief, inbox triage, end-of-day capture. Three agents so you end
+the day having executed your priorities instead of your inbox's.
 
-It's a built-in template. A mom who's only ever used ChatGPT can clone
-it, write "this week's topic is cells", and get a fresh game in minutes.
+### "Project management"
+
+For anyone running several projects who keeps finding out about problems
+too late: one agent compares real progress against the plan, one chases
+blockers until each has an owner and a date, one writes the weekly status
+for whoever decides. Nothing slips silently.
+
+### "Operations analyst"
+
+Three agents in a strict chain. The first audits the raw data — gaps,
+duplicates, impossible jumps — and can stop the chain with a *do not use*
+verdict. The second explains what moved and separates seasonal from
+structural. The third closes with a costed decision, including the price
+of doing nothing. No correlation is ever presented as cause.
 
 ### "My personal brand"
 
@@ -86,11 +96,6 @@ For freelancers and founders who run sales in a spreadsheet:
 prospector + qualifier + follower-upper. Daily schedule that drops no
 active follow-up. Honesty about fit: if we're not the right vendor,
 the system says so.
-
-### "Personal assistant"
-
-Morning brief, inbox triage, end-of-day capture. The invisible team
-that takes care of your day.
 
 ### "Topic researcher"
 

@@ -580,7 +580,7 @@ const ES: Dict = {
   "onboarding.headline": "Tu orquestador de agentes.",
   "onboarding.headlineHighlight": "Apoyo para las decisiones que importan.",
   "onboarding.pitch":
-    "Rugol es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué quiero resolver\": tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial. El equipo de agentes hace el trabajo y desafía tu pensamiento; tú decides con un mejor proceso, no solo con más información.",
+    "Rugol es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué quiero resolver\": tu marca, tu día a día, tus proyectos, tu operación, tu pipeline comercial. El equipo de agentes hace el trabajo y desafía tu pensamiento; tú decides con un mejor proceso, no solo con más información.",
   "onboarding.question": "¿Por dónde te gustaría empezar?",
   "onboarding.seeTemplates": "Ver los 7 templates",
   "onboarding.orArchitect": "o descríbelo en una línea con Architect →",
@@ -596,7 +596,7 @@ const ES: Dict = {
   // ---- Template catalog ----
   "templates.title": "Empezar desde un template",
   "templates.description":
-    "Siete proyectos listos para clonar — desde la mamá que arma juegos para su hija hasta el founder que cuida su pipeline. Haz click, personaliza lo que quieras, deploya.",
+    "Siete proyectos listos para clonar — desde quien ordena su día hasta quien controla la operación de su empresa. Haz click, personaliza lo que quieras, deploya.",
   "templates.audienceCasual": "Día a día",
   "templates.audiencePro": "Profesional",
   "templates.agents": "agentes",
@@ -1352,7 +1352,7 @@ const EN: Dict = {
   "onboarding.headline": "Your agent orchestrator.",
   "onboarding.headlineHighlight": "Support for the decisions that matter.",
   "onboarding.pitch":
-    "Rugol is your agent control room. You don't think \"which agent should I create\" — you think \"what do I want to get done\": your brand, your day-to-day, helping your daughter study, your sales pipeline. The agent team does the work and challenges your thinking; you decide with a better process, not just more information.",
+    "Rugol is your agent control room. You don't think \"which agent should I create\" — you think \"what do I want to get done\": your brand, your day-to-day, your projects, your operations, your sales pipeline. The agent team does the work and challenges your thinking; you decide with a better process, not just more information.",
   "onboarding.question": "Where would you like to start?",
   "onboarding.seeTemplates": "See the 7 templates",
   "onboarding.orArchitect": "or describe it in one line with Architect →",
@@ -1368,7 +1368,7 @@ const EN: Dict = {
   // ---- Template catalog ----
   "templates.title": "Start from a template",
   "templates.description":
-    "Seven projects ready to clone — from the mom building games for her daughter to the founder running their pipeline. Click, customize what you want, deploy.",
+    "Seven projects ready to clone — from ordering your own day to running your company's operations. Click, customize what you want, deploy.",
   "templates.audienceCasual": "Day to day",
   "templates.audiencePro": "Professional",
   "templates.agents": "agents",

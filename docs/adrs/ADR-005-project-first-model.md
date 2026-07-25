@@ -135,7 +135,7 @@ in `MANIFESTO.md`:
   noise (Kahneman/Sunstein) by anchoring decisions in shared intent.
 - **Per-project memory & biases** = the unit at which the self-improving
   loop accumulates (an `inbox-watcher` for marca-personal vs one for
-  hija-aprende should not pollute each other's lessons).
+  gestion-proyectos should not pollute each other's lessons).
 - **Per-project data scope** = a future Capa lets each project declare what
   data it touches (Calendar, Email, Drive). Approval lives at project
   granularity because that's the unit the user mentally reasons about.

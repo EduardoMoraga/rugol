@@ -18,7 +18,7 @@ decidas con un mejor proceso, no solo con más información.
 
 Rugol cambia el paradigma. No pensás "qué agente creo". Pensás
 **qué querés resolver**: tu asistente personal, tu marca, ayudar a
-tu hija a estudiar biología jugando, tu pipeline de ventas. Cada uno
+tus proyectos, tu operación, tu pipeline de ventas. Cada uno
 se arma con su propio equipo de agentes especialistas, una misión
 escrita y reglas vivas. Los agentes hacen el trabajo y desafían tu
 pensamiento — vos te quedás con la decisión, mejor informada y con
@@ -48,7 +48,7 @@ cotidiana**.
 | Tú decidís qué modelo usar (haiku/sonnet/opus) | Tú elegís el **tipo de tarea** (heurística / pensar / deliberar); el sistema rutea |
 | Agente que actúa solo | Opcional: abogado del diablo cuestiona antes de actuar |
 | Memoria por agente o ninguna | Lecciones vivas por proyecto que el equipo lee antes de cada tarea |
-| Templates técnicos | Templates emocionales: "asistente personal", "mi hija aprende jugando" |
+| Templates técnicos | Templates por resultado: "asistente personal", "gestión de proyectos", "analista de operaciones" |
 
 ### Tres principios de economía conductual encarnados en software
 
@@ -62,16 +62,26 @@ cotidiana**.
 
 ## Casos reales
 
-### "Mi hija aprende jugando"
+### "Asistente personal"
 
-Mi hija de 9 años tenía prueba de biología. En 5 minutos, dos agentes
-(designer Haiku + builder Sonnet) generaron un mini-juego HTML+JS sobre
-la fotosíntesis. Sin librerías, sin instalación, doble click y a jugar.
-Ella aprendió sin darse cuenta. Estudió mientras se reía.
+Brief en la mañana, triage de inbox, captura al cierre del día. Tres
+agentes para que llegues a la noche habiendo ejecutado tus prioridades y
+no las de tu inbox.
 
-Es un template incluido en Rugol. Una mamá que solo usó ChatGPT puede
-clonarlo, escribir "el tema de esta semana es células" y tener un juego
-nuevo en minutos.
+### "Gestión de proyectos"
+
+Para quien lleva varios proyectos y descubre los problemas tarde: un
+agente compara el avance real contra el plan, otro persigue los bloqueos
+hasta que tienen dueño y fecha, otro escribe el status semanal para quien
+decide. Nada se cae en silencio.
+
+### "Analista de operaciones"
+
+Tres agentes en cadena estricta. El primero audita el dato crudo —huecos,
+duplicados, saltos imposibles— y puede detener la cadena con un veredicto
+de *no usar*. El segundo explica qué se movió y separa lo estacional de lo
+estructural. El tercero cierra con una decisión costeada, incluyendo el
+precio de no hacer nada. Ninguna correlación se presenta como causa.
 
 ### "Mi marca personal"
 
@@ -87,11 +97,6 @@ Para freelancers y founders que llevan ventas en una hoja de cálculo:
 prospector + qualifier + follower-upper. Schedule diario que no deja
 caer ningún follow-up activo. Honestidad sobre fit: si no somos para el
 cliente, lo dice.
-
-### "Asistente personal"
-
-Brief diario por la mañana, triage de inbox, captura de día por la noche.
-El equipo invisible que cuida tu día.
 
 ### "Investigador de un tema"
 

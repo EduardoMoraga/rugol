@@ -155,13 +155,19 @@ continuity. You don't configure this — it's the platform's default.
    reads explicit rules about *when* to save (user facts, feedback,
    project state, external references) and what NOT to save. The
    memory persists across runs as plain markdown in `agent-memory/`.
-3. **(Roadmap) Dual-track dispatch** — a Haiku classifier routes
-   every request to System 1 (fast, cached) or System 2 (deliberate,
-   Opus, plan-then-execute). Kahneman, made executable.
-4. **(Roadmap) Evolutionary archive** — each agent's system prompt
-   has a tree of versions, each validated empirically against past
-   runs. Inspired by the Darwin Gödel Machine (arXiv:2505.22954).
-   Open-ended self-improvement, with the human always in the loop.
+3. **Dual-track dispatch** — a Haiku classifier routes each request
+   to System 1 (fast) or System 2 (deliberate, Opus, plan-then-execute).
+   Kahneman, made executable. You can also force the track per message
+   from the chat input.
+4. **Evolutionary archive** — each agent's system prompt is a lineage of
+   versions under `agent-soul/<agent>/`. The agent proposes a mutation
+   from its own run history, a second model critiques it, and **you**
+   accept, reject, branch or roll back (`rugol evolve <agent>`, or the
+   Improvements panel). Inspired by the Darwin Gödel Machine
+   (arXiv:2505.22954). Note the honest limit: the critique is a second
+   opinion, not an empirical gate — scoring candidates by replaying a
+   curated golden set is future work, so a human decision is required by
+   design, not by convenience.
 
 See [`docs/adrs/ADR-006-soul-layer.md`](docs/adrs/ADR-006-soul-layer.md)
 for the design, plus ADR-007 and ADR-008 for the future sprints.

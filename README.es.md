@@ -156,13 +156,19 @@ continuidad. No tienes que configurarlo — es el default de la plataforma.
    del usuario, feedback, estado del proyecto, referencias externas) y
    qué NO guardar. La memoria persiste entre runs como markdown plano
    en `agent-memory/`.
-3. **(Roadmap) Despachador dual** — un clasificador en Haiku rutea
-   cada request a Sistema 1 (rápido, con caché) o Sistema 2
-   (deliberado, Opus, plan-then-execute). Kahneman, hecho ejecutable.
-4. **(Roadmap) Archivo evolutivo** — cada system prompt de cada agente
-   tiene un árbol de versiones, cada una validada empíricamente contra
-   runs pasados. Inspirado en Darwin Gödel Machine (arXiv:2505.22954).
-   Auto-mejora abierta, con humano siempre en el loop.
+3. **Despachador dual** — un clasificador en Haiku rutea cada request
+   a Sistema 1 (rápido) o Sistema 2 (deliberado, Opus,
+   plan-then-execute). Kahneman, hecho ejecutable. También puedes forzar
+   la vía a mano en cada mensaje del chat.
+4. **Archivo evolutivo** — el system prompt de cada agente es un linaje
+   de versiones en `agent-soul/<agente>/`. El agente propone una mutación
+   a partir de su propio historial, un segundo modelo la critica, y
+   **tú** aceptas, rechazas, ramificas o vuelves atrás (`rugol evolve
+   <agente>`, o el panel de Mejoras). Inspirado en Darwin Gödel Machine
+   (arXiv:2505.22954). El límite honesto: la crítica es una segunda
+   opinión, no un filtro empírico — puntuar candidatos replicando un
+   golden set curado es trabajo futuro, así que la decisión humana es
+   obligatoria por diseño, no por comodidad.
 
 Diseño completo en
 [`docs/adrs/ADR-006-soul-layer.md`](docs/adrs/ADR-006-soul-layer.md),

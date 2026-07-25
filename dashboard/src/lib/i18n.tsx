@@ -547,7 +547,7 @@ const ES: Dict = {
   "connect.drivePick": "Elegir carpeta sincronizada",
   "connect.goalLabel": "¿Qué quieres traer?",
   "connect.goalPlaceholder":
-    "Trae los CVs de la vacante 'Promotor SKF' de Pandapé",
+    "Trae los CVs de la vacante 'Promotor Acme' de Pandapé",
   "connect.credentialsLabel": "Credenciales / token",
   "connect.credentialsHint": "opcional",
   "connect.credentialsPlaceholder":
@@ -1319,7 +1319,7 @@ const EN: Dict = {
   "connect.drivePick": "Choose synced folder",
   "connect.goalLabel": "What do you want to bring?",
   "connect.goalPlaceholder":
-    "Bring the CVs from the 'SKF Promoter' opening on Pandapé",
+    "Bring the CVs from the 'Acme Promoter' opening on Pandapé",
   "connect.credentialsLabel": "Credentials / token",
   "connect.credentialsHint": "optional",
   "connect.credentialsPlaceholder":

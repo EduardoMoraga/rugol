@@ -149,7 +149,7 @@ CATALOG: list[McpPreset] = [
         env_keys=[],  # no token, but the path goes as an arg
         token_help=(
             "Filesystem no necesita token. Decime una RUTA absoluta que el "
-            "agente pueda leer (ej: `C:\\Moragent\\01-INCREXA`)."
+            "agente pueda leer (ej: `C:\\Trabajo\\Proyectos`)."
         ),
         requires_extra_arg=True,
     ),

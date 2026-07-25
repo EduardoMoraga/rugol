@@ -17,11 +17,9 @@ import logging
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from core.config import get_settings
 from core.voice import elevenlabs
-from core.voice.sync import sync_interviews
+from core.voice.sync import _upsert_candidate, sync_interviews
 from core.voice.voice_scorer import score_transcript
-from core.voice.sync import _upsert_candidate
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +150,7 @@ async def score_text_interview(body: ScoreTextBody) -> dict:
     if body.token:
         try:
             from sqlalchemy import select
+
             from core.db import async_session_factory
             from core.db.models import InterviewLink
             async with async_session_factory() as s:
@@ -182,6 +181,7 @@ async def _project_jd_profile(slug: str | None) -> tuple[str, str | None]:
     if not slug:
         return "", None
     from sqlalchemy import select
+
     from core.db import async_session_factory
     from core.db.models import Project
     async with async_session_factory() as s:
@@ -236,6 +236,7 @@ async def create_interview_link(body: InterviewLinkBody) -> dict:
     """El reclutador genera un link de entrevista para una búsqueda. El candidato
     abre /interview/<token>, conversa con Sofía y al cerrar entra al pipeline."""
     import uuid as _uuid
+
     from core.db import async_session_factory
     from core.db.models import InterviewLink
     from core.voice.profiles import profile_id
@@ -265,6 +266,7 @@ async def create_interview_link(body: InterviewLinkBody) -> dict:
 async def get_interview_link(token: str) -> dict:
     """Datos públicos de una sesión de entrevista (para la página del candidato)."""
     from sqlalchemy import select
+
     from core.db import async_session_factory
     from core.db.models import InterviewLink
 

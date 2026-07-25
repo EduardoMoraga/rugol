@@ -17,7 +17,6 @@ import logging
 
 from sqlalchemy import select
 
-from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import PipelineItem
 from core.voice import elevenlabs

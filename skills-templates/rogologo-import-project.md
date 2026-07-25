@@ -5,7 +5,7 @@ description: Import an existing Moragent project (.claude/agents, .claude/skills
 
 # /rugol-import-project
 
-Use when bringing a project built with Moragent (e.g. `hro-v2`, `philips-bi`) into a fresh or existing Rugol install. Copies agents, skills and per-agent memory from the project's `.claude/` folder into the Rugol workspace where the filesystem watcher will pick them up.
+Use when bringing a project built with Moragent (e.g. `hro-v2`, `acme-bi`) into a fresh or existing Rugol install. Copies agents, skills and per-agent memory from the project's `.claude/` folder into the Rugol workspace where the filesystem watcher will pick them up.
 
 ## Arguments
 

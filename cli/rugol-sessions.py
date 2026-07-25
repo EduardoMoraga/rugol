@@ -9,7 +9,7 @@ proyecto y, en la vista de detalle, te entrega el comando para retomar.
 
 Uso (lo llama el launcher 'rugol sessions [filtro]'):
   python cli/rugol-sessions.py            -> lista de proyectos por recencia
-  python cli/rugol-sessions.py philips    -> sesiones de ese proyecto + resume
+  python cli/rugol-sessions.py acme       -> sesiones de ese proyecto + resume
 """
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def cmd_list() -> int:
     for mt, cwd, ss in projs[:20]:
         print(f"  {_rel(mt):<13} {len(ss):>4}  {_short(cwd, 40):<40} {ss[0]['title'][:34]}")
     print()
-    print("  Detalle de un proyecto:  rugol sessions <palabra>   (ej. rugol sessions philips)")
+    print("  Detalle de un proyecto:  rugol sessions <palabra>   (ej. rugol sessions acme)")
     print()
     return 0
 

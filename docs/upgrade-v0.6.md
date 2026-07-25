@@ -206,10 +206,10 @@ pnpm dev
 
 **Bug detectado (2026-05-06):** un agente respondió a *"está todo OK con
 los schedules?"* con una tabla ficticia que mezclaba "Lucy Morning
-Briefing", "SKF Daily Reports" y otros nombres de proyectos previos del
+Briefing", "Acme Daily Reports" y otros nombres de proyectos previos del
 usuario. La tabla era plausible pero inventada — el agente no tenía un
 tool real para listar APScheduler, así que leyó un script en
-`C:\Moragent\00-CORE\tools\moragent.py` (un proyecto distinto) y se lo
+`C:\Trabajo\tools\otro-proyecto.py` (un proyecto distinto) y se lo
 entregó al usuario como verdad.
 
 Causa raíz: combinación de tres factores:

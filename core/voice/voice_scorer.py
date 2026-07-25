@@ -102,7 +102,7 @@ SCHEMA = {
     "additionalProperties": False,
 }
 
-SYSTEM = """Sos el evaluador psicométrico del sistema HRO de Increxa. Puntuás transcripciones de entrevistas estructuradas de voz contra un instrumento BARS, con rigor metodológico.
+SYSTEM = """Sos el evaluador psicométrico del módulo de reclutamiento de Rugol. Puntuás transcripciones de entrevistas estructuradas de voz contra un instrumento BARS, con rigor metodológico.
 
 REGLAS INVIOLABLES:
 1. Evaluás SOLO el contenido verbal: qué dijo el candidato. Prohibido inferir desde pausas, muletillas, dudas, fluidez, acento o estilo de habla. Un candidato que duda pero da un ejemplo concreto puntúa por el ejemplo.

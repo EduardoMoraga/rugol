@@ -6,6 +6,7 @@ POST /api/templates/{id}/clone    — deploy as a new project (one click)
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -33,8 +34,6 @@ class CloneBody(BaseModel):
 # Templates relevantes por variante. Para HRO/CRM NO mostramos los proyectos
 # genéricos (Sesgo Útil, Marca personal, etc.) — solo lo del dominio. Rugol
 # (None) muestra todo el catálogo.
-import os
-
 _VARIANT_TEMPLATE_IDS: dict[str, set[str]] = {
     "crm": {"pipeline-comercial"},
     "hro": {"reclutamiento"},  # template de reclutamiento (se siembra en el catálogo)

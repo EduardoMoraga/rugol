@@ -167,9 +167,12 @@ más ADR-007 y ADR-008 para los próximos sprints.
 
 ## Quickstart
 
-**Sin requisitos previos.** El instalador trae sus propios runtimes (un
+**No hace falta instalar runtimes.** El instalador trae los suyos (un
 Python aislado vía [uv](https://github.com/astral-sh/uv), y Node) — no
-necesitás tener Python, Node ni Docker instalados. Una línea, después un wizard.
+necesitás tener Python, Node ni Docker. Lo único que espera encontrar en la
+máquina es **git** y **curl**, que macOS y la mayoría de las distros de Linux
+ya traen; en Windows, instalá primero
+[Git para Windows](https://git-scm.com/download/win). Una línea, después un wizard.
 
 **Mac / Linux**
 ```bash
@@ -193,8 +196,8 @@ Pro/Max** (el wizard corre `claude setup-token` y guarda un token long-lived,
 sin costo por uso), o una **API key** dedicada (billing aislado). Todo corre
 localmente bajo `~/.rugol`; nada tuyo sale de tu máquina.
 
-Eso es todo — el dashboard abre en `http://localhost:3000` con cinco
-templates de agentes listos para clonar. Todo lo que crees vive en
+Eso es todo — el dashboard abre en `http://localhost:3000` con siete
+templates de proyecto listos para clonar. Todo lo que crees vive en
 `~/.rugol`, así que actualizar nunca toca tus datos.
 
 | Comando | Qué hace |
@@ -238,7 +241,7 @@ O directamente `docker compose up --build` desde la raíz.
 
 ---
 
-## Las capas que ya están adentro · `v0.5.0-alpha`
+## Las capas que ya están adentro · `v0.8.0-alpha`
 
 Rugol se construyó en capas, cada una entregada como commit funcional
 y testeado end-to-end. La versión actual incluye:
@@ -250,7 +253,7 @@ y testeado end-to-end. La versión actual incluye:
 | **3** | Lecciones vivas por proyecto + auto-trigger de self-improvement (Hermes-style) |
 | **4** | Sistema 1/2 (selector de tipo de tarea) + abogado del diablo opcional |
 | **5** | Tools editables por agente (whitelist) + dir picker en el Architect |
-| **6** | Catálogo de 5 templates curados, clone con un click, auto-rename para duplicados |
+| **6** | Catálogo de 7 templates curados, clone con un click, auto-rename para duplicados |
 | **7** | "Promover a lección" en cada respuesta y en cada self-improvement |
 | **8** | MCP servers por agente (stdio/sse/http) — conectar Asana, Notion, Slack por agente |
 | **9** | Ant farm con clusters por proyecto (visualización) |
@@ -278,6 +281,33 @@ Para instalar en una PC fresca ver [docs/install-on-new-pc.md](docs/install-on-n
 - **Auth LLM**: subscripción Claude Pro/Max **o** API key — tu eligís
   por proyecto.
 - **Local-first**: todo corre en tu PC. Sin telemetría por defecto.
+
+---
+
+## Modelo de seguridad
+
+Leé esto antes de cambiar cómo se sirve Rugol.
+
+Rugol es un **plano de control local de un solo usuario**, y adentro de ese
+límite es deliberadamente permisivo: los agentes tienen acceso a shell y al
+filesystem, porque meter mano en tus archivos reales es justamente el punto.
+El corolario es que **la API no tiene autenticación** — cualquiera que alcance
+el puerto puede correr un agente en tu máquina.
+
+Eso es seguro bajo el supuesto que Rugol asume, y es el supuesto que los
+defaults imponen:
+
+- `rugol up` levanta el core y el dashboard solo en `127.0.0.1`.
+- `docker compose up` publica ambos puertos solo en `127.0.0.1`.
+- Nada se manda a ninguna parte. La telemetría está apagada salvo que la prendas.
+
+Entonces: **no pongas Rugol en una red compartida ni en una IP pública.** Si
+necesitás acceso remoto, tunelealo (SSH, Tailscale o similar) en vez de
+cambiar la dirección de bind — no hay una capa de auth atrás que te salve. Si
+corrés `uvicorn` a mano, mantené `--host 127.0.0.1`.
+
+Los bugs de este tipo conviene reportarlos en privado: abrí un security
+advisory en GitHub antes que un issue público.
 
 ---
 

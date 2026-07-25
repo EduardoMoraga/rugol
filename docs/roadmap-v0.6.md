@@ -121,7 +121,7 @@ escribir skills custom Python que vivan en `core/skills/builtin/`:
   maduro, probado).
 - Wizard de OAuth: "click → autoriza con tu cuenta Google → vuelve".
 - Diferenciar lectura (cuenta personal) de envío (cuenta de bot tipo
-  `gugol.agentv1@gmail.com`) en la UI del catalog.
+  `tu-bot@example.com`) en la UI del catalog.
 
 #### calendar-read
 - Usar `@cocal/google-calendar-mcp` (npm, multi-cuenta, free/busy

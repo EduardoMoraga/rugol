@@ -134,7 +134,7 @@ messages
 ontology_nodes
   id (pk)
   type               -- concept | entity | event
-  label              -- "Versuni", "promotor", "OSA"
+  label              -- "Acme", "promotor", "OSA"
   meta_json
   created_at
 
@@ -258,12 +258,12 @@ require a structured `MemoryWrite` tool call** (not free text) so the graph
 stays clean.
 
 ```
-[Versuni] ──is_a──→ [Cliente]
-[Versuni] ──owns──→ [Promotor #234]
-[Promotor #234] ──visited──→ [PDV Jumbo Ñuñoa] (ts=2026-04-30)
+[Acme] ──is_a──→ [Cliente]
+[Acme] ──owns──→ [Promotor #234]
+[Promotor #234] ──visited──→ [PDV Centro] (ts=2026-04-30)
 ```
 
-Queries: `ontology.neighbors("Versuni", predicate="owns")` returns all promoters.
+Queries: `ontology.neighbors("Acme", predicate="owns")` returns all promoters.
 The dashboard exposes a graph viewer (`react-flow`) for inspection.
 
 Ontology is **local-first**: no external DB, no embeddings yet (v2 will add

@@ -56,7 +56,7 @@ Every run is bracketed by three new pieces of behaviour:
 1. **Identity block** — prepended to the system prompt. Renders the
    agent's name, description, and a short relationship summary
    ("you have run 47 times for Eduardo; he prefers chileno phrasing;
-    last meaningful interaction was about Versuni Q2 budget").
+    last meaningful interaction was about Acme Q2 budget").
    The block is built from the existing `agents` row plus the
    per-agent memory index. No new schema.
 2. **Auto-memory rules block** — appended to the system prompt. A

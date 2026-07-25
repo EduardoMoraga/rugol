@@ -16,8 +16,12 @@ services:
       - ${RUGOL_SKILLS:-./skills}:/app/skills
       - ${RUGOL_DATA:-./data}:/app/data
       - ${RUGOL_LOGS:-./logs}:/app/logs
+    # Published on loopback only. The API is unauthenticated by design (it is a
+    # single-user local control plane) and its agents have shell + filesystem
+    # access, so it must never be reachable from the LAN. The dashboard still
+    # reaches it as http://core:8000 over the compose network.
     ports:
-      - "${CORE_PORT:-8000}:8000"
+      - "127.0.0.1:${CORE_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
       interval: 10s
@@ -37,6 +41,7 @@ services:
     depends_on:
       core:
         condition: service_healthy
+    # Loopback only, same reasoning as the core service above.
     ports:
-      - "${DASHBOARD_PORT:-3000}:3000"
+      - "127.0.0.1:${DASHBOARD_PORT:-3000}:3000"
     restart: unless-stopped

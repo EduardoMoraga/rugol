@@ -226,6 +226,7 @@ async def screen_cvs(id_or_slug: str, body: ScreenBody) -> dict:
     búsqueda. El agente lee cada CV, lo evalúa contra la job description y
     registra a los candidatos en el pipeline ligados a la búsqueda."""
     from pathlib import Path as _Path
+
     from core.runner.orchestrator import RunRequest, get_orchestrator
     async with async_session_factory() as session:
         p = await _resolve(session, id_or_slug)
@@ -283,8 +284,8 @@ async def connect_source(id_or_slug: str, body: ConnectBody) -> dict:
     """Conector: el agente `connector` construye y ejecuta una integración
     (API/Pandapé, Drive/OneDrive, web) y deja los CVs en la carpeta de la
     búsqueda. Las credenciales se guardan en un archivo local (no en el prompt)."""
-    import json as _json
     from pathlib import Path as _Path
+
     from core.config import REPO_ROOT
     from core.runner.orchestrator import RunRequest, get_orchestrator
     async with async_session_factory() as session:

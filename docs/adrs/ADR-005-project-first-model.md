@@ -26,7 +26,7 @@ Examples the user gave that drove the change:
   the *purpose* is what gives meaning.
 - *"Marca personal"* — brand-architect, content-editor, market-analyst,
   cold-prospector — clearly a department, not four lonely agents.
-- *"Pipeline comercial Increxa"* — a project mirroring an actual business
+- *"Pipeline comercial"* — a project mirroring an actual business
   workflow.
 
 This ADR rebuilds the data model and navigation around **Project** as the

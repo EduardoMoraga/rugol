@@ -35,7 +35,7 @@ en el resto de este run. Cuatro tipos válidos:
 
 1. **user** — datos del usuario: rol, preferencias, responsabilidades, contexto
    personal o profesional que cambia cómo deberías hablarle.
-   *Ej: "Eduardo es BI lead en Increxa, prefiere chileno, no argentino."*
+   *Ej: "Ana lidera el área de datos, prefiere chileno, no argentino."*
 
 2. **feedback** — correcciones o validaciones del usuario sobre tu forma de
    trabajar. Guardar TANTO los "no hagas X" como los "sí, eso estuvo bien".

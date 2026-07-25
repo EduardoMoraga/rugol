@@ -165,9 +165,12 @@ for the design, plus ADR-007 and ADR-008 for the future sprints.
 
 ## Quickstart
 
-**No prerequisites.** The installer brings its own runtimes (an isolated
+**No language runtimes needed.** The installer brings its own (an isolated
 Python via [uv](https://github.com/astral-sh/uv), and Node) — you don't need
-Python, Node, or Docker preinstalled. One line, then a wizard.
+Python, Node, or Docker preinstalled. All it expects on the machine is
+**git** and **curl**, which macOS and most Linux distros already have; on
+Windows, install [Git for Windows](https://git-scm.com/download/win) first.
+One line, then a wizard.
 
 **Mac / Linux**
 ```bash
@@ -191,8 +194,8 @@ rugol up         # builds, starts core + dashboard, opens your browser
 per-use cost), or a dedicated **API key** (isolated billing). Everything
 runs locally under `~/.rugol`; nothing of yours leaves your machine.
 
-That's it — the dashboard opens at `http://localhost:3000` with five
-ready-to-clone agent templates. Everything you create lives in
+That's it — the dashboard opens at `http://localhost:3000` with seven
+ready-to-clone project templates. Everything you create lives in
 `~/.rugol`, so updates never touch your data.
 
 | Command | What it does |
@@ -253,7 +256,7 @@ The current version includes:
 | **3** | Living lessons per project + auto self-improvement trigger (Hermes-style) |
 | **4** | System 1/2 (task type selector) + optional devil's advocate |
 | **5** | Per-agent tool whitelist + Architect dir picker |
-| **6** | 5 curated project templates, one-click clone, auto-rename for duplicates |
+| **6** | 7 curated project templates, one-click clone, auto-rename for duplicates |
 | **7** | "Promote to lesson" everywhere — chat, advocate critiques, self-improvements |
 | **8** | Per-agent MCP servers (stdio/sse/http) — connect Asana, Notion, Slack per agent |
 | **9** | Ant farm with project clusters (visualization) |
@@ -282,6 +285,33 @@ To install on a fresh PC see [docs/install-on-new-pc.md](docs/install-on-new-pc.
 - **LLM auth**: Claude Pro/Max subscription **or** API key — your call,
   per project.
 - **Local-first**: everything runs on your machine. No telemetry by default.
+
+---
+
+## Security model
+
+Read this before you change how Rugol is served.
+
+Rugol is a **single-user local control plane**, and it is deliberately
+permissive inside that boundary: agents get shell and filesystem access,
+because reaching into your real files is the entire point. The corollary is
+that **the API is unauthenticated** — anyone who can reach the port can run
+an agent on your machine.
+
+That is safe under the assumption Rugol makes, and it is the assumption the
+defaults enforce:
+
+- `rugol up` binds the core and the dashboard to `127.0.0.1` only.
+- `docker compose up` publishes both ports on `127.0.0.1` only.
+- Nothing is sent anywhere. Telemetry is off unless you turn it on.
+
+So: **do not put Rugol on a shared network or a public IP.** If you need
+remote access, tunnel it (SSH, Tailscale, or similar) instead of changing the
+bind address — there is no auth layer behind it to catch you. If you run
+`uvicorn` by hand, keep `--host 127.0.0.1`.
+
+Bugs of this class are worth reporting privately: open a GitHub security
+advisory rather than a public issue.
 
 ---
 

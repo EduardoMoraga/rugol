@@ -582,7 +582,7 @@ const ES: Dict = {
   "onboarding.pitch":
     "Rugol es tu sala de control de agentes. No piensas \"qué agente creo\" — piensas \"qué quiero resolver\": tu marca, tu día a día, ayudar a tu hija a estudiar, tu pipeline comercial. El equipo de agentes hace el trabajo y desafía tu pensamiento; tú decides con un mejor proceso, no solo con más información.",
   "onboarding.question": "¿Por dónde te gustaría empezar?",
-  "onboarding.seeTemplates": "Ver los 5 templates",
+  "onboarding.seeTemplates": "Ver los 7 templates",
   "onboarding.orArchitect": "o descríbelo en una línea con Architect →",
   "onboarding.localFirst": "Local-first.",
   "onboarding.localFirstDesc": "Todo corre en tu PC. Tus datos no salen.",
@@ -596,7 +596,7 @@ const ES: Dict = {
   // ---- Template catalog ----
   "templates.title": "Empezar desde un template",
   "templates.description":
-    "Cinco proyectos listos para clonar — desde la mamá que arma juegos para su hija hasta el founder que cuida su pipeline. Haz click, personaliza lo que quieras, deploya.",
+    "Siete proyectos listos para clonar — desde la mamá que arma juegos para su hija hasta el founder que cuida su pipeline. Haz click, personaliza lo que quieras, deploya.",
   "templates.audienceCasual": "Día a día",
   "templates.audiencePro": "Profesional",
   "templates.agents": "agentes",
@@ -695,7 +695,7 @@ const ES: Dict = {
   "settings.refreshStatus": "Refrescar estado",
   "settings.dangerZone": "Zona peligrosa",
   "settings.dangerZoneDescription":
-    "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) para que se recreen las tablas vacías. El proyecto Workspace y los 5 templates curados siguen disponibles.",
+    "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) para que se recreen las tablas vacías. El proyecto Workspace y los 7 templates curados siguen disponibles.",
   "settings.resetButton": "Restablecer instalación",
   "settings.resetting": "Reseteando…",
 
@@ -1354,7 +1354,7 @@ const EN: Dict = {
   "onboarding.pitch":
     "Rugol is your agent control room. You don't think \"which agent should I create\" — you think \"what do I want to get done\": your brand, your day-to-day, helping your daughter study, your sales pipeline. The agent team does the work and challenges your thinking; you decide with a better process, not just more information.",
   "onboarding.question": "Where would you like to start?",
-  "onboarding.seeTemplates": "See the 5 templates",
+  "onboarding.seeTemplates": "See the 7 templates",
   "onboarding.orArchitect": "or describe it in one line with Architect →",
   "onboarding.localFirst": "Local-first.",
   "onboarding.localFirstDesc": "Everything runs on your PC. Your data stays.",
@@ -1368,7 +1368,7 @@ const EN: Dict = {
   // ---- Template catalog ----
   "templates.title": "Start from a template",
   "templates.description":
-    "Five projects ready to clone — from the mom building games for her daughter to the founder running their pipeline. Click, customize what you want, deploy.",
+    "Seven projects ready to clone — from the mom building games for her daughter to the founder running their pipeline. Click, customize what you want, deploy.",
   "templates.audienceCasual": "Day to day",
   "templates.audiencePro": "Professional",
   "templates.agents": "agents",
@@ -1468,7 +1468,7 @@ const EN: Dict = {
   "settings.refreshStatus": "Refresh status",
   "settings.dangerZone": "Danger zone",
   "settings.dangerZoneDescription":
-    "Reset the install to a fresh state — useful when moving the app to another PC or starting clean. After reset, restart the backend (uvicorn) so empty tables get recreated. Workspace and the 5 curated templates remain available.",
+    "Reset the install to a fresh state — useful when moving the app to another PC or starting clean. After reset, restart the backend (uvicorn) so empty tables get recreated. Workspace and the 7 curated templates remain available.",
   "settings.resetButton": "Reset install",
   "settings.resetting": "Resetting…",
 

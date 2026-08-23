@@ -54,7 +54,7 @@ async def upsert_agent_file(path: Path) -> None:
                 name=parsed.name, model=parsed.model, description=parsed.description,
                 body=parsed.body, source_path=parsed.source_path, body_hash=parsed.body_hash,
                 status="idle", project_id=project_id, tools=parsed.tools,
-                mcp_servers=parsed.mcp_servers,
+                mcp_servers=parsed.mcp_servers, engine=parsed.engine,
             )
             session.add(row)
             await session.commit()
@@ -64,6 +64,7 @@ async def upsert_agent_file(path: Path) -> None:
             or existing.project_id != project_id
             or existing.tools != parsed.tools
             or existing.mcp_servers != parsed.mcp_servers
+            or (existing.engine or "claude") != parsed.engine
         ):
             existing.model = parsed.model
             existing.description = parsed.description
@@ -72,6 +73,7 @@ async def upsert_agent_file(path: Path) -> None:
             existing.source_path = parsed.source_path
             existing.tools = parsed.tools
             existing.mcp_servers = parsed.mcp_servers
+            existing.engine = parsed.engine
             if project_id is not None:
                 existing.project_id = project_id
             await session.commit()

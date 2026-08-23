@@ -456,15 +456,36 @@ function Cmd-Autostart {
         # Equivalente al supervisor launchd de Mac.
         $arg = "-NoProfile -WindowStyle Hidden -Command `"`$env:RUGOL_NO_OPEN='1'; & '$cmd' up`""
         $a = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg
-        $t1 = New-ScheduledTaskTrigger -AtLogOn
-        $t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
-            -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration ([TimeSpan]::MaxValue)
-        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Hidden
+        # AtStartup (no AtLogOn): si la maquina se reinicia por un corte de luz
+        # y nadie entra por RDP, con AtLogOn Rugol NO vuelve. Con S4U la tarea
+        # corre en el contexto del usuario sin pedir contrasena, asi que el
+        # login de Claude en %USERPROFILE%\.claude sigue disponible.
+        $t1 = New-ScheduledTaskTrigger -AtStartup
+        $t2 = New-ScheduledTaskTrigger -AtLogOn
+        # Watchdog: 'up' es idempotente, asi que reintentarlo cada 5 min revive
+        # el servicio si se cayo, sin molestar si esta sano.
+        $t3 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(2) `
+            -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
+        $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+            -StartWhenAvailable -Hidden -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
+            -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
+        $p = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Limited
         try {
-            Register-ScheduledTask -TaskName $task -Action $a -Trigger @($t1, $t2) -Settings $s -Force -ErrorAction Stop | Out-Null
-            Ok "auto-arranque activado - se levanta al iniciar sesion y un watchdog lo revive cada 5 min si se cae."
+            Register-ScheduledTask -TaskName $task -Action $a -Trigger @($t1, $t2, $t3) `
+                -Settings $s -Principal $p -Force -ErrorAction Stop | Out-Null
+            Ok "auto-arranque activado - levanta al ENCENDER la maquina (no hace falta iniciar sesion)."
+            Ok "watchdog cada 5 min: si el servicio se cae, vuelve solo."
             Write-Host "  Quitarlo: rugol autostart off" -ForegroundColor DarkGray
-        } catch { Err "no pude crear la tarea programada: $_" }
+        } catch {
+            Warn "no pude registrar la tarea con arranque al boot ($_)"
+            Write-Host "  Reintento con el modo simple (al iniciar sesion)..." -ForegroundColor DarkGray
+            try {
+                Register-ScheduledTask -TaskName $task -Action $a -Trigger @($t2, $t3) `
+                    -Settings $s -Force -ErrorAction Stop | Out-Null
+                Ok "auto-arranque activado (al iniciar sesion + watchdog)."
+                Warn "OJO: si la maquina reinicia y nadie entra, Rugol no vuelve solo."
+            } catch { Err "no pude crear la tarea programada: $_" }
+        }
     } elseif ($action -in @("off", "disable")) {
         Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
         Ok "auto-arranque desactivado."

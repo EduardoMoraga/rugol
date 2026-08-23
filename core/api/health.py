@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from core import __version__
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run, Schedule
+from core.resilience import last_report
 from core.runner.orchestrator import get_orchestrator
 
 router = APIRouter()
@@ -73,6 +74,9 @@ async def health_full() -> dict:
             "failure_rate": (failed_24h / runs_24h) if runs_24h else 0.0,
         },
         "first_use": int(named_projects) == 0,
+        # Qué encontró la recuperación de arranque (core/resilience). Después de
+        # un corte de luz esto es lo primero que hay que mirar.
+        "recovery": (rep.as_dict() if (rep := last_report()) else None),
     }
 
 

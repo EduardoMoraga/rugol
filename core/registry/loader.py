@@ -8,6 +8,7 @@ from pathlib import Path
 import frontmatter
 
 from core import llm_models
+from core.runner.base import normalize_engine
 
 
 @dataclass
@@ -21,6 +22,10 @@ class ParsedAgent:
     project_slug: str | None = None  # ADR-005; None → loader assigns to Workspace
     tools: list[str] | None = None    # Capa 5; None or [] → full preset
     mcp_servers: dict | None = None   # Capa 8; per-agent MCP server configs
+    # Sprint 8: qué CLI corre este agente. `claude` (default) o `codex`.
+    # Un valor desconocido cae a `claude` con un warning — un typo en un .md
+    # no debe dejar al agente sin poder correr.
+    engine: str = "claude"
 
 
 @dataclass
@@ -50,6 +55,7 @@ def load_agent_file(path: Path, default_model: str = llm_models.SONNET) -> Parse
     description = str(meta.get("description") or "").strip()
     raw_project = meta.get("project")
     project_slug = str(raw_project).strip().lower() if raw_project else None
+    engine = normalize_engine(meta.get("engine") or meta.get("runner"))
     raw_tools = meta.get("tools")
     tools: list[str] | None = None
     if isinstance(raw_tools, list):
@@ -68,6 +74,7 @@ def load_agent_file(path: Path, default_model: str = llm_models.SONNET) -> Parse
         description=description,
         body=body,
         body_hash=_hash(body),
+        engine=engine,
         source_path=str(path.resolve()),
         project_slug=project_slug,
         tools=tools,

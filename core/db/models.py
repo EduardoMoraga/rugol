@@ -86,6 +86,10 @@ class Agent(Base):
     # each value matching McpServerConfig shape (stdio | sse | http). None
     # or empty → no per-agent MCP servers, just the SDK defaults.
     mcp_servers: Mapped[dict | None] = mapped_column("mcp_servers_json", JSON, default=None)
+    # Sprint 8: motor de ejecución — `claude` (default) o `codex`. Viene del
+    # frontmatter del .md; la plataforma entera es indiferente al valor salvo
+    # el runner que se elige.
+    engine: Mapped[str] = mapped_column(String(16), default="claude")
     last_run_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
@@ -133,7 +137,10 @@ class Run(Base):
     prompt: Mapped[str] = mapped_column(Text)
     started_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
     ended_at: Mapped[dt.datetime | None] = mapped_column(DateTime(timezone=True), default=None)
-    status: Mapped[str] = mapped_column(String(16), default="running")  # running|completed|failed|cancelled
+    # `interrupted` lo pone core.resilience en el arranque: la corrida estaba
+    # viva cuando el core se apagó. Distinto de `failed` a propósito — el
+    # agente no falló, y el bucle self-improving no debe contarlo como fracaso.
+    status: Mapped[str] = mapped_column(String(16), default="running")  # running|completed|failed|cancelled|interrupted
     exit_code: Mapped[int | None] = mapped_column(Integer, default=None)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
@@ -150,6 +157,9 @@ class Run(Base):
     # Format: short id from agent-soul/<name>/lineage.json ("001", "002b", …).
     # NULL on runs that pre-date Soul-3 or on agents with no archive yet.
     agent_version_id: Mapped[str | None] = mapped_column(String(32), default=None)
+    # Con qué motor corrió. Se guarda por corrida porque un agente puede
+    # cambiar de motor, y la vista de una corrida vieja no debe mentir.
+    engine: Mapped[str] = mapped_column(String(16), default="claude")
 
     agent: Mapped[Agent] = relationship(back_populates="runs")
     messages: Mapped[list[Message]] = relationship(back_populates="run", cascade="all, delete-orphan")

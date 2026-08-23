@@ -77,6 +77,16 @@ class Settings(BaseSettings):
     CLAUDE_CODE_OAUTH_TOKEN: str = ""
     DEFAULT_MODEL: str = llm_models.SONNET
 
+    # Codex (motor alternativo — core/runner/codex_runner).
+    # Vacío = el CLI usa el login guardado en ~/.codex (`rugol login --codex`).
+    OPENAI_API_KEY: str = ""
+    # Sandbox de Codex: read-only | workspace-write | danger-full-access.
+    # `workspace-write` escribe sólo en el directorio de trabajo y no tiene red.
+    # Es el freno principal del motor Codex, así que subirlo es una decisión.
+    CODEX_SANDBOX: str = "workspace-write"
+    # Corte duro por corrida, en segundos. 0 = sin límite.
+    CODEX_TIMEOUT_SECONDS: int = 900
+
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_ALLOWED_USERS: str = ""
@@ -180,6 +190,18 @@ class Settings(BaseSettings):
     # If empty, the adapter uses today's ISO date as session id, so
     # observations naturally group per day. Override for stable sessions.
     HONCHO_DEFAULT_SESSION: str = ""
+
+    # Safety — frenos para el agente desatendido (core/safety).
+    # Rugol corre con bypassPermissions y shell completa, en horarios, sin
+    # nadie mirando. Estos denies son la única red que hay. Apagarlos es una
+    # decisión consciente, no un default.
+    SAFETY_GUARDS_ENABLED: bool = True
+    # Regexes extra separadas por `;;` — se suman a las reglas de fábrica.
+    # Ej: SAFETY_DENY_EXTRA=terraform\s+destroy;;kubectl\s+delete\s+ns
+    SAFETY_DENY_EXTRA: str = ""
+    # `freeze`: mientras esté seteado, los agentes sólo pueden escribir dentro
+    # de esta carpeta. Vacío = sin restricción.
+    SAFETY_FREEZE_DIR: str = ""
 
     # Security
     SESSION_SECRET: str = "change-me-to-a-random-32-char-string"

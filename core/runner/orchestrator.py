@@ -19,7 +19,8 @@ from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.memory import build_memory_block
-from core.runner.claude_runner import run_agent
+from core.registry.skills_catalog import load_catalogue
+from core.runner.dispatch import run_with_engine
 from core.runner.telegram_tools import (
     TELEGRAM_TOOL_NAMES,
     build_telegram_mcp_server,
@@ -133,8 +134,11 @@ class RuntimeOrchestrator:
                 agent.last_run_at.isoformat() if agent.last_run_at else None
             )
 
+            agent_engine = agent.engine or "claude"
+
             run = Run(
                 agent_id=agent.id,
+                engine=agent_engine,
                 schedule_id=req.schedule_id,
                 source=req.source,
                 prompt=req.prompt,
@@ -290,6 +294,8 @@ class RuntimeOrchestrator:
                 agent_body=effective_agent_body,
                 agent_name_for_metrics=agent_name_snapshot,
                 version_id_for_metrics=chosen_version_id,
+                engine=agent_engine,
+                skills_catalogue=await load_catalogue(),
             )
         )
         self._active[run_id] = task
@@ -311,10 +317,13 @@ class RuntimeOrchestrator:
         agent_body: str | None = None,
         agent_name_for_metrics: str | None = None,
         version_id_for_metrics: str | None = None,
+        engine: str | None = None,
+        skills_catalogue: str | None = None,
     ) -> None:
         async with self._sem:
             try:
-                result = await run_agent(
+                result = await run_with_engine(
+                    engine=engine,
                     agent_name=req.agent_name,
                     prompt=runner_prompt if runner_prompt is not None else req.prompt,
                     workspace_dir=self._workspace,
@@ -330,6 +339,7 @@ class RuntimeOrchestrator:
                     telegram_mcp_server=telegram_mcp_server,
                     telegram_tool_names=TELEGRAM_TOOL_NAMES,
                     agent_body=agent_body,
+                    skills_catalogue=skills_catalogue,
                 )
                 await self._mark_completed(run_id, result)
                 # Soul-3 (ADR-008): fold this run's cost into the version's

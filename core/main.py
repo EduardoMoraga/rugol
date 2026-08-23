@@ -40,6 +40,7 @@ from core.api import settings as settings_api
 from core.config import adopt_legacy_data, data_dir, get_settings
 from core.db import init_db
 from core.registry.service import build_watcher, initial_scan
+from core.resilience import set_last_report, startup_recovery
 from core.scheduler import get_scheduler
 
 logging.basicConfig(
@@ -64,6 +65,14 @@ async def lifespan(app: FastAPI):
 
     # 1. Database
     await init_db()
+
+    # 1b. Recuperación de arranque (core/resilience): respaldo rotativo,
+    # chequeo de integridad, y cierre de lo que quedó a mitad de camino. Va
+    # ANTES del scheduler y de los adaptadores: si se corta la luz en medio de
+    # una corrida, esas filas quedan en "running" para siempre y la vista de
+    # flota miente hasta la próxima corrida de cada agente.
+    recovery = await startup_recovery()
+    set_last_report(recovery)
 
     # 2. Initial scan + watcher
     await initial_scan()

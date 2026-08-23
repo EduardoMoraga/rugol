@@ -12,6 +12,7 @@ unrelated values untouched.
 
 Usage:
   rugol-auth.py status [--json] [--verify]   # --verify hace una llamada real
+  rugol-auth.py status --codex               # estado del motor Codex
   rugol-auth.py login             # interactive login on this machine
   rugol-auth.py token             # long-lived token (headless / server)
   rugol-auth.py logout
@@ -203,6 +204,61 @@ def cmd_status(as_json: bool, verify: bool = False) -> int:
     return 1
 
 
+# ── Codex (motor alternativo) ────────────────────────────────────────────────
+def cmd_codex_status(as_json: bool) -> int:
+    """Estado del CLI de Codex. Simétrico a `status`, con la misma honestidad:
+    dice qué está configurado, no que funcione."""
+    from core.runner.codex_runner import auth_status as codex_auth
+
+    st = codex_auth()
+    if as_json:
+        print(json.dumps(st, indent=2, ensure_ascii=False))
+        return 0 if st["logged_in"] else 1
+
+    print()
+    print(f"{BOLD}Cuenta de Codex (OpenAI){RESET}")
+    if not st["cli_path"]:
+        err("CLI de Codex no instalado")
+        print(f"    {DIM}{st['error']}{RESET}")
+        print()
+        print(f"  Instalalo con:  {BOLD}npm install -g @openai/codex{RESET}")
+        print()
+        return 1
+    ok(f"CLI: {st['cli_version'] or '?'}")
+    if st["logged_in"]:
+        ok(f"conectada (método: {st['method'] or '?'})")
+        print()
+        return 0
+    err("NO conectada")
+    if st["error"]:
+        print(f"    {DIM}{st['error']}{RESET}")
+    print()
+    print(f"  Arreglalo con:  {BOLD}rugol login --codex{RESET}")
+    print()
+    return 1
+
+
+def cmd_codex_login() -> int:
+    """`codex login` — flujo OAuth con la cuenta de ChatGPT, o API key."""
+    from core.runner.codex_runner import find_codex
+
+    cli = find_codex()
+    if not cli:
+        err("El CLI de Codex no está instalado.")
+        print(f"  Instalalo con:  {BOLD}npm install -g @openai/codex{RESET}")
+        return 1
+    print()
+    print(f"{BOLD}rugol login --codex{RESET} — conectar tu cuenta de OpenAI")
+    print(f"  {DIM}Se abre el navegador para autorizar con ChatGPT.{RESET}")
+    print()
+    rc = subprocess.call([cli, "login"])
+    if rc != 0:
+        err(f"El login de Codex terminó con código {rc}.")
+        return rc
+    print()
+    return cmd_codex_status(as_json=False)
+
+
 def _claude_or_die() -> str:
     cli_path, _ = find_cli()
     if not cli_path:
@@ -315,10 +371,12 @@ def main(argv: list[str]) -> int:
     p_status = sub.add_parser("status")
     p_status.add_argument("--json", action="store_true")
     p_status.add_argument("--verify", action="store_true", help="real API round trip")
+    p_status.add_argument("--codex", action="store_true", help="sólo el motor Codex")
 
     p_login = sub.add_parser("login")
     p_login.add_argument("--token", action="store_true", help="long-lived subscription token")
     p_login.add_argument("--api-key", action="store_true", dest="api_key")
+    p_login.add_argument("--codex", action="store_true", help="conectar la cuenta de OpenAI/Codex")
 
     sub.add_parser("logout")
     sub.add_parser("path")
@@ -328,10 +386,18 @@ def main(argv: list[str]) -> int:
     cmd = args.cmd or "status"
 
     if cmd == "status":
-        return cmd_status(
-            as_json=getattr(args, "json", False),
-            verify=getattr(args, "verify", False),
-        )
+        as_json = getattr(args, "json", False)
+        if getattr(args, "codex", False):
+            return cmd_codex_status(as_json)
+        rc = cmd_status(as_json=as_json, verify=getattr(args, "verify", False))
+        # Si Codex está instalado, mostramos también su estado: tener dos
+        # motores y ver sólo uno es exactamente el tipo de ceguera que este
+        # comando existe para eliminar.
+        if not as_json:
+            from core.runner.codex_runner import find_codex
+            if find_codex():
+                cmd_codex_status(as_json=False)
+        return rc
     if cmd == "path":
         return cmd_path()
     if cmd == "logout":
@@ -339,6 +405,8 @@ def main(argv: list[str]) -> int:
     if cmd == "token":
         return cmd_token()
     if cmd == "login":
+        if getattr(args, "codex", False):
+            return cmd_codex_login()
         if getattr(args, "api_key", False):
             return cmd_api_key()
         if getattr(args, "token", False):

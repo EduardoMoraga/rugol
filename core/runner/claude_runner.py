@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from core.bus import bus
@@ -16,14 +15,10 @@ from core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class RunResult:
-    final_text: str
-    session_id: str | None
-    input_tokens: int
-    output_tokens: int
-    cost_usd: float
-    files_generated: list[Path] = field(default_factory=list)
+# El contrato vive en core.runner.base para que los dos motores devuelvan lo
+# mismo. Se re-exporta acá porque media docena de módulos ya lo importaban de
+# este archivo.
+from core.runner.base import RunResult  # noqa: E402
 
 
 def _build_env() -> dict[str, str]:
@@ -46,6 +41,32 @@ def _build_env() -> dict[str, str]:
         env["ANTHROPIC_API_KEY"] = settings.ANTHROPIC_API_KEY
         env.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
     return env
+
+
+
+
+def _build_guard_hooks(agent_name: str):
+    """None cuando los frenos están apagados, para no pasar `hooks` en vano."""
+    settings = get_settings()
+    if not settings.SAFETY_GUARDS_ENABLED:
+        logger.warning(
+            "frenos de seguridad DESACTIVADOS (SAFETY_GUARDS_ENABLED=false) — "
+            "el agente %s corre sin red", agent_name,
+        )
+        return None
+    try:
+        from core.safety import build_guard_hooks, extra_rules_from_settings
+        return build_guard_hooks(
+            agent_name=agent_name,
+            freeze_dir=settings.SAFETY_FREEZE_DIR or None,
+            extra_rules=extra_rules_from_settings(),
+        )
+    except Exception:
+        # Si los frenos no se pueden construir preferimos saberlo a fallar
+        # silenciosamente sin protección.
+        logger.exception("no pude construir los frenos de seguridad — corro sin ellos")
+        return None
+
 
 
 SYSTEM_PROMPT_APPEND = """You are running inside Rugol, a local agent operations platform.
@@ -101,6 +122,7 @@ async def run_agent(
     agent_body: str | None = None,
     telegram_mcp_server=None,
     telegram_tool_names: tuple[str, ...] = (),
+    skills_catalogue: str | None = None,
 ) -> RunResult:
     """Invoke claude-agent-sdk and stream events while collecting the result.
 
@@ -155,6 +177,10 @@ async def run_agent(
             "## Agent persona (your spec — what you are, how you work)\n"
             + agent_body.strip()
         )
+    # Las skills de Rugol, como catálogo. Va justo después de la persona:
+    # "quién sos" y después "qué procedimientos escritos tenés a mano".
+    if skills_catalogue and skills_catalogue.strip():
+        parts.append(skills_catalogue.strip())
     parts.append(SYSTEM_PROMPT_APPEND)
     endpoint_block = render_endpoint_block()
     if endpoint_block:
@@ -207,6 +233,14 @@ async def run_agent(
         setting_sources=["user"],
         env=_build_env(),
     )
+
+    # Frenos de seguridad (core/safety). `bypassPermissions` significa que
+    # nadie va a confirmar nada, así que los hooks PreToolUse son lo único
+    # entre un agente y un `rm -rf /`. Hooks, no `can_use_tool`: éste último
+    # exige modo streaming, que cambiaría la forma de esta llamada.
+    guard_hooks = _build_guard_hooks(agent_name)
+    if guard_hooks:
+        options_kwargs["hooks"] = guard_hooks
     # MCP servers merge order (v0.7.1 second fix — platform wins):
     #   - Per-agent configured servers come first.
     #   - Platform-provided servers (rugol-soul, rugol-telegram)
@@ -317,4 +351,5 @@ async def run_agent(
         input_tokens=in_tok,
         output_tokens=out_tok,
         cost_usd=cost,
+        engine="claude",
     )

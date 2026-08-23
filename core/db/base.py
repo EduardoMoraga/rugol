@@ -23,6 +23,12 @@ if _settings.DATABASE_URL.startswith("sqlite"):
 engine = create_async_engine(_settings.DATABASE_URL, echo=False, future=True)
 async_session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
+# WAL + busy_timeout + foreign_keys, por conexión. Es lo que hace que un corte
+# de luz deje una base que SQLite recupera solo en vez de una a medias.
+from core.resilience import harden_sqlite  # noqa: E402  (evita un import circular arriba)
+
+harden_sqlite(engine.sync_engine)
+
 
 async def init_db() -> None:
     """Create tables. In prod we use Alembic; this is for dev/tests.
@@ -68,6 +74,9 @@ async def init_db() -> None:
             # HRO: perfil de entrevista por búsqueda + por link de entrevista.
             ("projects", "interview_profile", "VARCHAR(40) DEFAULT 'general'"),
             ("interview_links", "profile", "VARCHAR(40)"),
+            # Sprint 8: motor de ejecución por agente y por corrida.
+            ("agents", "engine", "VARCHAR(16) DEFAULT 'claude'"),
+            ("runs", "engine", "VARCHAR(16) DEFAULT 'claude'"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

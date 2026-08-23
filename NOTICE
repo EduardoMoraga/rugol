@@ -1,0 +1,54 @@
+Rugol
+Copyright (c) 2026 Eduardo Moraga
+Licensed under the MIT License (see LICENSE).
+
+═══════════════════════════════════════════════════════════════════════════════
+Ideas taken from other open-source projects
+═══════════════════════════════════════════════════════════════════════════════
+
+Rugol borrows ideas — not code — from the projects below. Where a design is
+theirs, it is credited here and in the source file that implements it. Nothing
+in this repository is a copy of their source; each item was reimplemented for
+Rugol's runtime, which differs in ways that matter (Rugol runs agents
+unattended, on a schedule, with no human at the terminal).
+
+If you are one of these authors and think the attribution is wrong or
+insufficient, open an issue and it gets fixed.
+
+
+gstack — https://github.com/garrytan/gstack
+  Author: Garry Tan.  License: MIT.
+  Consulted at commit state of 2026-08-22.
+
+  1. Hard brakes on destructive commands.
+     Their `/careful` skill warns a human before `rm -rf`, a force-push to the
+     default branch, or a recursive delete of root, and hard-denies the worst
+     of them.
+     → Rugol: `core/safety/guards.py`. Reimplemented as `PreToolUse` hooks in
+       the runtime rather than as a skill, and every rule is a hard deny with
+       no warn tier: gstack has a human to warn, Rugol runs at 8:30 AM with
+       nobody watching. The rule set, the anchoring to command position, and
+       the deny messages are ours; the idea of shipping brakes at all is
+       theirs.
+
+  2. Confining edits to one directory while debugging.
+     Their `/freeze` skill stops an agent from making drive-by edits across a
+     repo.
+     → Rugol: `evaluate_write` in the same module, enforced on Write/Edit
+       tool calls instead of by instruction.
+
+  Their broader system — the 23-skill sprint workflow, the GStack Browser,
+  GBrain, the telemetry receipts — is deliberately NOT ported. It solves a
+  different problem (a human driving a terminal) and duplicates parts Rugol
+  already has (the Soul layer, the ontology).
+
+
+claude-agent-sdk — https://github.com/anthropics/claude-agent-sdk-python
+  Author: Anthropic.  License: MIT.  Used as a dependency, not vendored.
+  Rugol runs every agent through this SDK and the Claude Code CLI it bundles.
+
+
+eduagent-gateway (Eduardo Moraga, unpublished)
+  The Telegram adapter, the single-instance lock, the attachment download and
+  the audio transcription path were ported from this earlier prototype by the
+  same author.

@@ -9,6 +9,30 @@ rugol doctor     # runtimes, config y la cuenta de Claude verificada de verdad
 rugol logs core  # el error concreto
 ```
 
+## `rugol update` dice "codigo actualizado" pero nada cambia
+
+Síntoma exacto: en el medio del output aparece `Please commit your changes or
+stash them before you merge. Aborting`, y dos líneas después
+`[OK] codigo actualizado`. La versión del dashboard que compila sigue siendo la
+vieja.
+
+Es un círculo cerrado, no un error tuyo. Hasta junio de 2026 el launcher usaba
+`git pull`, que aborta si el runtime dejó archivos modificados en el
+directorio de la app. Y el launcher sólo se refresca *después* de un fetch
+exitoso — así que nunca podía arreglarse a sí mismo.
+
+Una línea lo rompe:
+
+```powershell
+irm https://raw.githubusercontent.com/EduardoMoraga/rugol/main/scripts/repair.ps1 | iex
+```
+
+Guarda los cambios locales en un `git stash` (recuperables con
+`git -C "$HOME\.rugol\app" stash pop`), pone el código al día, refresca el
+launcher, reinstala dependencias, recompila y levanta. Tus datos no se tocan.
+De ahí en adelante `rugol update` funciona solo: la versión nueva hace
+`reset --hard` y sólo dice "codigo actualizado" si el fetch realmente anduvo.
+
 ## El dashboard funciona pero el agente no responde
 
 El síntoma clásico: la UI carga perfecto y cada run falla. Tiene sentido — el

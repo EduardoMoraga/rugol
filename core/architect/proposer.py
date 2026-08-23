@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from core import llm_models
 from core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ Schema (illustrative; replace every value, drop optional sections you don't use)
   "rationale": "One paragraph: trade-offs taken, what you deliberately did NOT include, what cannot work yet."
   "agents": array of objects with these fields:
       "name": lowercase, dashes only, 3-40 chars
-      "model": one of "claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"
+      "model": one of "claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5"
       "description": one sentence shown on the agent's card
       "body": markdown 150-300 words. Include sections: ## Who you are, ## When you are invoked, ## What you do (numbered steps), ## Output format, ## Constraints. Direct, second-person, imperative. No emoji.
   "skills": array of objects with "name", "description", "body" (100-200 words). Empty array if none.
@@ -268,7 +269,7 @@ async def propose(*, idea: str, constraints: str = "", workspace_dir=None) -> Pr
 
     options = ClaudeAgentOptions(
         cwd=str(workspace),
-        model="claude-sonnet-4-6",
+        model=llm_models.SONNET,
         permission_mode="bypassPermissions",
         system_prompt={
             "type": "preset",

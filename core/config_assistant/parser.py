@@ -30,7 +30,7 @@ from typing import Any
 
 from sqlalchemy import select
 
-from core import runtime_state
+from core import llm_models, runtime_state
 from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent
@@ -204,7 +204,7 @@ async def parse_user_input(user_input: str) -> ConfigPlan:
 
     options = ClaudeAgentOptions(
         cwd=str(workspace),
-        model="claude-sonnet-4-6",
+        model=llm_models.SONNET,
         permission_mode="bypassPermissions",
         system_prompt={
             "type": "preset",

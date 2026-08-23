@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale, BookmarkPlus } from "lucide-react";
+import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale, BookmarkPlus, AlertTriangle, KeyRound } from "lucide-react";
 import { addProjectLesson, cancelRun, fetchRun, runAgentNow, type RunDetail, type RunNowOptions } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useStream } from "@/lib/use-stream";
@@ -23,6 +23,10 @@ interface Turn {
   /** session id returned by the run for chaining the next turn. */
   sessionId?: string | null;
   status: "queued" | "streaming" | "completed" | "failed" | "cancelled";
+  /** Why the run failed. El chat mostraba sólo "failed" y el motivo quedaba
+   *  enterrado en /runs/<id>: un fallo de credenciales se leía igual que uno
+   *  de red. Lo traemos del evento SSE y lo confirmamos con el run. */
+  error?: string;
   startedAt: number;
   cost?: number;
   taskType?: TaskType;
@@ -206,7 +210,11 @@ export function AgentChat({
             return { ...t, status: "completed" as const };
           }
           if (e.topic === "run:failed") {
-            return { ...t, status: "failed" as const };
+            return {
+              ...t,
+              status: "failed" as const,
+              error: (e.data?.error as string) || t.error,
+            };
           }
           if (e.topic === "run:cancelled") {
             return { ...t, status: "cancelled" as const };
@@ -229,6 +237,7 @@ export function AgentChat({
                             ...x,
                             sessionId: r.session_id ?? x.sessionId,
                             cost: r.cost_usd,
+                            error: r.error_message ?? x.error,
                             assistant: x.assistant || r.final_text || "",
                           }
                         : x,
@@ -689,9 +698,12 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
               )}
             </div>
           </div>
+          {turn.status === "failed" && turn.error && (
+            <FailureNotice error={turn.error} runId={turn.runId} />
+          )}
           {turn.assistant ? (
             <MarkdownView>{turn.assistant}</MarkdownView>
-          ) : turn.status === "queued" ? (
+          ) : turn.status === "failed" ? null : turn.status === "queued" ? (
             <p className="text-[12.5px] text-[--color-fg-subtle]">{t("chat.waiting")}</p>
           ) : (
             <p className="text-[12.5px] text-[--color-fg-subtle]">
@@ -747,6 +759,48 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+
+/** Un fallo de credenciales y uno de red se leían idénticos en el chat: sólo
+ *  la etiqueta "failed". Acá mostramos el motivo real y, cuando huele a auth,
+ *  el comando exacto que lo arregla en la terminal del servidor. */
+const AUTH_ERROR_RE =
+  /credential|unauthoriz|forbidden|401|403|oauth|api[ _-]?key|not logged|log ?in|authenticat|invalid token|expired token|claude code not found|clinotfound/i;
+
+function FailureNotice({ error, runId }: { error: string; runId?: number }) {
+  const { t } = useI18n();
+  const looksLikeAuth = AUTH_ERROR_RE.test(error);
+  return (
+    <div className="rounded-md border border-[--color-error]/40 bg-[--color-error]/5 p-3 space-y-2">
+      <p className="text-[11px] uppercase tracking-wider text-[--color-error] font-medium inline-flex items-center gap-1.5">
+        <AlertTriangle size={12} /> {t("chat.errorTitle")}
+      </p>
+      <p className="text-[13px] font-mono break-words whitespace-pre-wrap text-[--color-fg]">
+        {error}
+      </p>
+      {looksLikeAuth && (
+        <p className="text-[12.5px] text-[--color-fg-muted] inline-flex items-start gap-1.5">
+          <KeyRound size={12} className="mt-0.5 shrink-0" />
+          <span>
+            {t("chat.errorAuthHint")}{" "}
+            <code className="px-1 py-0.5 rounded bg-[--color-bg-elev-2] font-mono">
+              rugol login
+            </code>
+          </span>
+        </p>
+      )}
+      {runId && (
+        <Link
+          href={`/runs/${runId}`}
+          target="_blank"
+          className="text-[12px] text-[--color-fg-muted] hover:text-[--color-fg] inline-flex items-center gap-1"
+        >
+          {t("chat.errorOpenRun")} <ExternalLink size={9} />
+        </Link>
       )}
     </div>
   );

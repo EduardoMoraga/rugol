@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from core import llm_models
 from core.architect.proposer import (
     Proposal,
     ProposalAgent,
@@ -95,7 +96,7 @@ _PERSONAL_ASSISTANT = Template(
         agents=[
             ProposalAgent(
                 name="morning-brief",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Arma tu brief diario: lo importante del día, lo urgente del inbox, las decisiones pendientes.",
                 body=(
                     "## Quién eres\n"
@@ -117,7 +118,7 @@ _PERSONAL_ASSISTANT = Template(
             ),
             ProposalAgent(
                 name="inbox-triage",
-                model="claude-haiku-4-5-20251001",
+                model=llm_models.HAIKU,
                 description="Clasifica cada email entrante en urgente/respuesta-pendiente/ruido y propone una acción.",
                 body=(
                     "## Quién eres\n"
@@ -137,7 +138,7 @@ _PERSONAL_ASSISTANT = Template(
             ),
             ProposalAgent(
                 name="evening-checkpoint",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Cierre del día: qué se hizo, qué quedó vivo, qué requiere decisión mañana.",
                 body=(
                     "## Quién eres\n"
@@ -196,7 +197,7 @@ _MARCA_PERSONAL = Template(
         agents=[
             ProposalAgent(
                 name="brand-architect",
-                model="claude-opus-4-7",
+                model=llm_models.OPUS,
                 description="Cuida la voz, el posicionamiento y el plan editorial trimestral.",
                 body=(
                     "## Quién eres\n"
@@ -218,7 +219,7 @@ _MARCA_PERSONAL = Template(
             ),
             ProposalAgent(
                 name="content-editor",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Toma un ángulo aprobado por brand-architect y escribe el draft del post.",
                 body=(
                     "## Quién eres\n"
@@ -240,7 +241,7 @@ _MARCA_PERSONAL = Template(
             ),
             ProposalAgent(
                 name="market-analyst",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Lee qué posts resonaron, propone ajustes basados en datos.",
                 body=(
                     "## Quién eres\n"
@@ -310,7 +311,7 @@ _PIPELINE_COMERCIAL = Template(
         agents=[
             ProposalAgent(
                 name="prospector",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Busca leads que matchean el ICP, prepara una primera aproximación personalizada.",
                 body=(
                     "## Quién eres\n"
@@ -330,7 +331,7 @@ _PIPELINE_COMERCIAL = Template(
             ),
             ProposalAgent(
                 name="qualifier",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Filtra leads activos por fit y por probabilidad real de cierre. Salva tiempo.",
                 body=(
                     "## Quién eres\n"
@@ -351,7 +352,7 @@ _PIPELINE_COMERCIAL = Template(
             ),
             ProposalAgent(
                 name="follower-upper",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Mantiene la conversación viva en oportunidades activas. Nunca pierde un follow-up.",
                 body=(
                     "## Quién eres\n"
@@ -412,7 +413,7 @@ _INVESTIGADOR_TEMA = Template(
         agents=[
             ProposalAgent(
                 name="researcher",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Recolecta fuentes confiables sobre el tema y arma un dossier inicial.",
                 body=(
                     "## Quién eres\n"
@@ -433,7 +434,7 @@ _INVESTIGADOR_TEMA = Template(
             ),
             ProposalAgent(
                 name="explainer",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Toma el dossier y lo explica como si tuvieras 12 años. Analogías concretas.",
                 body=(
                     "## Quién eres\n"
@@ -454,7 +455,7 @@ _INVESTIGADOR_TEMA = Template(
             ),
             ProposalAgent(
                 name="critic",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Cuestiona el consenso del campo. Te muestra dónde el equipo investigador puede haberse comido un sesgo.",
                 body=(
                     "## Quién eres\n"
@@ -518,7 +519,7 @@ _RECLUTAMIENTO = Template(
         agents=[
             ProposalAgent(
                 name="hro-screener",
-                model="claude-opus-4-7",
+                model=llm_models.OPUS,
                 description="Evalúa CVs contra el perfil del puesto: score 1-5 por requisito, fortalezas, banderas rojas y recomendación. Registra a cada candidato.",
                 body=(
                     "## Quién eres\nLees un CV como un reclutador senior: separas señal de ruido y puntúas con criterio contra los requisitos reales del puesto (la job description).\n\n"
@@ -527,7 +528,7 @@ _RECLUTAMIENTO = Template(
             ),
             ProposalAgent(
                 name="hro-knockout",
-                model="claude-haiku-4-5-20251001",
+                model=llm_models.HAIKU,
                 description="Aplica requisitos eliminatorios (knockouts) tras el screening: filtra rápido y justo antes de gastar una entrevista.",
                 body=(
                     "## Quién eres\nFiltras los requisitos DUROS de forma objetiva: disponibilidad, ubicación/radio al PDV, turnos, movilidad, certificaciones, renta en rango. Rápido a propósito.\n\n"
@@ -536,7 +537,7 @@ _RECLUTAMIENTO = Template(
             ),
             ProposalAgent(
                 name="hro-sofia",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Sofía — entrevistadora por competencias (BARS/STAR). Conduce, puntúa con evidencia y registra el informe en el candidato.",
                 body=(
                     "## Quién eres\nEres Sofía, entrevistadora estructurada por competencias: cálida, profesional, rigurosa. Buscas ejemplos reales (STAR). No evalúas en voz alta ni adelantas resultados. Sin preguntas protegidas.\n\n"
@@ -545,7 +546,7 @@ _RECLUTAMIENTO = Template(
             ),
             ProposalAgent(
                 name="hro-matcher",
-                model="claude-opus-4-7",
+                model=llm_models.OPUS,
                 description="Lee a los entrevistados del pipeline, los compara y arma la terna (top 3) con justificación y trade-offs.",
                 body=(
                     "## Quién eres\nTomas a los candidatos ya entrevistados y produces una decisión defendible: la terna, con por qué cada uno y qué se resigna.\n\n"
@@ -600,7 +601,7 @@ _GESTION_PROYECTOS = Template(
         agents=[
             ProposalAgent(
                 name="avance-tracker",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Compara el avance real contra el plan y marca los desvíos que todavía se pueden corregir.",
                 body=(
                     "## Quién eres\n"
@@ -623,7 +624,7 @@ _GESTION_PROYECTOS = Template(
             ),
             ProposalAgent(
                 name="bloqueos",
-                model="claude-haiku-4-5-20251001",
+                model=llm_models.HAIKU,
                 description="Barre las actualizaciones buscando bloqueos y los deja con dueño y fecha, no como queja.",
                 body=(
                     "## Quién eres\n"
@@ -645,7 +646,7 @@ _GESTION_PROYECTOS = Template(
             ),
             ProposalAgent(
                 name="status-semanal",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Escribe el reporte semanal para quien decide: qué cambió, qué está en riesgo, qué necesita decisión.",
                 body=(
                     "## Quién eres\n"
@@ -720,7 +721,7 @@ _ANALISTA_OPERACIONES = Template(
         agents=[
             ProposalAgent(
                 name="auditor-datos",
-                model="claude-haiku-4-5-20251001",
+                model=llm_models.HAIKU,
                 description="Revisa el dato crudo antes de que nadie lo interprete: huecos, duplicados, saltos imposibles.",
                 body=(
                     "## Quién eres\n"
@@ -744,7 +745,7 @@ _ANALISTA_OPERACIONES = Template(
             ),
             ProposalAgent(
                 name="ops-analista",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Explica qué se movió, cuánto y por qué, separando la causa real del ruido estacional.",
                 body=(
                     "## Quién eres\n"
@@ -768,7 +769,7 @@ _ANALISTA_OPERACIONES = Template(
             ),
             ProposalAgent(
                 name="brief-decision",
-                model="claude-sonnet-4-6",
+                model=llm_models.SONNET,
                 description="Convierte el análisis en una decisión concreta con opciones, costo de equivocarse y recomendación.",
                 body=(
                     "## Quién eres\n"

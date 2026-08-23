@@ -13,6 +13,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
+from core import llm_models
 from core.bus import bus
 from core.config import get_settings
 from core.db import async_session_factory
@@ -455,7 +456,7 @@ class RuntimeOrchestrator:
                 agent_name=agent_name,
                 prompt=critique_prompt,
                 source="devils-advocate",
-                model_override="claude-opus-4-7",
+                model_override=llm_models.OPUS,
                 advocate_for_run_id=primary_run_id,
             ))
         except Exception:

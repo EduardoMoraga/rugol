@@ -1,6 +1,6 @@
 ---
 name: morning-brief
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 project: asistente-personal
 description: "Arma tu brief diario: lo importante del día, lo urgente del inbox, las decisiones pendientes."
 ---

@@ -1,6 +1,6 @@
 ---
 name: narrative-writer
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 project: presentaciones-cliente
 description: "Convierte los insights en un guión de presentación con título, estructura de slides y copy ejecutivo."
 ---

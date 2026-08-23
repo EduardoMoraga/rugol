@@ -1,6 +1,7 @@
 """Health and version endpoints."""
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import os
 
@@ -73,3 +74,56 @@ async def health_full() -> dict:
         },
         "first_use": int(named_projects) == 0,
     }
+
+
+@router.get("/health/auth")
+async def health_auth(refresh: bool = False, verify: bool = False) -> dict:
+    """Is the Claude account connected? (the check `doctor` used to fake)
+
+    Two levels, because they cost different things:
+
+    - default: what credential the CLI is configured with, on the very binary a
+      run would spawn and with the very environment a run would get. Cheap
+      (~1s, cached), safe to poll.
+    - `?verify=true`: a real minimal round trip to the API. The only honest
+      answer to "does this credential still work" — `claude auth status` reports
+      a revoked token as logged in. Costs a fraction of a cent, so it runs only
+      when asked.
+
+    Never 500s — when auth is broken this endpoint is how the user finds out.
+    """
+    from core.runner.claude_cli import auth_status_cached, verify_credentials
+
+    status = await asyncio.to_thread(auth_status_cached, refresh=refresh)
+    payload = dict(status)
+    ok = bool(status["logged_in"])
+
+    if verify:
+        probe = await asyncio.to_thread(verify_credentials)
+        payload.update(probe)
+        ok = ok and bool(probe["verified"])
+    else:
+        payload.update({"verified": None, "verify_error": "", "verify_status": None})
+
+    payload["ok"] = ok
+    payload["hint"] = _auth_hint(payload)
+    return payload
+
+
+def _auth_hint(status: dict) -> str:
+    """One actionable sentence — what to type next, not what went wrong."""
+    if not status.get("cli_path"):
+        return "Corré `rugol update` para reinstalar las dependencias del backend."
+    if not status["logged_in"]:
+        return "Corré `rugol login` en esta máquina para conectar tu cuenta de Claude."
+    if status.get("verified") is False:
+        if status.get("verify_status") == 401:
+            return (
+                "La credencial existe pero el API la rechazó (401): está vencida o "
+                "revocada. Corré `rugol login` para reconectar."
+            )
+        return "El API rechazó la credencial. Corré `rugol login` para reconectar."
+    if status.get("verified") is None:
+        # Configurada, sin comprobar. No prometemos que funcione.
+        return ""
+    return ""

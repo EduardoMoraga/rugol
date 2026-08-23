@@ -32,6 +32,7 @@ from core.adapters import telegram_wizards as wizards
 from core.adapters.base import Adapter
 from core.attachments import classify_path, extract_text
 from core.bus import bus
+from core.config import data_dir
 from core.db import async_session_factory
 from core.db.models import Agent, ChannelBinding
 from core.memory import add_memory, list_memories
@@ -469,10 +470,9 @@ class _TelegramBot:
 
         Files are kept on disk so the agent can re-read them later (Read tool
         does the right thing with images and PDFs). Old uploads can be swept
-        manually from data/uploads/ — we don't auto-rotate.
+        manually from $RUGOL_DATA_DIR/uploads/ — we don't auto-rotate.
         """
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        out_dir = repo_root / "data" / "uploads" / str(chat_id)
+        out_dir = data_dir() / "uploads" / str(chat_id)
         out_dir.mkdir(parents=True, exist_ok=True)
         ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         clean_name = (suggested_name or "file.bin").replace("/", "_").replace("\\", "_")

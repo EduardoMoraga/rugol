@@ -1,6 +1,6 @@
 ---
 name: data-analyst
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 project: presentaciones-cliente
 description: "Recibe datos crudos y extrae los insights de negocio más relevantes para el cliente."
 ---

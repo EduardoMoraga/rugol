@@ -107,11 +107,14 @@ async def test_classify_bypass_when_model_override_opus():
 
 def test_model_for_track_s1_overrides_to_haiku_only_with_api_key(monkeypatch):
     from core import config
-    # With API key auth: S1 routes to Haiku.
+    from core.llm_models import HAIKU
+    # With API key auth: S1 routes to the fast tier. Asserted against the
+    # constant, not a literal ID — the point is the tier, and hardcoding the
+    # string means every model-generation bump breaks this test for no reason.
     monkeypatch.setattr(
         config.get_settings(), "USE_SUBSCRIPTION", False, raising=False
     )
-    assert model_for_track("s1", "claude-opus-4-7") == "claude-haiku-4-5-20251001"
+    assert model_for_track("s1", "claude-opus-4-7") == HAIKU
 
 
 def test_model_for_track_s1_keeps_default_on_subscription(monkeypatch):

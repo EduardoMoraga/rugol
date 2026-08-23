@@ -48,11 +48,14 @@ async def reset_install(confirm: str = "") -> dict:
 
     targets: list[Path] = []
 
-    # DB files
-    targets.append(REPO_ROOT / "data" / "rugol.db")
-    targets.append(REPO_ROOT / "data" / "scheduler.db")
-    # Runtime settings (tokens, dir overrides, etc.)
-    targets.append(REPO_ROOT / "data" / "settings.json")
+    # DB files + runtime settings. Barremos data_dir() Y la ruta legacy dentro
+    # del repo: si no, un reset en una instalación migrada dejaba el estado
+    # viejo intacto y "restablecer" no restablecía nada.
+    from core.config import data_dir
+    for base in {data_dir(), REPO_ROOT / "data"}:
+        targets.append(base / "rugol.db")
+        targets.append(base / "scheduler.db")
+        targets.append(base / "settings.json")
 
     # Agent .md (todos — los templates curados están en código)
     agents_dir = REPO_ROOT / "agents-templates"

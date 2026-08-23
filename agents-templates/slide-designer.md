@@ -1,6 +1,6 @@
 ---
 name: slide-designer
-model: claude-haiku-4-5-20251001
+model: claude-haiku-4-5
 project: presentaciones-cliente
 description: "Produce la presentación en HTML elegante y el script Python para generar el archivo PowerPoint."
 ---

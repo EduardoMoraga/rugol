@@ -13,12 +13,8 @@ import { Card, PageHeader } from "@/components/ui/card";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { type AgentSpec, type Agent } from "@/lib/api";
+import { DEFAULT_MODEL, withCurrent } from "@/lib/models";
 
-const MODELS = [
-  { value: "claude-opus-4-7", label: "Opus 4.7 — heavy reasoning, expensive" },
-  { value: "claude-sonnet-4-6", label: "Sonnet 4.6 — balanced (recommended)" },
-  { value: "claude-haiku-4-5-20251001", label: "Haiku 4.5 — fast & cheap" },
-];
 
 const STARTER_BODY = `You are a focused agent. Describe in 1-2 sentences who you are.
 
@@ -57,7 +53,10 @@ interface Props {
 export function AgentForm({ mode, initial, onSubmit, title, description, redirectTo }: Props) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
-  const [model, setModel] = useState(initial?.model ?? "claude-sonnet-4-6");
+  const [model, setModel] = useState(initial?.model ?? DEFAULT_MODEL);
+  // El modelo del agente puede ser de una generación anterior: lo mantenemos
+  // en la lista para no cambiárselo por debajo al editar otro campo.
+  const modelOptions = withCurrent(initial?.model);
   const [desc, setDesc] = useState(initial?.description ?? "");
   const [body, setBody] = useState(initial?.body ?? STARTER_BODY);
   const [submitting, setSubmitting] = useState(false);
@@ -144,7 +143,7 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
             <div className="space-y-1.5">
               <FieldLabel>Model</FieldLabel>
               <Select value={model} onChange={(e) => setModel(e.target.value)}>
-                {MODELS.map((m) => (
+                {modelOptions.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </Select>

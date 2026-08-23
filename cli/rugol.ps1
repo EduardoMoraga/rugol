@@ -77,6 +77,10 @@ function Start-Backend {
     Load-DotEnv $EnvFile
     $env:AGENTS_DIR = Join-Path $HomeDir "agents"
     $env:SKILLS_DIR = Join-Path $HomeDir "skills"
+    # Todo el estado mutable (DB, jobstore del scheduler, settings.json,
+    # adjuntos) vive aca, fuera de $AppDir: reinstalar borra el codigo, nunca
+    # tus datos. Antes settings.json y scheduler.db vivian con el codigo.
+    $env:RUGOL_DATA_DIR = $DataDir
     if (-not $env:DATABASE_URL) {
         $dbp = (Join-Path $DataDir "rugol.db") -replace '\\', '/'
         $env:DATABASE_URL = "sqlite+aiosqlite:///$dbp"
@@ -167,26 +171,21 @@ function Cmd-Setup {
             if ($apiKey -notlike "sk-ant-*") { Warn "Una API key empieza con 'sk-ant-'." }
         } while ($apiKey -notlike "sk-ant-*")
     } else {
-        Write-Host "   Tu suscripcion se usa con un token long-lived (claude setup-token), headless."
-        if (Have "claude") {
-            $gen = Read-Host "   Generar el token ahora con 'claude setup-token'? [S/n]"
-            if ($gen -in @("", "s", "S", "y", "Y")) {
-                Write-Host "   Autoriza en el navegador y copia el token que muestra."
-                try { claude setup-token } catch { Warn "No pude correr setup-token; pega un token existente." }
-            }
-        } else { Write-Host "   (el CLI 'claude' no esta aca - genera el token donde lo tengas y pegalo)" }
-        do {
-            $sec = Read-Host "   Pega tu token de suscripcion" -AsSecureString
-            $oauthToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-            if (-not $oauthToken) { Warn "No puede quedar vacio." }
-        } while (-not $oauthToken)
+        # El token es OPCIONAL. Si dejas esto vacio, Rugol usa el login de esta
+        # maquina (~/.claude) y lo conectas despues con 'rugol login' - que es
+        # el camino recomendado en un PC de escritorio. El token solo hace
+        # falta headless (un server sin sesion interactiva).
+        Write-Host "   Podes dejarlo vacio y conectar la cuenta despues con 'rugol login'."
+        Write-Host "   El token long-lived solo hace falta headless (server sin login)."
+        $sec = Read-Host "   Token de suscripcion (Enter para usar el login de esta maquina)" -AsSecureString
+        $oauthToken = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
     }
 
     Write-Host ""
     Write-Host "2) Modelo por defecto (Rugol enruta solo por tarea; este es el fallback)"
-    Write-Host "   [1] Sonnet 4.6 (recomendado)   [2] Opus 4.8   [3] Haiku 4.5"
+    Write-Host "   [1] Sonnet 5 (recomendado)   [2] Opus 5   [3] Haiku 4.5"
     $modelChoice = Read-Host "   Opcion [1]"
-    switch ($modelChoice) { "2" { $model = "claude-opus-4-8" } "3" { $model = "claude-haiku-4-5-20251001" } default { $model = "claude-sonnet-4-6" } }
+    switch ($modelChoice) { "2" { $model = "claude-opus-5" } "3" { $model = "claude-haiku-4-5" } default { $model = "claude-sonnet-5" } }
 
     Write-Host ""
     Write-Host "3) Telegram (opcional - Enter para saltar)"
@@ -220,7 +219,36 @@ SESSION_SECRET=$secret
     # (el .env solo se lee al arrancar).
     if ((Pid-Running (Join-Path $RunDir "core.pid")) -or (Pid-Running (Join-Path $RunDir "dashboard.pid"))) {
         Write-Host ""; Write-Host "Rugol estaba corriendo - lo reinicio para aplicar la nueva configuracion..."; Cmd-Restart
-    } else { Write-Host ""; Write-Host "Siguiente:  rugol up" }
+    } else {
+        Write-Host ""
+        if ($useSub -eq "true" -and -not $oauthToken) { Write-Host "Siguiente:  rugol login  ->  rugol up" }
+        else { Write-Host "Siguiente:  rugol up" }
+    }
+}
+
+# __ auth: login / logout / status ____________________________________________
+# La logica vive en cli/rugol-auth.py (un solo lugar para Windows y Mac/Linux).
+# El script edita el .env clave por clave: 'rugol login' NO te vuelve a
+# preguntar modelo ni token de Telegram, al contrario de 'rugol setup'.
+function Invoke-Auth([string[]]$AuthArgs) {
+    $script:AuthOk = $false
+    $py = Resolve-Python
+    $s  = Join-Path $AppDir "cli\rugol-auth.py"
+    if (-not (Test-Path (Join-Path $AppDir "core\main.py"))) { Err "no encuentro la app en $AppDir"; return }
+    if (-not $py) { Err "no encontre Python - reinstala con el one-liner del README"; return }
+    if (-not (Test-Path $s)) { Err "falta cli\rugol-auth.py - corre 'rugol update'"; return }
+    $env:RUGOL_HOME = $HomeDir
+    if (-not $env:RUGOL_DATA_DIR) { $env:RUGOL_DATA_DIR = $DataDir }
+    & $py $s @AuthArgs
+    $script:AuthOk = ($LASTEXITCODE -eq 0)
+}
+
+function Cmd-Login  { Invoke-Auth (@("login") + @($Rest | Where-Object { $_ })) }
+function Cmd-Logout { Invoke-Auth @("logout") }
+function Cmd-Auth {
+    # 'rugol auth' -> status; 'rugol auth --verify' -> status --verify.
+    if (-not $Rest -or $Rest.Count -eq 0) { Invoke-Auth @("status"); return }
+    if ($Rest[0].StartsWith("-")) { Invoke-Auth (@("status") + $Rest) } else { Invoke-Auth $Rest }
 }
 
 function Cmd-Build { Build-Dashboard }
@@ -267,12 +295,16 @@ function Cmd-Doctor {
     if (Test-Path (Join-Path $DashDir ".next\standalone\server.js")) { Ok "dashboard compilado" } else { Warn "dashboard sin compilar - 'rugol build'" }
     if (Test-Path $EnvFile) {
         Ok "config presente"
-        $envc = Get-Content $EnvFile
-        if ($envc -match '^USE_SUBSCRIPTION=true') {
-            if ($envc -match '^CLAUDE_CODE_OAUTH_TOKEN=.+') { Ok "auth: suscripcion (token presente)" } else { Warn "auth: falta CLAUDE_CODE_OAUTH_TOKEN - re-corre 'rugol setup'"; $fail = 1 }
-        } else {
-            if ($envc -match '^ANTHROPIC_API_KEY=sk-ant-') { Ok "auth: API key" } else { Warn "auth: API key invalida - re-corre 'rugol setup'"; $fail = 1 }
-        }
+        # Auth de verdad: le preguntamos al CLI de Claude que Rugol realmente
+        # ejecuta. Antes esto era un match sobre el .env - un token vencido
+        # pasaba el doctor y despues fallaba cada run.
+        # --verify hace una llamada real al API: es la unica forma honesta de
+        # saber si la credencial sirve ('auth status' reporta un token revocado
+        # como conectado). Cuesta una fraccion de centavo y tarda ~2s.
+        Write-Host "  verificando la cuenta de Claude contra el API..." -ForegroundColor DarkGray
+        Invoke-Auth @("status", "--json", "--verify") | Out-Null
+        if ($script:AuthOk) { Ok "auth: cuenta de Claude verificada" }
+        else { Warn "auth: la cuenta de Claude no funciona - 'rugol auth --verify' para el detalle, 'rugol login' para arreglarlo"; $fail = 1 }
     } else { Warn "falta config - corre 'rugol setup'" }
     Write-Host ""
     if ($fail -eq 0) { Ok "Todo listo." } else { Err "Resolve lo de arriba antes de 'rugol up'." }
@@ -449,6 +481,9 @@ rugol - tu orquestador de agentes Claude, en un comando. Sin Docker.
 Uso:  rugol <comando>
 
   setup        Configuracion inicial (auth + modelo + Telegram)
+  login        Conecta tu cuenta de Claude (--token headless - --api-key)
+  logout       Desconecta la cuenta y limpia credenciales del .env
+  auth         Estado real de la cuenta (cuenta, plan, credencial en uso)
   up           Levanta core + dashboard y abre el navegador
   down         Detiene todo
   restart      Reinicia
@@ -484,6 +519,9 @@ switch ($Command.ToLower()) {
     "open"    { Cmd-Open }
     { $_ -in @("update", "upgrade") }   { Cmd-Update }
     "uninstall" { Cmd-Uninstall }
+    "login"   { Cmd-Login }
+    "logout"  { Cmd-Logout }
+    "auth"    { Cmd-Auth }
     { $_ -in @("bot", "bots") }         { Cmd-Bot }
     { $_ -in @("vault", "memory", "mem") } { Cmd-Vault }
     { $_ -in @("evolve", "improve") }   { Cmd-Evolve }

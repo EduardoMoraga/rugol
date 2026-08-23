@@ -1,13 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle, Mic } from "lucide-react";
+import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle, Mic, KeyRound } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createChannelBinding,
   deleteChannelBinding,
   fetchAgents,
   fetchChannelBindings,
+  fetchClaudeAuth,
   fetchHealth,
   fetchSettings,
   fetchSettingsStatus,
@@ -15,10 +16,12 @@ import {
   resetInstall,
   saveSettings,
   updateSettings,
+  type ClaudeAuthStatus,
   type SettingsUpdate,
 } from "@/lib/api";
 import { ProjectBadge } from "@/components/projects/project-badge";
 import { useI18n } from "@/lib/i18n";
+import { withCurrent } from "@/lib/models";
 import { Button } from "@/components/ui/button";
 import { Card, CardSection, PageHeader } from "@/components/ui/card";
 import { FieldLabel, Input, Select } from "@/components/ui/input";
@@ -55,6 +58,8 @@ export default function SettingsPage() {
 
       {settings.isLoading && <p className="text-sm text-[--color-fg-muted]">{t("common.loading")}</p>}
 
+      <ClaudeAccountSection />
+
       {settings.data && status.data && (
         <>
           <TelegramSection settings={settings.data} status={status.data.telegram} qc={qc} />
@@ -77,6 +82,132 @@ export default function SettingsPage() {
   );
 }
 
+
+
+function ClaudeAccountSection() {
+  const { t } = useI18n();
+  const qc = useQueryClient();
+  // El chequeo spawnea el CLI (~1s) y el backend lo cachea 60s; un refetch de
+  // 60s mantiene la tarjeta viva sin castigar al servidor.
+  const auth = useQuery({
+    queryKey: ["claude-auth"],
+    queryFn: () => fetchClaudeAuth(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+
+  // El botón hace la comprobación REAL: una llamada mínima al API. El polling
+  // de arriba sólo dice qué credencial está configurada — un token revocado
+  // aparece como conectado hasta que alguien pregunta de verdad.
+  const verify = useMutation({
+    mutationFn: () => fetchClaudeAuth({ refresh: true, verify: true }),
+    onSuccess: (data) => {
+      qc.setQueryData(["claude-auth"], data);
+      toast({
+        tone: data.ok ? "success" : "error",
+        title: data.ok ? t("settings.claude.verified") : t("settings.claude.rejected"),
+        body: data.ok ? data.account : data.hint || data.verify_error || data.error,
+      });
+    },
+    onError: (e: Error) => toast({ tone: "error", title: t("common.error"), body: e.message }),
+  });
+
+  const d = auth.data;
+  const credentialLabel = (source: ClaudeAuthStatus["credential_source"]) => {
+    if (source === "env-token") return t("settings.claude.credentialEnvToken");
+    if (source === "api-key") return t("settings.claude.credentialApiKey");
+    if (source === "machine-login") return t("settings.claude.credentialMachine");
+    return source;
+  };
+
+  return (
+    <Card className={d && !d.ok ? "border-[--color-error]/40" : undefined}>
+      <SectionHeader
+        icon={<KeyRound size={14} />}
+        title={t("settings.claude.title")}
+        body={t("settings.claude.body")}
+        status={
+          auth.isLoading || verify.isPending ? (
+            <Badge tone="idle">{t("settings.claude.checking")}</Badge>
+          ) : !d ? null : !d.logged_in ? (
+            <Badge tone="error">{t("settings.claude.notConnected")}</Badge>
+          ) : d.verified === false ? (
+            <Badge tone="error">{t("settings.claude.rejected")}</Badge>
+          ) : d.verified ? (
+            <Badge tone="running">{t("settings.claude.verified")}</Badge>
+          ) : (
+            <Badge tone="warn">{t("settings.claude.configured")}</Badge>
+          )
+        }
+      />
+
+      {d && (
+        <div className="space-y-3 mt-1">
+          {!d.ok && (
+            <div className="rounded-md border border-[--color-error]/40 bg-[--color-error]/5 p-3 space-y-2">
+              {(d.verify_error || d.error) && (
+                <p className="text-sm text-[--color-fg]">{d.verify_error || d.error}</p>
+              )}
+              {d.hint && (
+                <p className="text-sm text-[--color-fg-muted]">
+                  {d.hint.split("`").map((chunk, i) =>
+                    i % 2 === 1 ? (
+                      <code
+                        key={i}
+                        className="px-1 py-0.5 rounded bg-[--color-bg-elev-2] font-mono text-[12px]"
+                      >
+                        {chunk}
+                      </code>
+                    ) : (
+                      <span key={i}>{chunk}</span>
+                    ),
+                  )}
+                </p>
+              )}
+              <p className="text-xs text-[--color-fg-subtle]">{t("settings.claude.howTo")}</p>
+            </div>
+          )}
+
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            {d.account && <Row label={t("settings.claude.account")} value={d.account} />}
+            {d.organization && <Row label={t("settings.claude.organization")} value={d.organization} />}
+            {d.plan && <Row label={t("settings.claude.plan")} value={d.plan} />}
+            {d.method && <Row label={t("settings.claude.method")} value={d.method} />}
+            <Row label={t("settings.claude.credential")} value={credentialLabel(d.credential_source)} />
+            <Row
+              label={t("settings.claude.cli")}
+              value={d.cli_version ? `${d.cli_version} (${d.cli_source})` : "—"}
+            />
+          </dl>
+
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-xs text-[--color-fg-subtle]">
+              {d.verified === null ? t("settings.claude.notVerifiedYet") : t("settings.claude.verifyCost")}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => verify.mutate()}
+              disabled={verify.isPending}
+            >
+              <RefreshCw size={13} />
+              {verify.isPending ? t("settings.claude.checking") : t("settings.claude.verifyButton")}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-2 min-w-0">
+      <dt className="text-[--color-fg-subtle] shrink-0">{label}</dt>
+      <dd className="truncate font-medium">{value}</dd>
+    </div>
+  );
+}
 
 function DangerZone() {
   const { t } = useI18n();
@@ -548,9 +679,11 @@ function ModelSection({ settings, qc }: { settings: any; qc: ReturnType<typeof u
           <FieldLabel>Model</FieldLabel>
           <Select value={model} onChange={(e) => setModel(e.target.value)}>
             <option value="">(use config default)</option>
-            <option value="claude-opus-4-7">claude-opus-4-7</option>
-            <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
-            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001</option>
+            {withCurrent(settings.default_model).map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
           </Select>
         </div>
         <div className="flex justify-end">

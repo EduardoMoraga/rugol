@@ -196,14 +196,24 @@ iwr -useb https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/i
 Then, from any terminal:
 
 ```bash
-rugol setup      # auth + model + optional Telegram (the wizard walks you through it)
+rugol setup      # model + optional Telegram + default agent
+rugol login      # connect your Claude account
 rugol up         # builds, starts core + dashboard, opens your browser
 ```
 
-**Auth, either way, runs headless.** Use your **Claude Pro/Max** plan
-(the wizard runs `claude setup-token` and stores a long-lived token — no
-per-use cost), or a dedicated **API key** (isolated billing). Everything
-runs locally under `~/.rugol`; nothing of yours leaves your machine.
+**You don't need Claude Code installed.** The backend ships the Claude CLI
+inside `claude-agent-sdk`, and *that* is the binary your agents run on — not
+whatever `claude` is on your PATH. So logging in is `rugol login`, which drives
+that exact binary, and it ends by making a real call to confirm the credential
+works.
+
+Three ways in, all headless-friendly: your **Claude Pro/Max** plan
+(`rugol login`), a long-lived subscription token for a server with no
+interactive session (`rugol login --token`), or a dedicated **API key** with
+isolated billing (`rugol login --api-key`). `rugol auth --verify` answers the
+only question that matters — does the credential still work — because
+`claude auth status` reports a revoked token as connected. Everything runs
+locally under `~/.rugol`; nothing of yours leaves your machine.
 
 That's it — the dashboard opens at `http://localhost:3000` with seven
 ready-to-clone project templates. Everything you create lives in
@@ -212,10 +222,13 @@ ready-to-clone project templates. Everything you create lives in
 | Command | What it does |
 |---------|--------------|
 | `rugol setup` | First-run wizard → writes your config |
+| `rugol login` | Connect your Claude account (`--token` headless · `--api-key`) |
+| `rugol auth [--verify]` | Which credential is in use — and whether it works |
+| `rugol logout` | Disconnect and clear credentials from `.env` |
 | `rugol up` / `down` | Start / stop the whole stack |
 | `rugol status` | Service health at a glance |
 | `rugol logs [core\|dashboard]` | Live logs |
-| `rugol doctor` | Check runtimes, ports, config |
+| `rugol doctor` | Check runtimes, ports, config, and verify auth for real |
 | `rugol update` | Pull latest + rebuild (data untouched) |
 | `rugol bot [list\|add\|remove]` | Telegram bots, one per project (own token, own agent) |
 | `rugol vault [agent]` | Open the agents' memory as an Obsidian vault (graph view) |
@@ -318,7 +331,8 @@ defaults enforce:
 
 So: **do not put Rugol on a shared network or a public IP.** If you need
 remote access, tunnel it (SSH, Tailscale, or similar) instead of changing the
-bind address — there is no auth layer behind it to catch you. If you run
+bind address — there is no auth layer behind it to catch you. Recipes:
+[docs/remote-access.md](docs/remote-access.md). If you run
 `uvicorn` by hand, keep `--host 127.0.0.1`.
 
 Bugs of this class are worth reporting privately: open a GitHub security

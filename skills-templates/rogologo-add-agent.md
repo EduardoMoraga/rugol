@@ -7,7 +7,7 @@ description: Register a new agent in Rugol — scaffold the .md, place it under 
 
 ## Arguments
 - `name`: kebab-case agent name (e.g. `pricing-analyst`)
-- `model`: `claude-opus-4-7` | `claude-sonnet-4-6` | `claude-haiku-4-5-20251001`
+- `model`: `claude-opus-5` | `claude-sonnet-5` | `claude-haiku-4-5`
 - `description`: one-sentence purpose
 
 ## Steps

@@ -664,8 +664,11 @@ const ES: Dict = {
   "chat.streaming": "streaming",
   "chat.queued": "queued",
   "chat.ok": "ok",
-  "chat.failed": "failed",
+  "chat.failed": "falló",
   "chat.cancelled": "cancelled",
+  "chat.errorTitle": "El run falló",
+  "chat.errorAuthHint": "Parece un problema de credenciales. En la terminal del servidor:",
+  "chat.errorOpenRun": "Ver el run completo",
   "chat.waiting": "esperando…",
 
   // ---- Operations dashboard ----
@@ -689,6 +692,32 @@ const ES: Dict = {
   "operations.running": "corriendo",
 
   // ---- Settings ----
+  "settings.claude.title": "Cuenta de Claude",
+  "settings.claude.body":
+    "Rugol corre tus agentes con el CLI de Claude Code que trae el backend — no con el que tengas en el PATH. Esto muestra si ESE es el que está conectado, y con qué credencial.",
+  "settings.claude.connected": "conectada",
+  "settings.claude.notConnected": "sin conectar",
+  "settings.claude.checking": "verificando…",
+  "settings.claude.account": "Cuenta",
+  "settings.claude.plan": "Plan",
+  "settings.claude.organization": "Organización",
+  "settings.claude.method": "Método",
+  "settings.claude.credential": "Credencial en uso",
+  "settings.claude.cli": "CLI",
+  "settings.claude.recheck": "Volver a verificar",
+  "settings.claude.verified": "verificada",
+  "settings.claude.configured": "configurada, sin verificar",
+  "settings.claude.rejected": "rechazada por el API",
+  "settings.claude.verifyButton": "Verificar contra el API",
+  "settings.claude.notVerifiedYet":
+    "Todavía no comprobamos que la credencial funcione: esto sólo muestra qué está configurado.",
+  "settings.claude.verifyCost":
+    "La verificación hace una llamada mínima al API (unos centésimos de centavo).",
+  "settings.claude.credentialEnvToken": "token del .env (CLAUDE_CODE_OAUTH_TOKEN)",
+  "settings.claude.credentialApiKey": "API key de Anthropic (.env)",
+  "settings.claude.credentialMachine": "login de esta máquina",
+  "settings.claude.howTo":
+    "La autenticación se cambia desde la terminal, nunca desde el navegador: el flujo de login abre una ventana de Anthropic y guarda la credencial en el sistema.",
   "settings.title": "Settings",
   "settings.description":
     "Configura tokens y rutas desde aquí. Los cambios reinician en caliente los adapters y el watcher — sin tocar el backend.",
@@ -1439,6 +1468,9 @@ const EN: Dict = {
   "chat.ok": "ok",
   "chat.failed": "failed",
   "chat.cancelled": "cancelled",
+  "chat.errorTitle": "Run failed",
+  "chat.errorAuthHint": "This looks like a credentials problem. On the server terminal:",
+  "chat.errorOpenRun": "Open the full run",
   "chat.waiting": "waiting…",
 
   // ---- Operations dashboard ----
@@ -1462,6 +1494,32 @@ const EN: Dict = {
   "operations.running": "running",
 
   // ---- Settings ----
+  "settings.claude.title": "Claude account",
+  "settings.claude.body":
+    "Rugol runs your agents through the Claude Code CLI bundled with the backend — not the one on your PATH. This shows whether THAT one is signed in, and with which credential.",
+  "settings.claude.connected": "connected",
+  "settings.claude.notConnected": "not connected",
+  "settings.claude.checking": "checking…",
+  "settings.claude.account": "Account",
+  "settings.claude.plan": "Plan",
+  "settings.claude.organization": "Organization",
+  "settings.claude.method": "Method",
+  "settings.claude.credential": "Credential in use",
+  "settings.claude.cli": "CLI",
+  "settings.claude.recheck": "Check again",
+  "settings.claude.verified": "verified",
+  "settings.claude.configured": "configured, unverified",
+  "settings.claude.rejected": "rejected by the API",
+  "settings.claude.verifyButton": "Verify against the API",
+  "settings.claude.notVerifiedYet":
+    "We have not checked that the credential works yet — this only shows what is configured.",
+  "settings.claude.verifyCost":
+    "Verifying makes one minimal API call (a fraction of a cent).",
+  "settings.claude.credentialEnvToken": ".env token (CLAUDE_CODE_OAUTH_TOKEN)",
+  "settings.claude.credentialApiKey": "Anthropic API key (.env)",
+  "settings.claude.credentialMachine": "this machine's login",
+  "settings.claude.howTo":
+    "Authentication is changed from the terminal, never from the browser: the login flow opens an Anthropic window and stores the credential on the system.",
   "settings.title": "Settings",
   "settings.description":
     "Configure tokens and paths from here. Changes hot-restart the affected adapters and watcher — no backend bounce.",

@@ -198,14 +198,24 @@ iwr -useb https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/i
 Después, desde cualquier terminal:
 
 ```bash
-rugol setup      # auth + modelo + Telegram opcional (el wizard te guía)
+rugol setup      # modelo + Telegram opcional + agente por defecto
+rugol login      # conecta tu cuenta de Claude
 rugol up         # construye, levanta core + dashboard, abre el navegador
 ```
 
-**El auth, de las dos formas, corre headless.** Usá tu plan **Claude
-Pro/Max** (el wizard corre `claude setup-token` y guarda un token long-lived,
-sin costo por uso), o una **API key** dedicada (billing aislado). Todo corre
-localmente bajo `~/.rugol`; nada tuyo sale de tu máquina.
+**No necesitás instalar Claude Code.** El backend trae el CLI de Claude adentro
+de `claude-agent-sdk`, y *ése* es el binario con el que corren tus agentes — no
+el `claude` que tengas en el PATH. Por eso el login es `rugol login`, que actúa
+sobre ese binario exacto, y termina haciendo una llamada real para confirmar que
+la credencial funciona.
+
+Tres formas de entrar, todas aptas para headless: tu plan **Claude Pro/Max**
+(`rugol login`), un token long-lived para un server sin sesión interactiva
+(`rugol login --token`), o una **API key** dedicada con billing aislado
+(`rugol login --api-key`). `rugol auth --verify` responde la única pregunta que
+importa —si la credencial sirve— porque `claude auth status` reporta un token
+revocado como conectado. Todo corre localmente bajo `~/.rugol`; nada tuyo sale
+de tu máquina.
 
 Eso es todo — el dashboard abre en `http://localhost:3000` con siete
 templates de proyecto listos para clonar. Todo lo que crees vive en
@@ -214,10 +224,13 @@ templates de proyecto listos para clonar. Todo lo que crees vive en
 | Comando | Qué hace |
 |---------|----------|
 | `rugol setup` | Asistente inicial → escribe tu config |
+| `rugol login` | Conecta tu cuenta de Claude (`--token` headless · `--api-key`) |
+| `rugol auth [--verify]` | Qué credencial se usa — y si funciona de verdad |
+| `rugol logout` | Desconecta y limpia credenciales del `.env` |
 | `rugol up` / `down` | Levanta / detiene todo |
 | `rugol status` | Salud de los servicios de un vistazo |
 | `rugol logs [core\|dashboard]` | Logs en vivo |
-| `rugol doctor` | Verifica runtimes, puertos, config |
+| `rugol doctor` | Verifica runtimes, puertos, config y la cuenta de Claude de verdad |
 | `rugol update` | Actualiza y reconstruye (datos intactos) |
 | `rugol uninstall` | Lo quita (pregunta antes de borrar datos) |
 
@@ -313,7 +326,8 @@ defaults imponen:
 - Nada se manda a ninguna parte. La telemetría está apagada salvo que la prendas.
 
 Entonces: **no pongas Rugol en una red compartida ni en una IP pública.** Si
-necesitás acceso remoto, tunelealo (SSH, Tailscale o similar) en vez de
+necesitás acceso remoto, tunelealo (SSH, Tailscale o similar — recetas en
+[docs/remote-access.md](docs/remote-access.md)) en vez de
 cambiar la dirección de bind — no hay una capa de auth atrás que te salve. Si
 corrés `uvicorn` a mano, mantené `--host 127.0.0.1`.
 

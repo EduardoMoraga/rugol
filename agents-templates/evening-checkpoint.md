@@ -1,6 +1,6 @@
 ---
 name: evening-checkpoint
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 project: asistente-personal
 description: "Cierre del día: qué se hizo, qué quedó vivo, qué requiere decisión mañana."
 ---

@@ -7,6 +7,8 @@ from pathlib import Path
 
 import frontmatter
 
+from core import llm_models
+
 
 @dataclass
 class ParsedAgent:
@@ -34,7 +36,7 @@ def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def load_agent_file(path: Path, default_model: str = "claude-sonnet-4-6") -> ParsedAgent:
+def load_agent_file(path: Path, default_model: str = llm_models.SONNET) -> ParsedAgent:
     """Parse an agent markdown file. Frontmatter must include `name`.
 
     Optional `project:` (ADR-005) attaches the agent to a project by slug.

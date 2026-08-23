@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import desc, select
 from sqlalchemy.orm import selectinload
 
-from core import runtime_state
+from core import llm_models, runtime_state
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
@@ -20,12 +20,9 @@ from core.runner.orchestrator import RunRequest, get_orchestrator
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$")
-ALLOWED_MODELS = {
-    "claude-opus-4-7",
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5-20251001",
-    "claude-haiku-4-5",
-}
+# Una sola fuente de verdad (core/llm_models). El wizard de Windows llegó a
+# ofrecer un modelo que esta whitelist rechazaba: duplicar la lista fue el bug.
+ALLOWED_MODELS = set(llm_models.ALLOWED_MODELS)
 
 
 class AgentDTO(BaseModel):
@@ -165,8 +162,8 @@ async def get_agent(agent_id: int) -> AgentDTO:
 
 
 _TASK_TYPE_TO_MODEL = {
-    "fast": "claude-haiku-4-5-20251001",
-    "deep": "claude-opus-4-7",
+    "fast": llm_models.HAIKU,
+    "deep": llm_models.OPUS,
 }
 
 

@@ -21,6 +21,18 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from core.config import data_dir  # noqa: E402  (necesita REPO_ROOT en sys.path)
+
+
+def rel(p: Path) -> str:
+    """Ruta legible: relativa al repo cuando aplica, absoluta si el estado
+    vive fuera (RUGOL_DATA_DIR apunta a $RUGOL_HOME/data en instalaciones)."""
+    try:
+        return str(p.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(p)
 
 # Skills internas del producto Rugol — viven en el repo, NO se borran.
 # Los templates de proyecto (Personal Assistant, Hija aprende, etc.) están
@@ -37,11 +49,11 @@ PROTECTED_SKILL_NAMES: set[str] = {
 def list_targets():
     """Devuelve (db_files, runtime_files, agent_md, skill_md)."""
     db_files = [
-        REPO_ROOT / "data" / "rugol.db",
-        REPO_ROOT / "data" / "scheduler.db",
+        data_dir() / "rugol.db",
+        data_dir() / "scheduler.db",
     ]
     runtime_files = [
-        REPO_ROOT / "data" / "settings.json",
+        data_dir() / "settings.json",
     ]
     agent_md = []
     skill_md = []
@@ -68,17 +80,17 @@ def main() -> int:
     print(f"Base de datos ({len(db_files)}):")
     for p in db_files:
         marker = "EXISTS" if p.exists() else "absent"
-        print(f"  [{marker}] {p.relative_to(REPO_ROOT)}")
+        print(f"  [{marker}] {rel(p)}")
     print(f"\nRuntime settings ({len(runtime_files)}):")
     for p in runtime_files:
         marker = "EXISTS" if p.exists() else "absent"
-        print(f"  [{marker}] {p.relative_to(REPO_ROOT)}")
+        print(f"  [{marker}] {rel(p)}")
     print(f"\nAgentes .md generados ({len(agent_md)}):")
     for p in agent_md:
-        print(f"  {p.relative_to(REPO_ROOT)}")
+        print(f"  {rel(p)}")
     print(f"\nSkills .md generadas ({len(skill_md)}):")
     for p in skill_md:
-        print(f"  {p.relative_to(REPO_ROOT)}")
+        print(f"  {rel(p)}")
     print()
 
     if args.dry_run:
@@ -92,7 +104,7 @@ def main() -> int:
                 p.unlink()
                 deleted += 1
             except Exception as e:
-                print(f"WARN no pude borrar {p.relative_to(REPO_ROOT)}: {e}")
+                print(f"WARN no pude borrar {rel(p)}: {e}")
     print(f"OK: {deleted} archivos borrados.")
     print()
     print("PROXIMO PASO: reinicia el backend (uvicorn). Al arrancar:")

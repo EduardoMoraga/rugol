@@ -37,7 +37,7 @@ from core.api import (
     voice,
 )
 from core.api import settings as settings_api
-from core.config import get_settings
+from core.config import adopt_legacy_data, data_dir, get_settings
 from core.db import init_db
 from core.registry.service import build_watcher, initial_scan
 from core.scheduler import get_scheduler
@@ -53,6 +53,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info("Rugol core %s starting (subscription=%s)", __version__, settings.USE_SUBSCRIPTION)
+
+    # 0. State location. Older versions kept settings.json and the scheduler
+    # jobstore next to the CODE, so reinstalling wiped your schedules and your
+    # dashboard-saved tokens. They live in RUGOL_DATA_DIR now; adopt whatever
+    # the old location still holds, once, before anything reads it.
+    adopted = adopt_legacy_data()
+    if adopted:
+        logger.info("estado migrado a %s: %s", data_dir(), ", ".join(adopted))
 
     # 1. Database
     await init_db()

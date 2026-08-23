@@ -37,14 +37,12 @@ import { toast } from "@/components/ui/toast";
 import { PROJECT_ICONS, projectIcon } from "@/components/projects/project-badge";
 import { PromptGuide } from "@/components/architect/prompt-guide";
 import { useI18n } from "@/lib/i18n";
+import { DEFAULT_MODEL, MODEL_CHOICES } from "@/lib/models";
 
 type Stage = "idea" | "review" | "deploying" | "done";
 
-const MODELS = [
-  "claude-opus-4-7",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-5-20251001",
-];
+const MODELS = MODEL_CHOICES.map((m) => m.value);
+
 
 const EXAMPLE_IDEAS = [
   "An assistant that drafts three LinkedIn posts every Monday from what I shipped the previous week.",
@@ -344,7 +342,7 @@ function ReviewStage({
       ...proposal.agents,
       {
         name: `agent-${proposal.agents.length + 1}`,
-        model: "claude-sonnet-4-6",
+        model: DEFAULT_MODEL,
         description: "",
         body: "",
       },

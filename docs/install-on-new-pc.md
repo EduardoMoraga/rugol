@@ -1,106 +1,145 @@
-# Instalar Rugol en una PC limpia
+# Instalar Rugol en una PC nueva
 
-Guía pensada para llevar la app a otro computador sin arrastrar tus
-pruebas anteriores. Funciona en Windows 10/11 (Mac/Linux similar pero
-sin instalador `.bat`).
+Una línea instala todo. Rugol trae su propio Python (vía [uv](https://github.com/astral-sh/uv))
+y su propio Node, así que en la máquina destino sólo hace falta **git**
+(en Windows, [Git for Windows](https://git-scm.com/download/win)).
 
-## Prerrequisitos en la PC de destino
+**No hace falta instalar Claude Code.** El backend trae el CLI de Claude
+adentro del paquete `claude-agent-sdk`, y ése es el que corre tus agentes —
+no el `claude` que tengas en el PATH. Por eso el login se hace con
+`rugol login` y no con `claude login`.
 
-Antes de copiar nada:
+## Instalar
 
-1. **Python 3.12+** ([python.org](https://www.python.org/downloads/))
-2. **Node 20+** ([nodejs.org](https://nodejs.org/))
-3. **pnpm**: `npm install -g pnpm`
-4. **Claude CLI**: una vez instalado, ejecutar `claude /login` y autenticarse
-   con tu cuenta Claude Pro/Max (o configurar `ANTHROPIC_API_KEY` después).
+**Windows** (PowerShell)
+```powershell
+iwr -useb https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/install.ps1 | iex
+```
 
-## Opción A — Clonar desde Git (recomendado)
+**Mac / Linux**
+```bash
+curl -fsSL https://raw.githubusercontent.com/EduardoMoraga/rugol/main/installer/install.sh | bash
+```
+
+Después, desde cualquier terminal:
+
+```
+rugol setup     # modelo, Telegram opcional, agente por defecto
+rugol login     # conecta tu cuenta de Claude
+rugol up        # levanta core + dashboard y abre el navegador
+```
+
+`rugol setup` pregunta por la autenticación, pero podés dejar el token vacío
+y resolverlo con `rugol login`, que es el camino recomendado en un escritorio.
+
+## Conectar la cuenta de Claude
+
+`rugol login` abre el flujo de Anthropic en el navegador y guarda la
+credencial en el sistema (`%USERPROFILE%\.claude` / `~/.claude`).
+
+En un servidor sin sesión interactiva, usá un token largo:
+
+```
+rugol login --token      # corre `claude setup-token` y lo guarda en el .env
+rugol login --api-key    # o una API key de Anthropic (billing aislado)
+```
+
+Cualquiera de las tres formas termina con una **verificación real**: una
+llamada mínima al API que confirma que la credencial funciona. Después:
+
+```
+rugol auth              # qué credencial está configurada (rápido)
+rugol auth --verify     # ¿funciona de verdad? (llamada real al API)
+rugol logout            # desconecta y limpia credenciales del .env
+```
+
+`rugol login` sólo toca las claves de auth del `.env`: no te vuelve a
+preguntar modelo, token de Telegram ni agente por defecto.
+
+## Dónde vive tu estado
+
+Todo bajo `~/.rugol` (`%USERPROFILE%\.rugol` en Windows):
+
+```
+~/.rugol/
+├── app/       el código (reinstalar lo reemplaza entero)
+├── data/      DB, jobstore del scheduler, settings.json, adjuntos
+├── agents/    tus agentes .md
+├── skills/    tus skills .md
+├── logs/      core.log, dashboard.log
+└── .env       tu configuración
+```
+
+La separación importa: `app/` es reemplazable, todo lo demás no.
+`rugol update` y una reinstalación desde cero dejan `data/`, `agents/`,
+`skills/` y `.env` intactos.
+
+> Versiones anteriores a v0.7.2 guardaban `settings.json` y `scheduler.db`
+> dentro de `app/data/`, así que una reinstalación se llevaba los schedules y
+> los tokens guardados desde el dashboard. Al arrancar, el core los adopta
+> automáticamente desde la ubicación vieja (copia, no mueve) y lo registra en
+> el log. No hay que hacer nada a mano.
+
+## Verificar que quedó bien
+
+```
+rugol status     # core y dashboard arriba, puertos respondiendo
+rugol doctor     # runtimes, puertos, config Y la cuenta de Claude verificada
+                 # contra el API (hace una llamada real, ~2s)
+```
+
+Y una corrida real, sin pasar por la UI:
 
 ```powershell
-git clone <tu-fork-de-rugol> C:\Rugol
-cd C:\Rugol
+Invoke-RestMethod "http://127.0.0.1:8000/api/agents" | Select-Object id, name, status
 
-# Backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r core/requirements.txt
-copy .env.example .env       # editar si quieres API key en vez de subscription
-uvicorn core.main:app --host 127.0.0.1 --port 8000
+$r = Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/api/agents/1/run" `
+  -ContentType "application/json" `
+  -Body (@{ prompt = "Respondé solamente: OK" } | ConvertTo-Json)
 
-# Frontend (otra terminal)
-cd dashboard
-pnpm install
-pnpm dev
+Start-Sleep 25
+Invoke-RestMethod "http://127.0.0.1:8000/api/runs/$($r.run_id)" | Format-List
 ```
 
-Abrir `http://localhost:3000`. Vas a ver la pantalla de bienvenida (hero
-emocional + 5 templates curados). El proyecto Workspace se crea solo,
-todo lo demás está vacío.
+Si el run queda en `failed`, el campo `error_message` dice por qué. El mismo
+mensaje aparece ahora en el chat del dashboard y en `/runs/<id>`.
 
-## Opción B — Copiar carpeta + reset
+## Que arranque solo
 
-Si no quieres clonar y prefieres copiar la carpeta entera desde tu PC actual:
-
-1. Copiá la carpeta `C:\Moragent\04-LAB\rugol` a la PC nueva
-2. **EN LA PC NUEVA, antes de arrancar:**
-   ```powershell
-   cd C:\Rugol
-   .\.venv\Scripts\Activate.ps1   # o crea venv nuevo si Python distinto
-   python scripts/reset.py --apply
-   ```
-   Esto borra:
-   - `data/rugol.db` y `data/scheduler.db` (toda la DB)
-   - `data/settings.json` (tokens guardados, paths overrideados)
-   - `agents-templates/*.md` (todos los agentes generados)
-   - `skills-templates/*.md` excepto las internas de Rugol
-3. Arrancá backend + frontend como en la opción A.
-
-## Opción C — Reset desde el dashboard (sin tocar terminal)
-
-1. Abrí `http://localhost:3000/settings`
-2. Bajá hasta **"Zona peligrosa"**
-3. Click en **"Restablecer instalación"**
-4. Escribe exactamente `BORRAR TODO` cuando te pregunte
-5. **Reiniciá el backend manualmente** (matar uvicorn y volver a levantarlo)
-   — el reset borra los archivos pero el proceso ya cargado en memoria
-   sigue. Al reiniciar, init_db recrea las tablas vacías.
-
-## Verificar que arrancó limpio
-
-`http://localhost:8000/api/health/full` debe devolver:
-
-```json
-{
-  "schema": {
-    "projects_total": 1,
-    "projects_named": 0,
-    "agents": 0,
-    "schedules": 0
-  },
-  "first_use": true
-}
+```
+rugol autostart on      # tarea al iniciar sesión + watchdog cada 5 min
+rugol autostart status
 ```
 
-`first_use: true` activa el OnboardingHero en `/projects` con los 5
-templates listos para clonar.
+En Windows el disparador es **al iniciar sesión**: si reiniciás la máquina y
+nadie entra (ni por RDP), Rugol no levanta. Tenelo en cuenta si dependés de un
+schedule de la mañana.
 
-## Llevarte tus tokens (sin la data)
+## Empezar de cero en la máquina nueva
 
-Si en tu PC actual configuraste tokens de Telegram/Slack y quieres usarlos
-en la PC nueva sin recrearlos:
+Si querés la instalación limpia, sin tus pruebas anteriores:
 
-1. Antes del reset, copiá `data/settings.json` aparte
-2. Después del reset y de arrancar limpio, pega ese archivo de vuelta en
-   `data/settings.json` y reiniciá el backend
-3. Los tokens vuelven, las DB queda vacía
+```
+rugol uninstall     # pregunta antes de borrar ~/.rugol
+```
 
-## Troubleshooting
+O desde el dashboard, `/settings` → **Zona peligrosa** → *Restablecer
+instalación* (pide escribir `BORRAR TODO`). Después reiniciá el backend con
+`rugol restart` para que se recreen las tablas vacías.
 
-- **El dashboard muestra "first_use" pero no aparece el hero**: hard-refresh
-  con Ctrl+Shift+R (puede haber cache de la versión anterior).
-- **Crear proyecto falla con "slug ya existe"**: significa que el reset no
-  corrió. Verifica con `python scripts/reset.py --dry-run` qué hay.
-- **Telegram/Slack adapters no arrancan**: el backend ya no es fatal en eso
-  desde Capa 14 — sigue funcionando sin chat ops. Mira los logs (`uvicorn`
-  stderr) para el motivo del timeout/error. Casi siempre es token inválido
-  o red bloqueada.
+## Llevarte tus tokens sin la data
+
+1. Copiá `~/.rugol/data/settings.json` de la máquina vieja.
+2. En la nueva, después de instalar y antes de `rugol up`, pegalo en
+   `~/.rugol/data/settings.json`.
+3. `rugol up`. Vuelven los tokens de Telegram/Slack y las rutas; la DB queda
+   vacía.
+
+Las credenciales de Claude **no** están ahí: van por `rugol login` en cada
+máquina (o por el token del `.env`, que sí es portable).
+
+## Acceso remoto
+
+Ver [remote-access.md](remote-access.md). Resumen: no cambies el bind, tunelealo
+con Tailscale.

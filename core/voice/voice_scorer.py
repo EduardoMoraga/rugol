@@ -23,6 +23,8 @@ import subprocess
 from datetime import date
 from pathlib import Path
 
+from core import llm_models
+
 logger = logging.getLogger(__name__)
 
 INSTRUMENTO_PATH = Path(__file__).resolve().parent / "instrumento_v1.json"
@@ -146,7 +148,7 @@ def _score_via_api(api_key: str, user_msg: str) -> tuple[dict, str]:
 
     client = anthropic.Anthropic(api_key=api_key)
     response = client.messages.create(
-        model="claude-opus-4-8",
+        model=llm_models.OPUS,
         max_tokens=16000,
         system=SYSTEM,
         messages=[{"role": "user", "content": user_msg}],
@@ -309,7 +311,7 @@ def _text_via_api(api_key: str, system: str, user: str) -> str:
 
     client = anthropic.Anthropic(api_key=api_key)
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=llm_models.SONNET,
         max_tokens=1024,
         system=system,
         messages=[{"role": "user", "content": user}],

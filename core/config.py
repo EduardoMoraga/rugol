@@ -1,13 +1,62 @@
 """Settings loaded from .env via pydantic-settings."""
 from __future__ import annotations
 
+import os
+import shutil
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from core import llm_models
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def data_dir_path() -> Path:
+    """The resolved path, without touching the filesystem.
+
+    Used where creating a directory would be a surprising import-time side
+    effect (the DATABASE_URL default is evaluated when this module loads).
+    """
+    override = os.environ.get("RUGOL_DATA_DIR")
+    return Path(override).expanduser() if override else REPO_ROOT / "data"
+
+
+def data_dir() -> Path:
+    """Where mutable state lives: the DB, the scheduler jobstore, settings.json.
+
+    Defaults to `<repo>/data` so a bare checkout keeps working, but the CLI
+    points `RUGOL_DATA_DIR` at `$RUGOL_HOME/data` — outside the app directory.
+    That distinction is not cosmetic: reinstalling wipes the app directory, and
+    schedules plus dashboard-saved tokens used to live inside it.
+    """
+    base = data_dir_path()
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def adopt_legacy_data(names: tuple[str, ...] = ("settings.json", "scheduler.db")) -> list[str]:
+    """One-time pickup of state left behind in `<repo>/data` by older versions.
+
+    Copies (never moves) so the old file stays as a backup, and only when the
+    new location has nothing — an upgrade must not clobber current state.
+    """
+    legacy = REPO_ROOT / "data"
+    if data_dir_path().resolve() == legacy.resolve():
+        return []
+    target = data_dir()
+    adopted: list[str] = []
+    for name in names:
+        src, dst = legacy / name, target / name
+        if src.is_file() and not dst.exists():
+            try:
+                shutil.copy2(src, dst)
+                adopted.append(name)
+            except OSError:
+                pass
+    return adopted
 
 
 class Settings(BaseSettings):
@@ -26,7 +75,7 @@ class Settings(BaseSettings):
     # or CI — without the interactive login or the macOS Keychain. Used only
     # when USE_SUBSCRIPTION is true; ignored in API-key mode.
     CLAUDE_CODE_OAUTH_TOKEN: str = ""
-    DEFAULT_MODEL: str = "claude-sonnet-4-6"  # core.llm_models.SONNET
+    DEFAULT_MODEL: str = llm_models.SONNET
 
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
@@ -56,7 +105,7 @@ class Settings(BaseSettings):
     ELEVENLABS_AGENT_ID: str = ""
 
     # DB
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{REPO_ROOT / 'data' / 'rugol.db'}"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{data_dir_path() / 'rugol.db'}"
 
     # Server
     CORE_HOST: str = "0.0.0.0"
@@ -86,7 +135,7 @@ class Settings(BaseSettings):
     # (Soul-2). Disable to bypass the extra Haiku call (useful for benchmarks
     # or when running offline-ish without API credits).
     SOUL_DUAL_TRACK_ENABLED: bool = True
-    SOUL_CLASSIFIER_MODEL: str = "claude-haiku-4-5-20251001"
+    SOUL_CLASSIFIER_MODEL: str = llm_models.HAIKU
     # When true and dispatcher returns S2, wrap the prompt to force a
     # plan-critique-answer structure (single round-trip). Off by default.
     SOUL_PLAN_THEN_EXECUTE_ENABLED: bool = False

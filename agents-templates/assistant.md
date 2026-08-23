@@ -1,6 +1,6 @@
 ---
 name: assistant
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 description: "Asistente general conversacional. El agente por defecto: responde al instante por chat sin configuración extra."
 ---
 

@@ -150,6 +150,10 @@ _scheduler_instance: RugolScheduler | None = None
 def get_scheduler() -> RugolScheduler:
     global _scheduler_instance
     if _scheduler_instance is None:
-        repo_root = Path(__file__).resolve().parent.parent.parent
-        _scheduler_instance = RugolScheduler(jobstore_path=repo_root / "data" / "scheduler.db")
+        # data_dir() (no la raíz del repo): el jobstore vive con el resto del
+        # estado, fuera del directorio de la app — reinstalar borraba los
+        # schedules cuando esto apuntaba al código.
+        from core.config import adopt_legacy_data, data_dir
+        adopt_legacy_data(("scheduler.db",))
+        _scheduler_instance = RugolScheduler(jobstore_path=data_dir() / "scheduler.db")
     return _scheduler_instance

@@ -14,11 +14,14 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from core.config import REPO_ROOT
+from core.config import data_dir
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_PATH = REPO_ROOT / "data" / "settings.json"
+# Resuelto en cada acceso, no al importar: el launcher setea RUGOL_DATA_DIR
+# antes de arrancar y los tests lo mueven.
+def settings_path() -> Path:
+    return data_dir() / "settings.json"
 
 
 @dataclass
@@ -96,9 +99,10 @@ def load() -> RuntimeSettings:
     global _cached
     if _cached is not None:
         return _cached
-    if SETTINGS_PATH.exists():
+    path = settings_path()
+    if path.exists():
         try:
-            data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
             _cached = RuntimeSettings(**{k: v for k, v in data.items() if k in RuntimeSettings.__dataclass_fields__})
         except Exception:
             logger.exception("failed to read settings.json, using defaults")
@@ -116,8 +120,9 @@ def save(updates: dict[str, Any]) -> RuntimeSettings:
         merged = RuntimeSettings(
             **{**asdict(cur), **{k: v for k, v in updates.items() if k in RuntimeSettings.__dataclass_fields__}},
         )
-        SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        SETTINGS_PATH.write_text(
+        path = settings_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
             json.dumps(asdict(merged), indent=2, ensure_ascii=False),
             encoding="utf-8",
         )

@@ -95,14 +95,22 @@ When in doubt, ask `rugol-architect` first.
 │       │   ├── ant-farm/     (react-pixi scene)
 │       │   └── ui/           (shadcn primitives)
 │       └── lib/              (api client, sse hook)
+├── cli/
+│   ├── rugol                 (Mac/Linux launcher — setup, up, login, doctor…)
+│   ├── rugol.ps1             (Windows launcher, mirrors the bash one)
+│   ├── rugol.cmd             (cmd.exe shim → rugol.ps1)
+│   └── rugol-auth.py         (login/logout/auth — shared by both launchers)
 ├── installer/
-│   ├── install.bat           (Windows wizard)
-│   └── prerequisites.ps1     (check Docker, Node, Claude CLI)
+│   ├── install.ps1           (Windows one-liner: uv + Node + launcher + build)
+│   └── install.sh            (Mac/Linux one-liner)
 ├── agents-templates/         (4 starter agents bundled with the install)
 ├── skills-templates/         (3 starter skills bundled)
 ├── docs/
 │   ├── adrs/                 (architecture decision records)
 │   ├── quickstart.md
+│   ├── install-on-new-pc.md  (native install, auth, verification)
+│   ├── remote-access.md      (Tailscale — never change the bind)
+│   ├── troubleshooting.md
 │   └── screenshots/
 ├── scripts/                  (dev helpers)
 └── tests/                    (pytest + playwright)
@@ -137,7 +145,7 @@ When in doubt, ask `rugol-architect` first.
 - [x] Backend skeleton runnable (`uvicorn core.main:app`)
 - [x] Frontend skeleton runnable (`pnpm dev`)
 - [x] Docker Compose definition + prod profile
-- [x] Windows installer skeleton (`install.bat` + `wizard.ps1`)
+- [x] Windows installer (`installer/install.ps1` + `cli/rugol.ps1`)
 
 **Sprint 1 — Backend MVP (DONE, 2026-05-02)**
 - [x] FastAPI app boots cleanly, bundled templates auto-register
@@ -156,6 +164,25 @@ When in doubt, ask `rugol-architect` first.
 - [x] Ontology graph with react-flow (typed nodes, predicate labels, minimap)
 - [x] Backend: persisted `final_text`, run_id-filtered SSE, idempotent
       column-add migrator for SQLite
+
+**Sprint 7 — Auth operable (DONE, 2026-08-22)**
+- [x] `rugol login` / `logout` / `auth` in both launchers — surgical `.env`
+      edits, never the full `rugol setup` rewrite
+- [x] `core/runner/claude_cli.py` resolves the CLI the SDK actually runs (the
+      one bundled in the wheel) and reports which credential won
+- [x] Two-level check: `auth status` for config (cheap, polled) and a real
+      minimal API call for validity — `auth status` reports a revoked token as
+      connected, so `doctor` used to pass on credentials that never worked
+- [x] `GET /api/health/auth[?verify=true]` + "Cuenta de Claude" card in
+      `/settings`
+- [x] Run failures surface their reason in the chat, with a `rugol login` hint
+      when the error looks like auth
+- [x] Mutable state moved out of the app dir (`RUGOL_DATA_DIR`), with one-time
+      adoption of `settings.json` / `scheduler.db` from the old location
+- [x] Model catalogue on the current generation, single source of truth, legacy
+      IDs still accepted
+- [x] Docs rewritten for the native install: `install-on-new-pc`,
+      `troubleshooting`, new `remote-access` (Tailscale)
 
 **Next: Sprint 3 — Windows installer verified on a clean PC, release v0.1.0
 with screenshots and a < 90-second video. Sprint 4 — teams in Slack +

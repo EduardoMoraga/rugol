@@ -88,6 +88,9 @@ start_backend() {
   # Cargar .env del usuario y apuntar el estado al home global.
   set -a; . "$ENV_FILE"; set +a
   export AGENTS_DIR="$AGENTS_DIR_H" SKILLS_DIR="$SKILLS_DIR_H"
+  # Todo el estado mutable (DB, jobstore del scheduler, settings.json, adjuntos)
+  # vive acá, fuera de $APP_DIR: reinstalar borra el código, nunca tus datos.
+  export RUGOL_DATA_DIR="$DATA_DIR"
   export DATABASE_URL="${DATABASE_URL:-sqlite+aiosqlite:///$DATA_DIR/rugol.db}"
   # `exec` makes the subshell BECOME the python process, so $! is the real
   # pid (not a wrapper). disown detaches it so it survives this script exiting.
@@ -190,15 +193,15 @@ cmd_setup() {
   # ── Modelo ──
   echo ""
   echo "${B}2) Modelo por defecto${X} ${D}(Rugol enruta solo por tarea; este es el fallback)${X}"
-  echo "   [1] Sonnet 4.6 ${D}(recomendado — balance)${X}"
-  echo "   [2] Opus 4.8   ${D}(máxima capacidad)${X}"
+  echo "   [1] Sonnet 5 ${D}(recomendado — balance)${X}"
+  echo "   [2] Opus 5   ${D}(máxima capacidad)${X}"
   echo "   [3] Haiku 4.5  ${D}(rápido y económico)${X}"
   read -r -p "   Opción [1]: " model_choice
   local model
   case "${model_choice:-1}" in
-    2) model="claude-opus-4-8" ;;
-    3) model="claude-haiku-4-5-20251001" ;;
-    *) model="claude-sonnet-4-6" ;;
+    2) model="claude-opus-5" ;;
+    3) model="claude-haiku-4-5" ;;
+    *) model="claude-sonnet-5" ;;
   esac
 
   # ── Agente por defecto ──
@@ -347,10 +350,35 @@ cmd_logs() {
   [ -f "$f" ] && tail -f -n 100 "$f" || warn "sin log todavía: $f"
 }
 
+# ── auth: login / logout / status ─────────────────────────────────────────────
+# Toda la lógica vive en cli/rugol-auth.py (un solo lugar para Mac/Linux y
+# Windows). El script edita el .env clave por clave: `rugol login` no vuelve a
+# preguntarte modelo ni token de Telegram, a diferencia de `rugol setup`.
+run_auth() {
+  # Devuelve (no sale) si algo falta: cmd_doctor lo llama y tiene que poder
+  # seguir reportando el resto de los chequeos.
+  local py script; py="$(resolve_python)"; script="$APP_DIR/cli/rugol-auth.py"
+  [ -f "$APP_DIR/core/main.py" ] || { err "no encuentro la app en $APP_DIR"; return 1; }
+  [ -n "$py" ] || { err "no encontré Python — reinstalá con el one-liner del README"; return 1; }
+  [ -f "$script" ] || { err "falta cli/rugol-auth.py — corré 'rugol update'"; return 1; }
+  RUGOL_HOME="$RUGOL_HOME" RUGOL_DATA_DIR="${RUGOL_DATA_DIR:-$DATA_DIR}" "$py" "$script" "$@"
+}
+
+cmd_login()  { run_auth login "$@"; }
+cmd_logout() { run_auth logout; }
+cmd_auth() {
+  # `rugol auth` → status; `rugol auth --verify` → status --verify.
+  case "${1:-}" in
+    "")  run_auth status ;;
+    -*)  run_auth status "$@" ;;
+    *)   run_auth "$@" ;;
+  esac
+}
+
 cmd_doctor() {
   echo ""
   echo "${B}rugol doctor${X}"
-  local fail=0 py; py="$(resolve_python)"
+  local fail=0 py auth_out who; py="$(resolve_python)"
   [ -n "$py" ] && ok "python: $("$py" --version 2>&1)" || { err "no encontré Python"; fail=1; }
   have node && ok "node: $(node --version)" || { err "node no instalado (lo necesita el dashboard)"; fail=1; }
   have uv && ok "uv: $(uv --version 2>/dev/null)" || warn "uv no está (el instalador lo usa para aislar Python)"
@@ -359,10 +387,20 @@ cmd_doctor() {
   [ -f "$DASH_DIR/.next/standalone/server.js" ] && ok "dashboard compilado" || warn "dashboard sin compilar — 'rugol build'"
   if [ -f "$ENV_FILE" ]; then
     ok "config presente"
-    if grep -q '^USE_SUBSCRIPTION=true' "$ENV_FILE"; then
-      grep -q '^CLAUDE_CODE_OAUTH_TOKEN=.\+' "$ENV_FILE" && ok "auth: suscripción (token presente)" || { warn "auth: falta CLAUDE_CODE_OAUTH_TOKEN — re-corré 'rugol setup'"; fail=1; }
+    # Auth de verdad: le preguntamos al CLI de Claude que Rugol realmente
+    # ejecuta. Antes esto era un grep del .env — un token vencido pasaba el
+    # doctor y después fallaba cada run.
+    # --verify hace una llamada real al API: es la única forma honesta de saber
+    # si la credencial sirve (`auth status` reporta un token revocado como
+    # conectado). Cuesta una fracción de centavo y tarda ~2s; el doctor existe
+    # justo para eso.
+    say "  ${D}verificando la cuenta de Claude contra el API…${X}"
+    if auth_out="$(run_auth status --json --verify 2>/dev/null)"; then
+      who="$(printf '%s' "$auth_out" | sed -n 's/.*"account": *"\([^"]*\)".*/\1/p' | head -1)"
+      ok "auth: verificada${who:+ ($who)}"
     else
-      grep -q '^ANTHROPIC_API_KEY=sk-ant-' "$ENV_FILE" && ok "auth: API key (sk-ant-…)" || { warn "auth: API key inválida — re-corré 'rugol setup'"; fail=1; }
+      warn "auth: la cuenta de Claude no funciona — corré 'rugol auth --verify' para el detalle, 'rugol login' para arreglarlo"
+      fail=1
     fi
   else
     warn "falta config — corré 'rugol setup'"
@@ -616,6 +654,9 @@ ${B}rugol${X} — tu orquestador de agentes Claude, en un comando. Sin Docker.
 ${B}Uso:${X}  rugol <comando>
 
   ${B}setup${X}        Configuración inicial (auth + modelo + Telegram)
+  ${B}login${X}        Conecta tu cuenta de Claude (--token headless · --api-key)
+  ${B}logout${X}       Desconecta la cuenta y limpia credenciales del .env
+  ${B}auth${X}         Estado real de la cuenta (cuenta, plan, credencial en uso)
   ${B}up${X}           Levanta core + dashboard y abre el navegador
   ${B}down${X}         Detiene todo
   ${B}restart${X}      Reinicia
@@ -653,6 +694,9 @@ main() {
     open)             cmd_open "$@" ;;
     update|upgrade)   cmd_update "$@" ;;
     uninstall)        cmd_uninstall "$@" ;;
+    login)            cmd_login "$@" ;;
+    logout)           cmd_logout ;;
+    auth)             cmd_auth "$@" ;;
     bot|bots)         cmd_bot "$@" ;;
     vault|memory|mem) cmd_vault "$@" ;;
     evolve|improve)   cmd_evolve "$@" ;;

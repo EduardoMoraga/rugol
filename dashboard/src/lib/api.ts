@@ -440,6 +440,42 @@ export const fetchImprovements = (status: string = "proposed") =>
 export const approveImprovement = (id: number) => post(`/api/improvements/${id}/approve`);
 export const rejectImprovement = (id: number) => post(`/api/improvements/${id}/reject`);
 
+// Estado real de la cuenta de Claude: el backend corre `claude auth status`
+// sobre el binario que realmente usa un run, con el entorno que realmente
+// recibe. "Hay un token en el .env" y "el token sirve" son cosas distintas;
+// esto responde la segunda.
+export interface ClaudeAuthStatus {
+  ok: boolean;
+  logged_in: boolean;
+  cli_path: string | null;
+  cli_source: "bundled" | "path" | "wellknown" | "none";
+  cli_version: string;
+  method: string;
+  provider: string;
+  account: string;
+  organization: string;
+  plan: string;
+  credential_source: "env-token" | "api-key" | "machine-login" | "none" | string;
+  error: string;
+  hint: string;
+  checked_at: number;
+  /** null = configurada pero sin comprobar contra el API. */
+  verified: boolean | null;
+  verify_error: string;
+  verify_status: number | null;
+}
+
+/** `verify` hace una llamada real al API (única forma de saber si la credencial
+ *  sirve; `auth status` reporta un token revocado como conectado). Cuesta una
+ *  fracción de centavo, así que va sólo bajo pedido — nunca en el polling. */
+export const fetchClaudeAuth = (opts: { refresh?: boolean; verify?: boolean } = {}) => {
+  const q = new URLSearchParams();
+  if (opts.refresh) q.set("refresh", "true");
+  if (opts.verify) q.set("verify", "true");
+  const qs = q.toString();
+  return get<ClaudeAuthStatus>(`/api/health/auth${qs ? `?${qs}` : ""}`);
+};
+
 export const fetchHealth = () => get<{ status: string; version: string; active_runs: number; brand?: string; accent?: string; accent_strong?: string; tagline?: string; variant?: "rugol" | "crm" | "hro" }>("/api/health");
 
 // --- Domain pipeline (CRM prospectos / HRO candidatos) ---

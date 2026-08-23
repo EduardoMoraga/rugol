@@ -1,6 +1,6 @@
 ---
 name: browser
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 description: "Navega la web de verdad: abre páginas, hace clic, llena formularios, extrae datos. Usa un navegador real vía Playwright."
 mcp_servers:
   playwright:

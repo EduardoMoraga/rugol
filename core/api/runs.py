@@ -31,6 +31,7 @@ async def list_recent(limit: int = 100) -> list[dict]:
                 "prompt": (r.prompt or "")[:200],
                 "track": r.track,
                 "agent_version_id": r.agent_version_id,
+                "engine": r.engine or "claude",
             }
             for r in rows
         ]
@@ -60,6 +61,10 @@ async def get_run(run_id: int) -> dict:
             "classifier_confidence": r.classifier_confidence,
             "classifier_rationale": r.classifier_rationale,
             "agent_version_id": r.agent_version_id,
+            # Con qué motor corrió. Sin esto el detalle de una corrida no
+            # distingue Claude de Codex, que es justo lo que uno quiere ver
+            # cuando algo salió distinto de lo esperado.
+            "engine": r.engine or "claude",
         }
 
 

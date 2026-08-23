@@ -118,6 +118,8 @@ export interface RunSummary {
   cost_usd: number;
   prompt?: string;
   error_message?: string | null;
+  /** Motor que la corrió: "claude" | "codex". */
+  engine?: string | null;
   // Soul-2 (ADR-007): dual-track dispatcher metadata.
   track?: "s1" | "s2" | null;
   // Soul-3 (ADR-008): which lineage version executed.

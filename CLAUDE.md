@@ -30,7 +30,7 @@ The end goal is a project worth showing publicly — and worth Anthropic noticin
 | Backend runtime | Python 3.12 + FastAPI + Uvicorn | ADR-001 |
 | Scheduler | APScheduler (cron + interval triggers) | ADR-001 |
 | Database | SQLite (default) + Postgres (prod opt-in) | ADR-001 |
-| LLM bridge | `claude-agent-sdk` (subprocess to `claude` CLI) | ADR-002 |
+| LLM bridge | `claude-agent-sdk` (Claude) · `codex exec` (OpenAI) | ADR-002 |
 | LLM auth | Subscription Pro/Max **or** Anthropic API key | ADR-002 |
 | Frontend | Next.js 15 App Router + Tailwind v4 + shadcn | ADR-001 |
 | Real-time | Server-Sent Events (SSE) over `/api/stream` | ADR-001 |
@@ -73,11 +73,14 @@ When in doubt, ask `rugol-architect` first.
 ├── .gitignore
 ├── docker-compose.yml
 ├── .env.example
+├── NOTICE                    (de dónde vino cada idea prestada)
 ├── core/                     (Python FastAPI backend)
 │   ├── main.py               (app entrypoint)
 │   ├── config.py             (settings)
+│   ├── resilience.py         (volver a operar solo tras un corte)
+│   ├── safety/               (frenos duros para el agente desatendido)
 │   ├── db/                   (SQLite models + migrations)
-│   ├── registry/             (agents + skills loader)
+│   ├── registry/             (agents + skills loader + catálogo al prompt)
 │   ├── scheduler/            (APScheduler wrapper)
 │   ├── adapters/             (telegram, slack, mcp)
 │   ├── ontology/             (memory graph)
@@ -183,6 +186,22 @@ When in doubt, ask `rugol-architect` first.
       IDs still accepted
 - [x] Docs rewritten for the native install: `install-on-new-pc`,
       `troubleshooting`, new `remote-access` (Tailscale)
+
+**Sprint 8 — Multi-motor, resiliente y con frenos (DONE, 2026-08-23)**
+- [x] `core/safety`: hooks `PreToolUse` con denies duros + `freeze`. Deny y no
+      warn: gstack tiene un humano al que avisarle, Rugol no
+- [x] `core/resilience`: SQLite en WAL, corridas huérfanas cerradas como
+      `interrupted`, respaldo rotativo, quick_check, y reporte en
+      `/api/health/full`
+- [x] Windows autostart pasa de `AtLogOn` a `AtStartup` + S4U — antes, un
+      reinicio sin login dejaba Rugol abajo
+- [x] Motor Codex: `engine: codex` en el frontmatter. Verificado en vivo contra
+      codex-cli 0.149.0 (respuesta, resume por thread_id, corte de seguridad)
+- [x] Las skills de Rugol llegan al modelo por catálogo. Antes se escaneaban a
+      la base, se veían en el dashboard, y nunca salían de ahí
+- [x] Cuatro skills nuevas inspiradas en gstack + NOTICE con la atribución
+- [x] Probado con instalación limpia en macOS: `kill -9` en medio de una
+      corrida y el arranque siguiente la cerró solo
 
 **Next: Sprint 3 — Windows installer verified on a clean PC, release v0.1.0
 with screenshots and a < 90-second video. Sprint 4 — teams in Slack +

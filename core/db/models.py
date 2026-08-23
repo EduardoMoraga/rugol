@@ -127,6 +127,15 @@ class Schedule(Base):
     agent: Mapped[Agent] = relationship(back_populates="schedules")
 
 
+# Estados en los que una corrida ya terminó. Fuente de verdad del backend; el
+# dashboard tiene su espejo en `dashboard/src/lib/api.ts` (TERMINAL_RUN_STATUSES)
+# y un test compara las dos listas — agregar un estado acá y olvidarse del otro
+# lado dejó al chat refrescando para siempre una corrida interrumpida.
+TERMINAL_RUN_STATUSES: frozenset[str] = frozenset(
+    {"completed", "failed", "cancelled", "interrupted"}
+)
+
+
 class Run(Base):
     __tablename__ = "runs"
 

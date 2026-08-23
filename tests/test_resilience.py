@@ -214,3 +214,34 @@ def test_report_flags_dirty_state():
     assert RecoveryReport().clean
     assert not RecoveryReport(interrupted_runs=2).clean
     assert not RecoveryReport(integrity="malformed database").clean
+
+
+# ── Contrato backend ↔ dashboard ─────────────────────────────────────────────
+def test_terminal_statuses_match_the_dashboard():
+    """Los dos lados tienen que conocer los mismos estados finales.
+
+    Regresión concreta: el backend agregó `interrupted` y el dashboard no se
+    enteró. El chat consultaba la corrida cada pocos segundos esperando un
+    estado que nunca iba a llegar — refrescaba para siempre.
+    """
+    import re
+
+    from core.config import REPO_ROOT
+    from core.db.models import TERMINAL_RUN_STATUSES
+
+    ts = (REPO_ROOT / "dashboard/src/lib/api.ts").read_text(encoding="utf-8")
+    m = re.search(r"TERMINAL_RUN_STATUSES\s*=\s*\[(.*?)\]", ts, re.S)
+    assert m, "no encontré TERMINAL_RUN_STATUSES en dashboard/src/lib/api.ts"
+    front = set(re.findall(r'"([a-z]+)"', m.group(1)))
+
+    assert front == set(TERMINAL_RUN_STATUSES), (
+        f"backend={sorted(TERMINAL_RUN_STATUSES)} vs dashboard={sorted(front)} — "
+        "agregá el estado en los dos lados"
+    )
+
+
+def test_interrupted_is_a_terminal_status():
+    from core.db.models import TERMINAL_RUN_STATUSES
+    assert "interrupted" in TERMINAL_RUN_STATUSES
+    assert "running" not in TERMINAL_RUN_STATUSES
+    assert "queued" not in TERMINAL_RUN_STATUSES

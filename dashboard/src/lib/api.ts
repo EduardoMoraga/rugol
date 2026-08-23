@@ -106,6 +106,25 @@ export interface Agent {
   mcp_servers: Record<string, McpServer> | null;
 }
 
+/** Estados en los que una corrida ya terminó y no hay que seguir consultándola.
+ *
+ *  Una sola lista, a propósito: cuando el backend agregó `interrupted` (una
+ *  corrida cortada por un reinicio de la máquina), este chequeo vivía duplicado
+ *  en tres archivos, se actualizó en cero, y el chat quedaba refrescando para
+ *  siempre una corrida que nunca iba a cambiar. */
+export const TERMINAL_RUN_STATUSES = [
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted",
+] as const;
+
+export type TerminalRunStatus = (typeof TERMINAL_RUN_STATUSES)[number];
+
+export function isTerminalRunStatus(status: string): boolean {
+  return (TERMINAL_RUN_STATUSES as readonly string[]).includes(status);
+}
+
 export interface RunSummary {
   id: number;
   agent_id?: number;

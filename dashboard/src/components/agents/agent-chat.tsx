@@ -4,7 +4,15 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale, BookmarkPlus, AlertTriangle, KeyRound } from "lucide-react";
-import { addProjectLesson, cancelRun, fetchRun, runAgentNow, type RunDetail, type RunNowOptions } from "@/lib/api";
+import {
+  addProjectLesson,
+  cancelRun,
+  fetchRun,
+  isTerminalRunStatus,
+  runAgentNow,
+  type RunDetail,
+  type RunNowOptions,
+} from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useStream } from "@/lib/use-stream";
 import { Button } from "@/components/ui/button";
@@ -22,7 +30,14 @@ interface Turn {
   assistant: string;
   /** session id returned by the run for chaining the next turn. */
   sessionId?: string | null;
-  status: "queued" | "streaming" | "completed" | "failed" | "cancelled";
+  status:
+    | "queued"
+    | "streaming"
+    | "completed"
+    | "failed"
+    | "cancelled"
+    /** Cortada por un reinicio o corte de la máquina, no por un fallo del agente. */
+    | "interrupted";
   /** Why the run failed. El chat mostraba sólo "failed" y el motivo quedaba
    *  enterrado en /runs/<id>: un fallo de credenciales se leía igual que uno
    *  de red. Lo traemos del evento SSE y lo confirmamos con el run. */
@@ -315,7 +330,7 @@ export function AgentChat({
           try {
             const r = await fetchRun(t.runId);
             if (cancelled) return;
-            if (r.status === "completed" || r.status === "failed" || r.status === "cancelled") {
+            if (isTerminalRunStatus(r.status)) {
               setTurns((prev) =>
                 prev.map((x) =>
                   x.id === t.id
@@ -345,7 +360,7 @@ export function AgentChat({
           try {
             const r = await fetchRun(t.advocate.runId);
             if (cancelled) return;
-            if (r.status === "completed" || r.status === "failed" || r.status === "cancelled") {
+            if (isTerminalRunStatus(r.status)) {
               setTurns((prev) =>
                 prev.map((x) =>
                   x.id === t.id && x.advocate
@@ -673,6 +688,9 @@ function TurnView({ turn, projectSlug }: { turn: Turn; projectSlug: string | nul
               )}
               {turn.status === "cancelled" && (
                 <span className="text-[--color-warn]"> · {t("chat.cancelled")}</span>
+              )}
+              {turn.status === "interrupted" && (
+                <span className="text-[--color-warn]"> · {t("chat.interrupted")}</span>
               )}
             </p>
             <div className="flex items-center gap-1">

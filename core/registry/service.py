@@ -59,8 +59,16 @@ async def upsert_agent_file(path: Path) -> None:
             session.add(row)
             await session.commit()
             await bus.publish("agent:registered", {"name": parsed.name})
+        # Comparación campo por campo. Enumerar de menos se paga caro: durante
+        # meses `model` NO estaba en esta lista, así que cambiar el modelo de un
+        # agente reescribía el .md y la base seguía con el viejo — y el runner
+        # usa la base. Cambiar de modelo simplemente no funcionaba, ni desde el
+        # dashboard ni editando el archivo.
         elif (
             existing.body_hash != parsed.body_hash
+            or existing.model != parsed.model
+            or existing.description != parsed.description
+            or existing.source_path != parsed.source_path
             or existing.project_id != project_id
             or existing.tools != parsed.tools
             or existing.mcp_servers != parsed.mcp_servers

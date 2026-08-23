@@ -71,9 +71,23 @@ function Pid-Running($file) {
 }
 
 # __ Process control __________________________________________________________
+# Rotacion de logs. Un asistente 24/7 escribe sin parar: se encontro un
+# core.log de 143 MB en una instalacion de dos meses. Rotamos al arrancar
+# (simple, sin dependencias) y conservamos una generacion.
+function Rotate-Log($file, $maxMB = 50) {
+    if (-not (Test-Path $file)) { return }
+    $mb = [math]::Round((Get-Item $file).Length / 1MB)
+    if ($mb -ge $maxMB) {
+        Move-Item $file "$file.1" -Force -ErrorAction SilentlyContinue
+        Warn "log rotado ($mb MB): $(Split-Path $file -Leaf)"
+    }
+}
+
 function Start-Backend {
     $py = Resolve-Python
     New-Item -ItemType Directory -Force -Path $RunDir, $LogsDir | Out-Null
+    Rotate-Log (Join-Path $LogsDir "core.out.log")
+    Rotate-Log (Join-Path $LogsDir "core.err.log")
     Load-DotEnv $EnvFile
     $env:AGENTS_DIR = Join-Path $HomeDir "agents"
     $env:SKILLS_DIR = Join-Path $HomeDir "skills"
@@ -94,6 +108,8 @@ function Start-Backend {
 }
 function Start-Dashboard {
     $node = Resolve-Node
+    Rotate-Log (Join-Path $LogsDir "dashboard.out.log")
+    Rotate-Log (Join-Path $LogsDir "dashboard.err.log")
     $server = Join-Path $DashDir ".next\standalone\server.js"
     if (-not (Test-Path $server)) { Warn "Dashboard no compilado - corre 'rugol build'."; return }
     $env:PORT = "$DashPort"; $env:HOSTNAME = "127.0.0.1"

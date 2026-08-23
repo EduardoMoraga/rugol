@@ -82,9 +82,22 @@ wait_for_health() {
 # ── Process management (native, no Docker) ───────────────────────────────────
 _pid_running() { local p; p="$(cat "$1" 2>/dev/null)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
 
+# Rotación de logs. Un asistente 24/7 escribe sin parar: se encontró un
+# core.log de 143 MB en una instalación de dos meses. Rotamos al arrancar
+# (simple y sin dependencias) y conservamos una generación.
+rotate_log() {
+  local f="$1" max_mb="${2:-50}" size
+  [ -f "$f" ] || return 0
+  size=$(( $(wc -c < "$f") / 1048576 ))
+  if [ "$size" -ge "$max_mb" ]; then
+    mv -f "$f" "$f.1" 2>/dev/null && warn "log rotado ($size MB): $(basename "$f") → $(basename "$f").1"
+  fi
+}
+
 start_backend() {
   local py; py="$(resolve_python)"
   mkdir -p "$RUN_DIR" "$LOGS_DIR"
+  rotate_log "$LOGS_DIR/core.log"
   # Cargar .env del usuario y apuntar el estado al home global.
   set -a; . "$ENV_FILE"; set +a
   export AGENTS_DIR="$AGENTS_DIR_H" SKILLS_DIR="$SKILLS_DIR_H"
@@ -101,6 +114,7 @@ start_backend() {
 
 start_dashboard() {
   local server="$DASH_DIR/.next/standalone/server.js" node; node="$(resolve_node)"
+  rotate_log "$LOGS_DIR/dashboard.log"
   [ -f "$server" ] || { warn "Dashboard no compilado — corré 'rugol build' (o 'rugol up' lo hace)."; return 1; }
   [ -n "$node" ] || { err "Node no disponible."; return 1; }
   ( cd "$DASH_DIR"; export PORT="$DASHBOARD_PORT" HOSTNAME=127.0.0.1

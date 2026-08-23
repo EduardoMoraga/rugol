@@ -69,6 +69,33 @@ def _build_guard_hooks(agent_name: str):
 
 
 
+# Señales de que el CLI no pudo retomar la sesión guardada. Cuando aparecen, la
+# corrida NO falló por el pedido: falló por un id viejo.
+#
+# El bug que esto arregla, encontrado en producción: un chat de Telegram guardó
+# un session_id en julio, el archivo de esa conversación desapareció del disco,
+# y a partir de ahí CADA mensaje de ese chat falló con "Command failed with exit
+# code 1" — porque el id muerto se reusaba en cada intento. El chat quedaba
+# inservible para siempre, sin forma de recuperarlo desde la interfaz.
+SESSION_LOST_SIGNS = (
+    "no conversation found",
+    "session not found",
+    "could not find session",
+    "no such session",
+    "invalid session id",
+)
+
+
+def _looks_like_a_lost_session(error: BaseException) -> bool:
+    text = str(error).lower()
+    if any(sign in text for sign in SESSION_LOST_SIGNS):
+        return True
+    # La SDK a veces esconde el stderr detrás de "Check stderr output for
+    # details" y sólo deja el exit code. Si veníamos resumiendo una sesión y el
+    # CLI murió al inicializar, la causa abrumadoramente más probable es ésa.
+    return "exit code 1" in text and "check stderr output" in text
+
+
 SYSTEM_PROMPT_APPEND = """You are running inside Rugol, a local agent operations platform.
 
 # Output channel
@@ -229,7 +256,6 @@ async def run_agent(
         model=model,
         permission_mode="bypassPermissions",
         system_prompt={"type": "preset", "preset": "claude_code", "append": system_append},
-        resume=session_id,
         setting_sources=["user"],
         env=_build_env(),
     )
@@ -287,14 +313,24 @@ async def run_agent(
 
     if merged_mcp:
         options_kwargs["mcp_servers"] = merged_mcp
-    options = ClaudeAgentOptions(**options_kwargs)
+    async def _attempt(
+        resume: str | None, sink: list[str]
+    ) -> tuple[str | None, int, int, float]:
+        """Una pasada del CLI.
 
-    parts: list[str] = []
-    new_sid = session_id
-    in_tok = out_tok = 0
-    cost = 0.0
+        El texto se acumula en `sink`, que es del caller, para que sobreviva si
+        el CLI muere DESPUÉS de haber respondido — pasa con un cierre sucio de
+        un MCP server o un hook, sobre todo en Windows.
+        """
+        kwargs = dict(options_kwargs)
+        kwargs["resume"] = resume
+        options = ClaudeAgentOptions(**kwargs)
 
-    try:
+        parts = sink
+        sid = resume
+        in_tok = out_tok = 0
+        cost = 0.0
+
         async for message in query(prompt=prompt, options=options):
             kind = type(message).__name__
 
@@ -319,7 +355,7 @@ async def run_agent(
                         })
 
             elif kind == "ResultMessage":
-                new_sid = getattr(message, "session_id", None) or new_sid
+                sid = getattr(message, "session_id", None) or sid
                 usage = getattr(message, "usage", None) or {}
                 in_tok = int(usage.get("input_tokens", 0) or 0)
                 out_tok = int(usage.get("output_tokens", 0) or 0)
@@ -327,15 +363,38 @@ async def run_agent(
                 result = getattr(message, "result", None)
                 if result and not parts:
                     parts.append(str(result))
+
+        return sid, in_tok, out_tok, cost
+
+    parts: list[str] = []
+    new_sid = session_id
+    in_tok = out_tok = 0
+    cost = 0.0
+
+    try:
+        new_sid, in_tok, out_tok, cost = await _attempt(session_id, parts)
     except Exception as e:
-        # El CLI a veces sale con código ≠ 0 DESPUÉS de haber producido una
-        # respuesta válida: p.ej. "error result: success" (is_error=True con
-        # subtype=success), o un cierre sucio de un MCP server / hook (más común
-        # en Windows). Si ya tenemos texto del agente, entregamos la respuesta
-        # en vez de fallar el run — un bot de chat debe contestar, no mostrar un
-        # error críptico cuando en realidad respondió. Si NO hubo salida alguna,
-        # es un fallo real y lo propagamos.
-        if parts:
+        # Caso 1 — la sesión guardada ya no existe. NO es un fallo del pedido:
+        # reintentamos una vez con sesión nueva y devolvemos ese id, así el
+        # chat se cura solo. Sin esto, un id muerto deja el canal inservible
+        # para siempre (pasó: un chat de Telegram quedó dos meses fallando).
+        if session_id and _looks_like_a_lost_session(e):
+            logger.warning(
+                "run %s (%s): no pude retomar la sesión %s (%s) — reintento con "
+                "sesión nueva y descarto la vieja",
+                run_id, agent_name, session_id, e,
+            )
+            await bus.publish("run:session-reset", {
+                "run_id": run_id, "agent": agent_name, "old_session": session_id,
+            })
+            parts.clear()  # lo que hubiera quedado del intento fallido no sirve
+            new_sid, in_tok, out_tok, cost = await _attempt(None, parts)
+
+        # Caso 2 — el CLI salió con código ≠ 0 DESPUÉS de haber producido
+        # respuesta: "error result: success", o un cierre sucio de un MCP
+        # server / hook (más común en Windows). Un bot de chat debe contestar,
+        # no mostrar un error críptico cuando en realidad respondió.
+        elif parts:
             logger.warning(
                 "run %s (%s): query salió con error tras producir respuesta (%s); "
                 "recupero el texto del agente",

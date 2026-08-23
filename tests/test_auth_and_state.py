@@ -247,3 +247,69 @@ def test_wizards_and_catalogue_agree():
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(pytest.main([__file__, "-v"]))
+
+
+# ── Cambiar de modelo tiene que funcionar ────────────────────────────────────
+# Regresión: la detección de cambios del registry no miraba `model`, así que
+# cambiar el modelo de un agente reescribía el .md y la base seguía con el
+# viejo. El runner usa la base → cambiar de modelo no hacía nada.
+
+@pytest.mark.asyncio
+async def test_changing_the_model_reaches_the_database(tmp_path, monkeypatch):
+    from sqlalchemy import select
+
+    from core import runtime_state
+    from core.db import async_session_factory, init_db
+    from core.db.models import Agent
+    from core.registry.service import upsert_agent_file
+
+    monkeypatch.setattr(runtime_state, "default_model", lambda: "claude-sonnet-5")
+    await init_db()
+
+    md = tmp_path / "modelo-test.md"
+
+    def write(model: str, body: str = "Cuerpo estable.") -> None:
+        md.write_text(
+            f"---\nname: modelo-test\nmodel: {model}\ndescription: prueba\n---\n\n{body}\n",
+            encoding="utf-8",
+        )
+
+    async def model_in_db() -> str:
+        async with async_session_factory() as s:
+            row = (await s.execute(
+                select(Agent).where(Agent.name == "modelo-test")
+            )).scalar_one()
+            return row.model
+
+    try:
+        write("claude-sonnet-5")
+        await upsert_agent_file(md)
+        assert await model_in_db() == "claude-sonnet-5"
+
+        # SOLO cambia el modelo: el cuerpo queda idéntico, así que el hash no
+        # cambia. Ahí es donde se rompía.
+        write("claude-opus-5")
+        await upsert_agent_file(md)
+        assert await model_in_db() == "claude-opus-5", (
+            "cambiar sólo el modelo tiene que llegar a la base; si no, el "
+            "runner sigue usando el viejo"
+        )
+
+        # Y la descripción, por lo mismo.
+        md.write_text(
+            "---\nname: modelo-test\nmodel: claude-opus-5\ndescription: nueva\n---\n\n"
+            "Cuerpo estable.\n", encoding="utf-8",
+        )
+        await upsert_agent_file(md)
+        async with async_session_factory() as s:
+            row = (await s.execute(
+                select(Agent).where(Agent.name == "modelo-test")
+            )).scalar_one()
+            assert row.description == "nueva"
+    finally:
+        async with async_session_factory() as s:
+            for a in (await s.execute(
+                select(Agent).where(Agent.name == "modelo-test")
+            )).scalars():
+                await s.delete(a)
+            await s.commit()

@@ -39,42 +39,127 @@ class DenyRule:
     name: str
     pattern: re.Pattern[str]
     reason: str
+    # True → se busca en la línea cruda, en cualquier posición (p.ej. un DROP
+    # DATABASE dentro de `psql -c '…'`). False → anclada al principio de cada
+    # comando ya normalizado.
+    anywhere: bool = False
 
 
 def _rx(p: str) -> re.Pattern[str]:
     return re.compile(p, re.IGNORECASE)
 
 
-# El comando tiene que estar en POSICIÓN DE COMANDO, no dentro de un argumento.
-# Sin esto, `grep -r 'shutdown' ./logs` se bloquea y el guard se vuelve inusable.
-CMD = r"(?:^|[;&|]\s*|\$\(\s*|`\s*|\bsudo\s+|\bdoas\s+|\bnohup\s+|\bexec\s+)"
+# ── Normalización ────────────────────────────────────────────────────────────
+# Intentar reconocer un comando peligroso con UNA regex sobre la línea cruda no
+# funciona. Se midió: de 12 formas de escribir `rm -rf /`, once se escapaban.
+# La peor era `/bin/zsh -lc 'rm -rf /'` — que es exactamente cómo el CLI de
+# Codex envuelve TODOS sus comandos, así que con ese motor ninguna regla de
+# fábrica se activaba jamás.
+#
+# En vez de eso: normalizamos la línea a una lista de comandos candidatos y
+# aplicamos cada regla anclada al principio de cada uno.
 
-# `rm -rf X`, `rm -r -f X`, `rm -fr X`: al menos un grupo de flags con r/R.
-RM_R = r"rm(?:\s+-[a-zA-Z]+)*\s+-[a-zA-Z]*[rR][a-zA-Z]*(?:\s+-[a-zA-Z]+)*\s+"
+# `sh -c '...'`, `/bin/zsh -lc "..."`, `bash -lic $'...'`
+_WRAPPER = _rx(
+    r"""(?:^|[;&|]\s*)\s*(?:/\S*/)?(?:ba|z|k|da|fi)?sh\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*c[a-zA-Z]*\s+"""
+    r"""(?P<q>['"])(?P<inner>.*?)(?P=q)"""
+)
+
+# Prefijos que no son el comando: `sudo -i`, `env A=1`, `nohup`, `time`, …
+_PREFIX = _rx(
+    r"^\s*(?:"
+    r"(?:/\S*/)?(?:sudo|doas)(?:\s+-[a-zA-Z]+)*\s+"
+    r"|(?:/\S*/)?env(?:\s+[A-Za-z_][A-Za-z0-9_]*=\S*)*\s+"
+    r"|(?:/\S*/)?(?:nohup|exec|eval|time|command|builtin|setsid|stdbuf|nice|ionice)\s+"
+    r"|[A-Za-z_][A-Za-z0-9_]*=\S+\s+"          # VAR=valor delante del comando
+    r")+"
+)
+
+# Ruta absoluta delante del binario: /bin/rm → rm
+_BIN_PATH = _rx(r"^\s*/(?:\S+/)+(?=\w)")
+
+# Separadores de shell donde empieza un comando nuevo.
+_SPLIT = _rx(r"(?:\|\||&&|[;|&\n])")
+
+
+def _strip_prefixes(segment: str) -> str:
+    """Quita envoltorios y rutas hasta dejar el nombre del comando adelante."""
+    previous = None
+    current = segment.strip().lstrip("(")
+    # Iterativo: `sudo env A=1 /bin/rm` necesita varias pasadas. Tope por si una
+    # regex no consume nada y quedaría en bucle.
+    for _ in range(8):
+        if current == previous:
+            break
+        previous = current
+        current = _PREFIX.sub("", current, count=1)
+        current = _BIN_PATH.sub("", current, count=1)
+        current = current.strip().lstrip("(").strip()
+    return current
+
+
+def normalize_commands(raw: str, *, depth: int = 0) -> list[str]:
+    """Una línea de shell → los comandos que realmente van a ejecutarse.
+
+    Desenvuelve `sh -c`, separa por `;`/`&&`/`|`, y saca `sudo`, `env` y las
+    rutas absolutas. Devuelve siempre la línea cruda también, para que las
+    reglas que buscan en cualquier posición (SQL, fork bomb) sigan viéndola.
+    """
+    if not raw or depth > 3:
+        return [raw] if raw else []
+
+    out: list[str] = [raw.strip()]
+
+    # Lo que va adentro de `sh -c '...'` es un comando por derecho propio.
+    for match in _WRAPPER.finditer(raw):
+        inner = match.group("inner")
+        if inner and inner.strip():
+            out.extend(normalize_commands(inner, depth=depth + 1))
+
+    for chunk in _SPLIT.split(raw):
+        cleaned = _strip_prefixes(chunk)
+        # Sacamos comillas envolventes: `'rm -rf /'` → `rm -rf /`
+        for quote in ("'", '"'):
+            if cleaned.startswith(quote):
+                cleaned = cleaned[1:]
+            if cleaned.endswith(quote):
+                cleaned = cleaned[:-1]
+        cleaned = cleaned.strip()
+        if cleaned and cleaned not in out:
+            out.append(cleaned)
+
+    return out
+
+
+# `rm -rf X`, `rm -r -f X`, `rm -fr X`, `rm -rf --no-preserve-root X`.
+# Los flags largos importan: `--no-preserve-root` es justo el que se usa para
+# forzar el borrado de la raíz, y con `-[a-zA-Z]+` no matcheaba.
+_FLAGS = r"(?:\s+--?[a-zA-Z][\w-]*)*"
+RM_R = r"rm" + _FLAGS + r"\s+--?[a-zA-Z]*[rR][a-zA-Z]*" + _FLAGS + r"\s+"
 
 # Raíz, home, o una unidad de Windows entera — nunca una subcarpeta.
 ROOT_OR_HOME = (
-    r"(/|/\*|~|~/\*|\$HOME/?\*?|\$\{HOME\}/?\*?|%USERPROFILE%|"
-    r"\$env:USERPROFILE|[a-zA-Z]:\\?\*?)\s*(?:$|[;&|])"
+    r"['\"]?(?:/|/\*|~|~/\*|\.|\$HOME/?\*?|\$\{HOME\}/?\*?|%USERPROFILE%|"
+    r"\$env:USERPROFILE|[a-zA-Z]:\\?\*?)['\"]?\s*(?:$|[;&|])"
 )
 
 
 # ── The rules ────────────────────────────────────────────────────────────────
-# Ordered by how catastrophic the outcome is. Each pattern is deliberately
-# specific: `rm -rf ./build` must keep working, `rm -rf /` must not.
+# `anywhere=True` → se busca en la línea cruda (SQL dentro de `psql -c '…'`).
+# El resto se ancla al principio de cada comando normalizado.
 DENY_RULES: tuple[DenyRule, ...] = (
     DenyRule(
         name="recursive-delete-of-root-or-home",
-        pattern=_rx(CMD + RM_R + ROOT_OR_HOME),
+        pattern=_rx(r"^" + RM_R + ROOT_OR_HOME),
         reason=(
-            "Borrado recursivo de la raíz o del home. Si necesitás limpiar algo, "
-            "apuntá a una subcarpeta concreta."
+            "Borrado recursivo de la raíz, del home o del directorio actual. "
+            "Si necesitás limpiar algo, apuntá a una subcarpeta con nombre."
         ),
     ),
     DenyRule(
         name="windows-recursive-delete-of-root-or-home",
         pattern=_rx(
-            CMD + r"(?:Remove-Item|rd|rmdir|del)\b[^|;&\n]*"
+            r"^(?:Remove-Item|rd|rmdir|del)\b[^|;&\n]*"
             r"(?:-Recurse|/s\b)[^|;&\n]*"
             r"(?:\$HOME|\$env:USERPROFILE|%USERPROFILE%|[a-zA-Z]:\\(?:\*|\s|$|\"))"
         ),
@@ -85,9 +170,8 @@ DENY_RULES: tuple[DenyRule, ...] = (
     ),
     DenyRule(
         name="delete-rugol-state",
-        # Nothing an agent does should erase the platform's own state.
         pattern=_rx(
-            CMD + r"(?:" + RM_R + r"|Remove-Item[^|;&\n]*-Recurse[^|;&\n]*|rd\s+/s[^|;&\n]*)"
+            r"^(?:" + RM_R + r"|Remove-Item[^|;&\n]*-Recurse[^|;&\n]*|rd\s+/s[^|;&\n]*)"
             r"[^|;&\n]*[\\/]\.rugol\b"
         ),
         reason=(
@@ -98,17 +182,15 @@ DENY_RULES: tuple[DenyRule, ...] = (
     DenyRule(
         name="disk-format-or-raw-write",
         pattern=_rx(
-            CMD + r"(?:mkfs(?:\.\w+)?\b|diskpart\b|Format-Volume\b|Clear-Disk\b"
+            r"^(?:mkfs(?:\.\w+)?\b|diskpart\b|Format-Volume\b|Clear-Disk\b"
             r"|format\s+[a-zA-Z]:|dd\b[^|;&\n]*\bof=/dev/[a-z]+)"
         ),
         reason="Formatear o escribir crudo sobre un disco no es una operación de agente.",
     ),
     DenyRule(
         name="power-off-or-reboot",
-        # Rugol's whole promise is that the machine keeps serving. An agent
-        # rebooting its own host is a self-inflicted outage.
         pattern=_rx(
-            CMD + r"(?:shutdown\b|reboot\b|halt\b|poweroff\b|Stop-Computer\b"
+            r"^(?:shutdown\b|reboot\b|halt\b|poweroff\b|Stop-Computer\b"
             r"|Restart-Computer\b|systemctl\s+(?:reboot|poweroff|halt)\b)"
         ),
         reason=(
@@ -119,7 +201,7 @@ DENY_RULES: tuple[DenyRule, ...] = (
     DenyRule(
         name="force-push-to-default-branch",
         pattern=_rx(
-            CMD + r"git\s+push\b[^|;&\n]*(?:--force(?!-with-lease)|(?<![\w-])-f(?![\w-]))"
+            r"^git\s+push\b[^|;&\n]*(?:--force(?!-with-lease)|(?<![\w-])-f(?![\w-]))"
             r"[^|;&\n]*\b(?:main|master|origin/main|origin/master)\b"
         ),
         reason=(
@@ -128,27 +210,33 @@ DENY_RULES: tuple[DenyRule, ...] = (
         ),
     ),
     DenyRule(
-        # Sin ancla de comando: viene dentro de `psql -c '...'`.
         name="drop-database",
         pattern=_rx(r"\bDROP\s+(?:DATABASE|SCHEMA)\b"),
         reason="Eliminar una base de datos completa requiere una persona.",
+        anywhere=True,
     ),
     DenyRule(
         name="fork-bomb",
         pattern=re.compile(r":\(\)\s*\{.*\|.*&.*\}\s*;?\s*:"),
         reason="Eso es una fork bomb.",
+        anywhere=True,
     ),
     DenyRule(
         name="world-writable-root-or-home",
-        pattern=_rx(CMD + r"chmod\s+(?:-[a-zA-Z]+\s+)*777\s+(?:/|~|\$HOME)\s*(?:$|[;&|])"),
+        pattern=_rx(r"^chmod\s+(?:-[a-zA-Z]+\s+)*777\s+(?:/|~|\$HOME)\s*(?:$|[;&|])"),
         reason="Dejar la raíz o el home world-writable rompe la seguridad del sistema.",
     ),
     DenyRule(
         name="history-or-credential-wipe",
         pattern=_rx(
-            CMD + r"rm\b[^|;&\n]*(?:\.ssh/id_|\.claude/\.credentials|\.aws/credentials)"
+            r"^rm\b[^|;&\n]*(?:\.ssh/id_|\.claude/\.credentials|\.aws/credentials)"
         ),
         reason="Borrar credenciales dejaría la máquina sin acceso. No es una tarea de agente.",
+    ),
+    DenyRule(
+        name="find-delete-from-root",
+        pattern=_rx(r"^find\s+(?:/|~|\$HOME)\s+[^|;&\n]*(?:-delete|-exec\s+rm)\b"),
+        reason="Un `find` con borrado desde la raíz o el home es un borrado masivo.",
     ),
 )
 
@@ -163,12 +251,26 @@ class GuardVerdict:
 
 
 def evaluate_bash(command: str, *, extra_rules: tuple[DenyRule, ...] = ()) -> GuardVerdict:
-    """Check one shell command against every deny rule."""
+    """Evalúa una línea de shell contra todas las reglas.
+
+    La línea se normaliza primero (ver `normalize_commands`): sin eso, envolver
+    el comando en `sh -c '…'` o ponerle la ruta completa al binario esquivaba
+    todas las reglas.
+    """
     if not command or not command.strip():
         return GuardVerdict(allowed=True)
+
+    candidates = normalize_commands(command)
     for rule in DENY_RULES + tuple(extra_rules):
-        if rule.pattern.search(command):
-            return GuardVerdict(allowed=False, rule=rule.name, reason=rule.reason)
+        # Las reglas propias del usuario (SAFETY_DENY_EXTRA) se buscan en todo:
+        # quien las escribe sabe lo que quiere bloquear.
+        if rule.anywhere or rule.name.startswith("extra-"):
+            if rule.pattern.search(command):
+                return GuardVerdict(allowed=False, rule=rule.name, reason=rule.reason)
+            continue
+        for candidate in candidates:
+            if rule.pattern.search(candidate):
+                return GuardVerdict(allowed=False, rule=rule.name, reason=rule.reason)
     return GuardVerdict(allowed=True)
 
 

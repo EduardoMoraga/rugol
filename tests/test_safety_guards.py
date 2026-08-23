@@ -159,3 +159,109 @@ async def test_freeze_matcher_only_appears_when_frozen():
     frozen = build_guard_hooks(freeze_dir="/tmp/x")["PreToolUse"]
     assert len(frozen) == 2
     assert "Write" in frozen[1].matcher
+
+
+# ── Formas de esquivar el guard ───────────────────────────────────────────────
+# Medición previa al normalizador: de 12 maneras de escribir `rm -rf /`, ONCE se
+# escapaban. La peor, `/bin/zsh -lc '…'`, es exactamente cómo el CLI de Codex
+# envuelve todos sus comandos — con ese motor no se activaba ni una regla.
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Envuelto en un shell (el caso Codex)
+        "/bin/zsh -lc 'rm -rf /'",
+        "/bin/sh -c \"rm -rf /\"",
+        "bash -c 'rm -rf /'",
+        "zsh -lic 'rm -rf ~'",
+        "sh -c 'shutdown -h now'",
+        "/bin/zsh -lc 'git push --force origin main'",
+        # Ruta absoluta al binario
+        "/bin/rm -rf /",
+        "/usr/bin/rm -rf ~",
+        # Flags largos
+        "rm -rf --no-preserve-root /",
+        "rm --recursive --force /",
+        # Envoltorios
+        "sudo -i rm -rf /",
+        "env rm -rf /",
+        "FOO=1 /bin/rm -rf $HOME",
+        "nohup rm -rf / &",
+        "eval 'rm -rf /'",
+        "time rm -rf /",
+        # Encadenado
+        "cd / && rm -rf .",
+        "echo hola; rm -rf /",
+        "ls | xargs echo && rm -rf ~",
+        # Borrado masivo por find
+        "find / -name '*.log' -delete",
+        "find $HOME -type f -exec rm {} \;",
+        # Anidado
+        "bash -c 'sudo /bin/rm -rf /'",
+    ],
+)
+def test_closes_the_known_bypasses(command):
+    verdict = evaluate_bash(command)
+    assert not verdict.allowed, f"se escapa: {command}"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Envolver en un shell no vuelve peligroso lo que no lo era
+        "bash -c 'npm run build'",
+        "/bin/zsh -lc 'ls -la'",
+        "sh -c 'rm -rf ./node_modules'",
+        "/bin/zsh -lc \"sed -n '1,20p' dato.txt\"",
+        "bash -c 'git push origin mi-rama'",
+        # El comando peligroso como TEXTO, no como comando
+        'git commit -m "arreglo: ya no corremos rm -rf /"',
+        "echo 'nunca uses rm -rf / en un script'",
+        "grep -rn 'shutdown' ./logs",
+        # Rutas relativas y con nombre
+        "rm -rf ./build",
+        "rm -rf /tmp/rugol-test",
+        "rm -rf $HOME/proyectos/viejo",
+        "sudo rm -rf /var/tmp/cache-viejo",
+        "find ./src -name '*.pyc' -delete",
+        "find . -name '*.tmp' -delete",
+        # Encadenados legítimos
+        "cd /tmp/trabajo && rm -rf ./dist",
+        "npm ci && npm run build && npm test",
+    ],
+)
+def test_still_lets_the_wrapped_real_work_through(command):
+    verdict = evaluate_bash(command)
+    assert verdict.allowed, f"falso positivo en: {command} (regla {verdict.rule})"
+
+
+# ── El normalizador, directo ──────────────────────────────────────────────────
+def test_normalizer_unwraps_a_shell_wrapper():
+    from core.safety.guards import normalize_commands
+
+    out = normalize_commands("/bin/zsh -lc 'rm -rf /tmp/x'")
+    assert "rm -rf /tmp/x" in out, out
+
+
+def test_normalizer_splits_chains_and_strips_prefixes():
+    from core.safety.guards import normalize_commands
+
+    out = normalize_commands("cd /tmp && sudo -i /usr/bin/rm -rf ./x")
+    assert "rm -rf ./x" in out, out
+
+
+def test_normalizer_always_keeps_the_raw_line():
+    """Las reglas que buscan en cualquier posición (SQL) necesitan la línea cruda."""
+    from core.safety.guards import normalize_commands
+
+    raw = "psql -c 'DROP DATABASE prod'"
+    assert raw in normalize_commands(raw)
+
+
+def test_normalizer_terminates_on_pathological_input():
+    """Nada de bucles infinitos con entradas raras."""
+    from core.safety.guards import normalize_commands
+
+    for weird in ("", "   ", "sh -c 'sh -c \"sh -c ls\"'", "sudo " * 40 + "ls",
+                  "a" * 5000, ";;;&&&|||", "$(`$(`ls`)`)"):
+        assert isinstance(normalize_commands(weird), list)

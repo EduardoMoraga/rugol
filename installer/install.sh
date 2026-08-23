@@ -38,7 +38,16 @@ if [ -n "${RUGOL_SRC:-}" ]; then
   ok "código copiado desde $RUGOL_SRC"
 else
   have git || die "git no está instalado."
-  if [ -d "$APP_DIR/.git" ]; then git -C "$APP_DIR" pull --ff-only && ok "código actualizado"
+  # fetch + reset --hard, NO pull: `pull` aborta si el runtime dejó archivos
+  # modificados en el app dir, y entonces el instalador re-corrido no actualiza
+  # nada. Tus datos viven en $RUGOL_HOME, no acá, así que resetear es seguro.
+  if [ -d "$APP_DIR/.git" ]; then
+    if git -C "$APP_DIR" fetch --depth 1 origin "$REF" >/dev/null 2>&1 \
+       && git -C "$APP_DIR" reset --hard FETCH_HEAD >/dev/null 2>&1; then
+      ok "código actualizado ($(git -C "$APP_DIR" rev-parse --short HEAD))"
+    else
+      warn "no pude actualizar el código — sigo con lo instalado"
+    fi
   else rm -rf "$APP_DIR"; git clone --depth 1 --branch "$REF" "$REPO" "$APP_DIR" && ok "código clonado ($REF)"; fi
 fi
 
@@ -95,6 +104,7 @@ esac
 echo ""
 echo "${G}${B}Listo — sin Docker.${X}  Próximos pasos:"
 echo ""
-echo "   ${B}rugol setup${X}    # auth + modelo + Telegram"
+echo "   ${B}rugol setup${X}    # modelo + Telegram opcional + agente por defecto"
+echo "   ${B}rugol login${X}    # conecta tu cuenta de Claude (el paso que hace que los agentes respondan)"
 echo "   ${B}rugol up${X}       # levanta todo y abre el dashboard"
 echo ""

@@ -34,7 +34,17 @@ if ($env:RUGOL_SRC) {
     Ok "codigo copiado"
 } else {
     if (-not (Have "git")) { Die "git no esta instalado." }
-    if (Test-Path (Join-Path $AppDir ".git")) { git -C $AppDir pull --ff-only; Ok "codigo actualizado" }
+    # fetch + reset --hard, NO pull: 'pull' aborta si el runtime dejo archivos
+    # modificados en el app dir, y el Ok se imprimia igual - una instalacion
+    # quedo dos meses atras sin ninguna senal visible. Tus datos viven en
+    # $HomeDir, no aca, asi que resetear es seguro.
+    if (Test-Path (Join-Path $AppDir ".git")) {
+        git -C $AppDir fetch --depth 1 origin $Ref 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            git -C $AppDir reset --hard FETCH_HEAD 2>&1 | Out-Null
+            Ok "codigo actualizado ($(git -C $AppDir rev-parse --short HEAD))"
+        } else { Warn "no pude actualizar el codigo - sigo con lo instalado" }
+    }
     else { if (Test-Path $AppDir) { Remove-Item -Recurse -Force $AppDir }; git clone --depth 1 --branch $Ref $Repo $AppDir; Ok "codigo clonado ($Ref)" }
 }
 foreach ($d in @("data", "logs", "agents", "skills", "run")) { New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir $d) | Out-Null }
@@ -101,6 +111,7 @@ if (Test-Path (Join-Path $AppDir "dashboard\.next\standalone\server.js")) { Ok "
 Write-Host ""
 Write-Host "Listo - sin Docker. Proximos pasos:" -ForegroundColor Green
 Write-Host ""
-Write-Host "   rugol setup    # auth + modelo + Telegram"
+Write-Host "   rugol setup    # modelo + Telegram opcional + agente por defecto"
+Write-Host "   rugol login    # conecta tu cuenta de Claude (el paso que hace que los agentes respondan)"
 Write-Host "   rugol up       # levanta todo y abre el dashboard"
 Write-Host ""

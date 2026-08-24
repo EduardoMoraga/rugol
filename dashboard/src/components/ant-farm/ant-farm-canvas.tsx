@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchAgents, type Agent } from "@/lib/api";
+import { fetchAgents, type Agent, isTerminalRunStatus } from "@/lib/api";
 import { useStream } from "@/lib/use-stream";
 
 const STATE_COLOR: Record<string, string> = {
@@ -54,8 +54,16 @@ export function AntFarmCanvas() {
     if (!name) return;
     setOverrides((s) => {
       if (e.topic === "run:started") return { ...s, [name]: "running" };
-      if (e.topic === "run:completed") return { ...s, [name]: "idle" };
-      if (e.topic === "run:failed") return { ...s, [name]: "error" };
+      // Cualquier estado TERMINAL apaga la hormiga. Antes se escuchaban sólo
+      // `completed` y `failed`: una corrida cancelada dejaba el override en
+      // "running" —y el override le gana al valor de la base— así que la hormiga
+      // seguía corriendo en pantalla para siempre. Se arregla derivando la lista
+      // de estados terminales de la misma constante que usa el resto del
+      // dashboard, para que agregar uno nuevo no vuelva a dejar esto atrás.
+      const status = e.topic.startsWith("run:") ? e.topic.slice(4) : "";
+      if (isTerminalRunStatus(status)) {
+        return { ...s, [name]: status === "failed" ? "error" : "idle" };
+      }
       return s;
     });
   });

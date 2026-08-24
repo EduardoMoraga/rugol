@@ -447,7 +447,51 @@ export default function SchedulesPage() {
                     {s.prompt}
                   </p>
                   <p className="text-[10.5px] text-[--color-fg-subtle]">
-                    {s.next_run_at ? `Próxima corrida: ${new Date(s.next_run_at).toLocaleString()}` : "next run pending"}
+                    {s.next_run_at
+                      ? `Próxima corrida: ${new Date(s.next_run_at).toLocaleString()}`
+                      : "next run pending"}
+                  </p>
+                  {/* La última corrida, con su resultado. Antes esta línea no
+                      existía y `last_run_at` no se escribía nunca: un horario
+                      que llevaba meses disparando se veía igual que uno que
+                      nunca corrió. */}
+                  <p className="text-[10.5px]">
+                    {s.last_run_at ? (
+                      <>
+                        <span className="text-[--color-fg-subtle]">
+                          Última: {new Date(s.last_run_at).toLocaleString()}
+                        </span>
+                        {s.last_status && (
+                          <span
+                            className={
+                              s.last_status === "completed"
+                                ? "text-[--color-fg-muted]"
+                                : s.last_status === "failed"
+                                  ? "text-[--color-error]"
+                                  : "text-[--color-warn]"
+                            }
+                          >
+                            {" · "}
+                            {s.last_status}
+                          </span>
+                        )}
+                        {s.last_run_id && (
+                          <>
+                            {" · "}
+                            <Link
+                              href={`/runs/${s.last_run_id}`}
+                              className="text-[--color-fg-muted] hover:text-[--color-fg]"
+                            >
+                              run #{s.last_run_id}
+                            </Link>
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-[--color-fg-subtle]">
+                        Todavía no corrió ninguna vez
+                      </span>
+                    )}
                   </p>
                 </div>
               );

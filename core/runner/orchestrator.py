@@ -145,7 +145,12 @@ class RuntimeOrchestrator:
                 source=req.source,
                 prompt=req.prompt,
                 session_id=req.session_id,
-                status="running",
+                # `queued` hasta que haya cupo. Antes toda corrida nacía
+                # "running": con MAX_CONCURRENT_RUNS=3 y cinco pedidos, el
+                # dashboard mostraba cinco agentes trabajando cuando tres
+                # estaban esperando turno. La vista de flota tiene que decir la
+                # verdad — es su único trabajo.
+                status="queued",
                 # Stamp dispatcher decision when it actually ran (not bypassed).
                 track=None if dispatch_decision.bypassed else dispatch_decision.track,
                 classifier_confidence=(
@@ -320,6 +325,8 @@ class RuntimeOrchestrator:
         skills_catalogue: str | None = None,
     ) -> None:
         async with self._sem:
+            # Cupo conseguido: recién ahora está corriendo de verdad.
+            await self._mark_running(run_id)
             try:
                 result = await run_with_engine(
                     engine=engine,
@@ -518,6 +525,19 @@ class RuntimeOrchestrator:
             # conversación que el otro nunca vio.
             "engine": getattr(result, "engine", "claude"),
         })
+
+    async def _mark_running(self, run_id: int) -> None:
+        """De `queued` a `running` al conseguir cupo. Best-effort: si esto falla,
+        la corrida sigue — sólo perdemos precisión en la vista."""
+        try:
+            async with async_session_factory() as session:
+                run = await session.get(Run, run_id)
+                if run is not None and run.status == "queued":
+                    run.status = "running"
+                    await session.commit()
+                    await bus.publish("run:started", {"run_id": run_id})
+        except Exception:
+            logger.exception("no pude marcar la corrida %s como running", run_id)
 
     async def _mark_status(self, run_id: int, status: str, error: str = "") -> None:
         agent_name = ""

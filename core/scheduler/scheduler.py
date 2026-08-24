@@ -130,6 +130,26 @@ async def _fire_schedule(schedule_id: int, agent_name: str, prompt: str) -> None
         ))
     except Exception:
         logger.exception("schedule %s failed to enqueue", schedule_id)
+        return
+
+    # `Schedule.last_run_at` no se escribía en NINGÚN lado: la pantalla de
+    # Horarios decía "nunca corrió" incluso para uno que llevaba meses
+    # disparando. Para un asistente que trabaja mientras nadie mira, no poder
+    # ver si el briefing de la mañana se ejecutó es ceguera pura.
+    try:
+        import datetime as _dt
+
+        from core.db import async_session_factory
+        from core.db.models import Schedule
+
+        async with async_session_factory() as session:
+            row = await session.get(Schedule, schedule_id)
+            if row is not None:
+                row.last_run_at = _dt.datetime.now(_dt.UTC)
+                await session.commit()
+    except Exception:
+        # Anotar el disparo es contabilidad: no puede hacer fallar la corrida.
+        logger.exception("no pude registrar last_run_at del schedule %s", schedule_id)
 
 
 async def _fire_voice_sync() -> None:

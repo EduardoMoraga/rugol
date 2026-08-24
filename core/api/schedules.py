@@ -48,6 +48,9 @@ class ScheduleDTO(BaseModel):
     enabled: bool
     next_run_at: str | None = None
     last_run_at: str | None = None
+    # Cuándo disparó no alcanza: lo que uno quiere saber es si SALIÓ BIEN.
+    last_status: str | None = None
+    last_run_id: int | None = None
     # v0.6.x — drift detection between DB and APScheduler. When the row in
     # `schedules` says one cron but the live job in APScheduler is firing on
     # a different one (because somebody edited the DB without reloading,
@@ -62,6 +65,20 @@ async def list_schedules() -> list[ScheduleDTO]:
         rows = (await session.execute(select(Schedule))).scalars().all()
     # Enrich each row with whatever APScheduler currently has loaded for it.
     live_jobs = {j["id"]: j for j in get_scheduler().list_jobs()}
+    # La última corrida de cada schedule, en una sola consulta. Saber CUÁNDO
+    # disparó no sirve si no se ve si salió bien.
+    from core.db.models import Run
+
+    ultimas: dict[int, tuple[int, str]] = {}
+    async with async_session_factory() as session:
+        filas = (await session.execute(
+            select(Run.schedule_id, Run.id, Run.status)
+            .where(Run.schedule_id.is_not(None))
+            .order_by(Run.id.desc())
+        )).all()
+    for sched_id, run_id, status in filas:
+        ultimas.setdefault(sched_id, (run_id, status))
+
     out: list[ScheduleDTO] = []
     for s in rows:
         live = live_jobs.get(f"schedule:{s.id}")
@@ -82,11 +99,14 @@ async def list_schedules() -> list[ScheduleDTO]:
                 if f"{name}='{val}'" not in runtime_trig:
                     drift = True
                     break
+        ultima = ultimas.get(s.id)
         out.append(ScheduleDTO(
             id=s.id, agent_id=s.agent_id, cron_expr=s.cron_expr,
             prompt=s.prompt, enabled=s.enabled,
             next_run_at=runtime_next or (s.next_run_at.isoformat() if s.next_run_at else None),
             last_run_at=s.last_run_at.isoformat() if s.last_run_at else None,
+            last_status=ultima[1] if ultima else None,
+            last_run_id=ultima[0] if ultima else None,
             runtime_trigger=runtime_trig,
             runtime_drift=drift,
         ))

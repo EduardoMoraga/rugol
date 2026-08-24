@@ -353,3 +353,65 @@ def test_the_supervisor_checks_health_not_just_the_pid():
     assert "/api/health" in sup, "el supervisor tiene que mirar salud"
     assert "tolerancia" in sup, "no debe reaccionar a un pico transitorio"
     assert "core_fails" in sup
+
+
+# ── Horarios: no alcanza con disparar, hay que poder verlo ────────────────────
+# `Schedule.last_run_at` no se escribía en NINGÚN lado. La pantalla de Horarios
+# decía "nunca corrió" incluso para uno que llevaba meses disparando: no había
+# forma de saber si el briefing de la mañana se había ejecutado.
+
+def test_firing_a_schedule_records_it():
+    import inspect
+
+    from core.scheduler import scheduler as sched
+
+    fuente = inspect.getsource(sched._fire_schedule)
+    assert "last_run_at" in fuente, (
+        "sin esto la pantalla de Horarios dice 'nunca corrió' para siempre"
+    )
+    # Y no puede tumbar la corrida: anotar el disparo es contabilidad.
+    assert "except Exception" in fuente
+
+
+def test_the_schedule_dto_says_how_it_went_not_just_when():
+    from core.api.schedules import ScheduleDTO
+
+    campos = ScheduleDTO.model_fields
+    for campo in ("last_run_at", "last_status", "last_run_id"):
+        assert campo in campos, f"falta {campo}"
+
+
+# ── La vista de flota no puede mentir ────────────────────────────────────────
+# Con MAX_CONCURRENT_RUNS=3 y cinco pedidos, las cinco corridas nacían
+# "running": el dashboard mostraba cinco agentes trabajando cuando tres estaban
+# esperando turno.
+
+def test_runs_start_queued_and_become_running_when_they_get_a_slot():
+    import inspect
+
+    from core.runner import orchestrator as orch
+
+    enqueue = inspect.getsource(orch.RuntimeOrchestrator.enqueue)
+    assert 'status="queued"' in enqueue
+    assert 'status="running"' not in enqueue
+
+    execute = inspect.getsource(orch.RuntimeOrchestrator._execute)
+    assert "async with self._sem:" in execute
+    # La transición va DESPUÉS de conseguir cupo, no antes.
+    assert execute.index("async with self._sem:") < execute.index("_mark_running")
+
+
+@pytest.mark.asyncio
+async def test_queued_runs_are_recovered_after_a_crash(tmp_path, monkeypatch):
+    """Una corrida que se quedó esperando cupo cuando se cortó la luz también
+    tiene que cerrarse: si no, queda en cola para siempre."""
+    from core.db.models import TERMINAL_RUN_STATUSES
+
+    assert "queued" not in TERMINAL_RUN_STATUSES
+    # `recover_interrupted_runs` barre running Y queued.
+    import inspect
+
+    from core import resilience
+
+    fuente = inspect.getsource(resilience.recover_interrupted_runs)
+    assert '"running", "queued"' in fuente

@@ -165,6 +165,10 @@ export interface Schedule {
   enabled: boolean;
   next_run_at: string | null;
   last_run_at: string | null;
+  /** Cómo salió la última vez. Saber CUÁNDO disparó no sirve si no se ve si
+   *  funcionó — es la diferencia entre "mi briefing corre" y "creo que corre". */
+  last_status?: string | null;
+  last_run_id?: number | null;
 }
 
 export interface OntologyNode { id: number; label: string; type: string; meta: any; }

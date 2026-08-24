@@ -32,6 +32,20 @@ PROTECTED_SKILL_NAMES = {
 }
 
 
+def _legible(p: Path) -> str:
+    """Ruta legible sin asumir que está dentro del repo.
+
+    `relative_to(REPO_ROOT)` levanta ValueError para cualquier cosa fuera del
+    repo — y desde que el estado vive en RUGOL_DATA_DIR, las memorias están
+    fuera. El reset habría devuelto un 500 al llegar al primer archivo de
+    memoria: no sólo incompleto, roto.
+    """
+    try:
+        return str(p.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(p)
+
+
 @router.post("/reset")
 async def reset_install(confirm: str = "") -> dict:
     """Wipea instalación a estado fresco. Requiere ?confirm=YES_RESET_EVERYTHING.
@@ -57,6 +71,17 @@ async def reset_install(confirm: str = "") -> dict:
         targets.append(base / "scheduler.db")
         targets.append(base / "settings.json")
 
+    # Memorias y linaje de evolución. NO estaban: "Restablecer instalación"
+    # dejaba atrás todo lo que los agentes habían aprendido y cómo habían
+    # evolucionado sus prompts. Una operación destructiva que no destruye lo
+    # que promete es peor que ninguna: el usuario cree que arrancó limpio y
+    # arrastra memorias de la instalación anterior.
+    for base in {data_dir(), REPO_ROOT}:
+        for nombre in ("agent-memory", "agent-soul"):
+            carpeta = base / nombre
+            if carpeta.is_dir():
+                targets.extend(p for p in carpeta.rglob("*") if p.is_file())
+
     # Agent .md (todos — los templates curados están en código)
     agents_dir = REPO_ROOT / "agents-templates"
     if agents_dir.exists():
@@ -76,9 +101,9 @@ async def reset_install(confirm: str = "") -> dict:
             continue
         try:
             p.unlink()
-            deleted.append(str(p.relative_to(REPO_ROOT)))
+            deleted.append(_legible(p))
         except Exception as e:
-            skipped.append({"path": str(p.relative_to(REPO_ROOT)), "reason": str(e)})
+            skipped.append({"path": _legible(p), "reason": str(e)})
 
     logger.warning("admin.reset: deleted %d files, skipped %d", len(deleted), len(skipped))
     return {

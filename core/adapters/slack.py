@@ -187,12 +187,20 @@ class SlackAdapter(Adapter):
                 text=f":hourglass_flowing_sand: {bound['agent_name']} pensando…",
                 thread_ts=thread_ts,
             )
-            session_id = _CHANNEL_SESSIONS.get(str(channel))
+            # La clave lleva el MOTOR: un session_id es propio del CLI que lo
+            # creó. Sin esto, cambiarle el motor a un agente dejaba el canal
+            # intentando retomar una conversación que el nuevo motor nunca vio
+            # ("no rollout found") y, como el fallo no genera sesión nueva, el
+            # id muerto se reusaba para siempre. Pasó en Telegram; Slack tenía
+            # el mismo camino sin arreglar.
+            engine = bound.get("engine") or bound.get("agent_engine") or "claude"
+            session_id = _CHANNEL_SESSIONS.get(_session_key(str(channel), engine))
             run_id = await get_orchestrator().enqueue(RunRequest(
                 agent_name=bound["agent_name"],
                 prompt=text,
                 source="slack",
                 session_id=session_id,
+                engine_override=bound.get("engine"),
                 metadata={"channel": channel, "thread_ts": thread_ts},
             ))
             _PENDING[run_id] = {
@@ -270,8 +278,10 @@ class SlackAdapter(Adapter):
                         # v0.6 — capture session_id so the next message in
                         # this Slack channel continues the same conversation.
                         new_session = evt.data.get("session_id")
+                        # El motor viene en el evento: guardamos bajo SU clave.
+                        run_engine = str(evt.data.get("engine") or "claude")
                         if new_session:
-                            channel_key = str(pend["channel"])
+                            channel_key = _session_key(str(pend["channel"]), run_engine)
                             _CHANNEL_SESSIONS[channel_key] = new_session
                             try:
                                 await session_store.save("slack", channel_key, new_session)
@@ -296,6 +306,18 @@ class SlackAdapter(Adapter):
 
 # Helpers --------------------------------------------------------------------
 
+def _session_key(channel_id: str, engine: str) -> str:
+    """Clave de sesión por canal Y por motor.
+
+    Reusa el mismo helper que Telegram: la razón es idéntica y tener dos
+    implementaciones del mismo namespacing es cómo se arreglan los bugs a
+    medias.
+    """
+    from core.adapters.telegram import _session_key as shared
+
+    return shared(channel_id, engine)
+
+
 async def _lookup_binding(channel_id: str) -> dict | None:
     async with async_session_factory() as session:
         b = (await session.execute(
@@ -309,7 +331,15 @@ async def _lookup_binding(channel_id: str) -> dict | None:
         agent = await session.get(Agent, b.agent_id)
         if agent is None:
             return None
-        return {"agent_name": agent.name, "agent_id": agent.id, "binding_id": b.id}
+        return {
+            "agent_name": agent.name,
+            "agent_id": agent.id,
+            "binding_id": b.id,
+            # Override de motor del canal (por ahora sólo se setea desde el
+            # dashboard; Slack no tiene un `/motor` como Telegram).
+            "engine": b.engine,
+            "agent_engine": agent.engine or "claude",
+        }
 
 
 def _trim_for_slack(text: str, max_len: int = 3800) -> str:

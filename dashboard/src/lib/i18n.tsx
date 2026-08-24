@@ -737,7 +737,7 @@ const ES: Dict = {
   "settings.refreshStatus": "Refrescar estado",
   "settings.dangerZone": "Zona peligrosa",
   "settings.dangerZoneDescription":
-    "Restablecer la instalación a estado fresco — útil cuando vas a llevar la app a otro PC o quieres empezar limpio. Después del reset hay que reiniciar el backend (uvicorn) para que se recreen las tablas vacías. El proyecto Workspace y los 7 templates curados siguen disponibles.",
+    "Borra la base de datos, los tokens guardados, los agentes generados y —esto es lo que más duele— TODAS LAS MEMORIAS de tus agentes y su historial de evolución. Es irreversible. Después hay que reiniciar el backend (rugol restart). El proyecto Workspace y los templates curados siguen disponibles.",
   "settings.resetButton": "Restablecer instalación",
   "settings.resetting": "Reseteando…",
 
@@ -1552,7 +1552,7 @@ const EN: Dict = {
   "settings.refreshStatus": "Refresh status",
   "settings.dangerZone": "Danger zone",
   "settings.dangerZoneDescription":
-    "Reset the install to a fresh state — useful when moving the app to another PC or starting clean. After reset, restart the backend (uvicorn) so empty tables get recreated. Workspace and the 7 curated templates remain available.",
+    "Deletes the database, saved tokens, generated agents and — the part that hurts — ALL YOUR AGENTS' MEMORIES and their evolution history. Irreversible. Restart the backend afterwards (rugol restart). Workspace and the curated templates remain available.",
   "settings.resetButton": "Reset install",
   "settings.resetting": "Resetting…",
 

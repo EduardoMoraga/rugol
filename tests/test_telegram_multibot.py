@@ -161,3 +161,69 @@ async def test_binding_without_override_falls_back_to_the_agent(tmp_path, monkey
             if a:
                 await s.delete(a)
             await s.commit()
+
+
+# ── Slack arrastraba el MISMO bug de sesión que Telegram ──────────────────────
+# El bug de Telegram (session_id de un motor pasado a otro → "no rollout found",
+# y el id muerto reusándose para siempre) vivía idéntico en Slack, sin arreglar.
+# Un bug arreglado en un adaptador y no en el otro es un bug arreglado a medias.
+
+def test_slack_and_telegram_share_the_session_namespacing():
+    from core.adapters.slack import _session_key as slack_key
+    from core.adapters.telegram import _session_key as tg_key
+
+    # Misma función, para que no se separen.
+    assert slack_key("C0ABC", "codex") == tg_key("C0ABC", "codex")
+    assert slack_key("C0ABC", "codex") != slack_key("C0ABC", "claude")
+
+
+def test_slack_dispatch_carries_the_engine():
+    """Sin esto, cambiarle el motor a un agente dejaba el canal de Slack
+    intentando retomar una conversación que el nuevo motor nunca vio."""
+    import inspect
+
+    from core.adapters import slack
+
+    fuente = inspect.getsource(slack.SlackAdapter)
+    assert "_session_key(str(channel), engine)" in fuente, (
+        "la clave de sesión tiene que llevar el motor"
+    )
+    assert "engine_override=bound.get(\"engine\")" in fuente, (
+        "la corrida tiene que respetar el override del canal"
+    )
+    assert '_session_key(str(pend["channel"]), run_engine)' in fuente, (
+        "al guardar, la clave tiene que ser la del motor que corrió"
+    )
+
+
+@pytest.mark.asyncio
+async def test_slack_binding_exposes_the_engine(tmp_path, monkeypatch):
+    from sqlalchemy import select
+
+    from core.db import async_session_factory, init_db
+    from core.db.models import Agent, ChannelBinding, Project
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    await init_db()
+    async with async_session_factory() as s:
+        proj = (await s.execute(select(Project).where(Project.slug == "workspace"))).scalar_one()
+        agent = Agent(name="slack-motor-test", model="gpt-5.6-terra", description="d",
+                      body="b", source_path="/tmp/sm.md", body_hash="h",
+                      project_id=proj.id, engine="codex")
+        s.add(agent)
+        await s.flush()
+        s.add(ChannelBinding(channel_type="slack", external_id="C0TEST", agent_id=agent.id))
+        await s.commit()
+        agent_id = agent.id
+    try:
+        from core.adapters.slack import _lookup_binding
+
+        bound = await _lookup_binding("C0TEST")
+        assert bound["agent_engine"] == "codex"
+        assert bound["engine"] is None
+    finally:
+        async with async_session_factory() as s:
+            a = await s.get(Agent, agent_id)
+            if a:
+                await s.delete(a)
+            await s.commit()

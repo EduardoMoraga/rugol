@@ -415,3 +415,53 @@ async def test_queued_runs_are_recovered_after_a_crash(tmp_path, monkeypatch):
 
     fuente = inspect.getsource(resilience.recover_interrupted_runs)
     assert '"running", "queued"' in fuente
+
+
+# ── Una operación destructiva tiene que destruir lo que promete ───────────────
+# "Restablecer instalación" no borraba `agent-memory` ni `agent-soul`: el usuario
+# creía arrancar limpio y arrastraba las memorias de la instalación anterior. Un
+# reset a medias es peor que ninguno, porque nadie vuelve a revisarlo.
+
+@pytest.mark.asyncio
+async def test_reset_deletes_memories_and_lineage(tmp_path, monkeypatch):
+    from core.api.admin import reset_install
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    mem = tmp_path / "agent-memory" / "un-agente"
+    soul = tmp_path / "agent-soul" / "un-agente"
+    mem.mkdir(parents=True)
+    soul.mkdir(parents=True)
+    (mem / "MEMORY.md").write_text("- algo aprendido\n", encoding="utf-8")
+    (mem / "20260101-x.md").write_text("cuerpo\n", encoding="utf-8")
+    (soul / "lineage.json").write_text("{}\n", encoding="utf-8")
+
+    result = await reset_install(confirm="YES_RESET_EVERYTHING")
+
+    borrados = " ".join(result["deleted"])
+    assert "MEMORY.md" in borrados, f"las memorias siguen ahí: {result['deleted']}"
+    assert "lineage.json" in borrados, "el linaje de evolución sigue ahí"
+    assert not (mem / "MEMORY.md").exists()
+    assert not (soul / "lineage.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_reset_still_refuses_without_the_confirmation(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+
+    from core.api.admin import reset_install
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    with pytest.raises(HTTPException) as ei:
+        await reset_install(confirm="")
+    assert ei.value.status_code == 400
+
+
+def test_the_warning_names_what_gets_deleted():
+    """Si el texto no nombra las memorias, el usuario no sabe qué está firmando."""
+    from core.config import REPO_ROOT
+
+    i18n = (REPO_ROOT / "dashboard/src/lib/i18n.tsx").read_text(encoding="utf-8")
+    bloque = i18n[i18n.index('"settings.dangerZoneDescription"'):]
+    bloque = bloque[:400].lower()
+    assert "memoria" in bloque
+    assert "irreversible" in bloque

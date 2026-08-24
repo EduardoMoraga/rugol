@@ -50,9 +50,19 @@ async def propose_improvement(agent_id: int, workspace_dir: Path) -> int | None:
         if agent is None:
             return None
 
+        # Sólo corridas que dicen algo sobre el AGENTE. Una `interrupted` es un
+        # corte de luz y una `queued` no llegó a correr: mostrárselas al
+        # reflector lo hace proponer cambios de prompt para arreglar un
+        # reinicio de la máquina. El bucle aprendería la lección equivocada.
         last_runs = (await session.execute(
-            select(Run).where(Run.agent_id == agent_id).order_by(desc(Run.id)).limit(5)
+            select(Run)
+            .where(Run.agent_id == agent_id)
+            .where(Run.status.in_(("completed", "failed")))
+            .order_by(desc(Run.id))
+            .limit(5)
         )).scalars().all()
+        if not last_runs:
+            return None
 
         run_summary = "\n".join(
             f"- run #{r.id} [{r.status}] prompt={r.prompt[:120]!r}"

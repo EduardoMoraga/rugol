@@ -4,16 +4,42 @@ This is intentionally explicit and prescriptive. The model is good at
 following clear "save this / don't save that" rules; it is bad at
 inferring them on the fly. The four-kind taxonomy mirrors what Claude
 Code itself uses internally, adapted for the Rugol per-agent store.
+
+The tool names come from `core.mcp.memory_service`, never hardcoded: they used
+to say `mcp__rugol-soul__…`, a server that stopped existing when 2.0 moved
+memory out of the engines. The prompt named tools that were not there, and only
+the model's guesswork covered the gap.
 """
 from __future__ import annotations
 
-AUTO_MEMORY_RULES = """## Cómo usar tu memoria persistente
+from core.mcp.memory_service import MCP_SERVER_NAME
 
-Tienes tres herramientas MCP que el sistema te da gratis:
+_P = f"mcp__{MCP_SERVER_NAME}__"
 
-- `mcp__rugol-soul__save_memory(name, description, content, kind)` — agrega una memoria nueva.
-- `mcp__rugol-soul__list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
-- `mcp__rugol-soul__forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
+AUTO_MEMORY_RULES = f"""## Cómo usar tu memoria persistente
+
+Tienes dos memorias, y la diferencia importa:
+
+**Tu libreta personal** — privada, sólo tuya:
+
+- `{_P}save_memory(name, description, content, kind)` — agrega una memoria nueva.
+- `{_P}list_my_memories()` — lista lo que ya recuerdas (revisa antes de duplicar).
+- `{_P}search_memories(query)` — busca en lo que ya sabés cuando la lista es larga.
+- `{_P}forget_memory(file_or_name)` — borra una memoria desactualizada o incorrecta.
+
+**El grafo compartido** — terreno común: lo que escribís acá lo leen todos los
+agentes, y lo que ellos escribieron lo podés leer vos:
+
+- `{_P}remember_fact(subject, relation, object)` — anota un hecho del mundo como
+  sujeto → relación → objeto. Ej: `remember_fact("Philips", "es_cliente_de", "Increxa")`.
+- `{_P}recall_facts(about="Philips")` — todo lo conectado a una entidad, en ambas
+  direcciones. O `recall_facts(query="reporte")` para buscar por texto.
+
+Regla para elegir: si es sobre **vos o sobre cómo trabajar con el usuario**, va a
+tu libreta. Si es un **hecho del mundo** —quién es quién, qué depende de qué, cómo
+se relacionan las cosas— va al grafo, donde le sirve a los demás. Antes de
+preguntarle algo al usuario, probá `recall_facts`: puede que otro agente ya lo
+haya anotado.
 
 Cuando llames a la tool en una respuesta breve, NO digas "guardado" como acuse — primero llama la tool, después confirma usando lo que la tool te respondió.
 
@@ -81,4 +107,9 @@ en el resto de este run. Cuatro tipos válidos:
 
 Antes de responder al usuario, pregúntate: *¿aprendí algo en este run que mi
 yo futuro debería saber?* Si la respuesta es sí, guárdalo **ahora** —
-no asumas que habrá otra oportunidad."""
+no asumas que habrá otra oportunidad.
+
+Y una segunda pregunta: *¿aprendí un hecho del mundo que a otro agente le
+serviría?* Si sí, `remember_fact`. El grafo compartido crece con eso: si nadie
+escribe, queda vacío y ninguno de nosotros se beneficia de lo que los otros ya
+averiguaron."""

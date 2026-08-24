@@ -44,6 +44,8 @@ MEMORY_TOOL_NAMES: tuple[str, ...] = (
     f"mcp__{MCP_SERVER_NAME}__list_my_memories",
     f"mcp__{MCP_SERVER_NAME}__forget_memory",
     f"mcp__{MCP_SERVER_NAME}__search_memories",
+    f"mcp__{MCP_SERVER_NAME}__remember_fact",
+    f"mcp__{MCP_SERVER_NAME}__recall_facts",
 )
 
 _VALID_KINDS = {"user", "feedback", "project", "reference", "note"}
@@ -150,6 +152,44 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "remember_fact",
+        "description": (
+            "Record a fact in the SHARED knowledge graph, as subject → relation → object "
+            "(e.g. 'Philips' → 'is_a' → 'client'). Unlike save_memory, which is private to "
+            "you, the graph is common ground every agent can read — use it for facts about "
+            "the world (people, clients, systems, how things relate), not for notes about "
+            "yourself. Writing the same fact twice is safe and changes nothing."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "subject": {"type": "string", "description": "the entity the fact is about"},
+                "relation": {
+                    "type": "string",
+                    "description": "short snake_case predicate, e.g. works_on, is_a, owns",
+                },
+                "object": {"type": "string", "description": "what the subject relates to"},
+            },
+            "required": ["subject", "relation", "object"],
+        },
+    },
+    {
+        "name": "recall_facts",
+        "description": (
+            "Read the shared knowledge graph. Pass 'about' to get everything connected to an "
+            "entity in either direction, or 'query' to search across subjects, relations and "
+            "objects. Call this before asking the user something another agent may already "
+            "have recorded."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "about": {"type": "string", "description": "an entity label"},
+                "query": {"type": "string", "description": "free text to search for"},
+            },
+        },
+    },
+    {
         "name": "forget_memory",
         "description": (
             "Delete a memory by filename (e.g. '20260510-user-role.md') or by its name "
@@ -167,6 +207,59 @@ TOOLS: list[dict[str, Any]] = [
 
 def _text(text: str, is_error: bool = False) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}], "isError": is_error}
+
+
+_GRAPH_TOOLS = {"remember_fact", "recall_facts"}
+
+
+async def call_tool_async(agent_name: str, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Igual que `call_tool`, más las herramientas del grafo, que tocan la DB.
+
+    El grafo es compartido: lo que un agente escribe lo leen todos. Las memorias
+    siguen siendo privadas. Esa asimetría es el diseño, no un descuido — el
+    grafo es el terreno común y la memoria es la libreta personal.
+    """
+    if name not in _GRAPH_TOOLS:
+        return call_tool(agent_name, name, args)
+
+    from core.ontology.store import get_ontology
+
+    args = args or {}
+    store = get_ontology()
+    try:
+        if name == "remember_fact":
+            subject = str(args.get("subject") or "").strip()
+            relation = str(args.get("relation") or "").strip()
+            obj = str(args.get("object") or "").strip()
+            if not subject or not relation or not obj:
+                return _text(
+                    "remember_fact needs non-empty subject, relation, and object.",
+                    is_error=True,
+                )
+            await store.add_edge(subject, relation, obj)
+            logger.info("grafo: %s escribió %s -%s-> %s", agent_name, subject, relation, obj)
+            return _text(f"Recorded: {subject} → {relation} → {obj}")
+
+        if name == "recall_facts":
+            about = str(args.get("about") or "").strip()
+            query = str(args.get("query") or "").strip()
+            if about:
+                triples = await store.around(about)
+                vacio = f"(nothing recorded about '{about}' yet)"
+            elif query:
+                triples = await store.search(query)
+                vacio = f"(nothing in the graph matched '{query}')"
+            else:
+                return _text("recall_facts needs either 'about' or 'query'.", is_error=True)
+            if not triples:
+                return _text(vacio)
+            return _text("\n".join(f"- {t.src} → {t.predicate} → {t.dst}" for t in triples))
+
+        return _text(f"Unknown tool '{name}'.", is_error=True)
+
+    except Exception as e:
+        logger.exception("grafo: la herramienta %s falló para %s", name, agent_name)
+        return _text(f"{name} failed: {e}", is_error=True)
 
 
 def call_tool(agent_name: str, name: str, args: dict[str, Any]) -> dict[str, Any]:

@@ -59,6 +59,28 @@ class Engine(Protocol):
     async def run(self, **kwargs) -> RunResult: ...
 
 
+ENGINE_ALIASES: dict[str, EngineName] = {
+    "claude-code": "claude",
+    "anthropic": "claude",
+    "openai": "codex",
+    "codex-cli": "codex",
+    "gpt": "codex",
+}
+
+
+def is_known_engine(value: str | None) -> bool:
+    """¿Es un motor que reconocemos, o basura?
+
+    `normalize_engine` es permisivo a propósito —un typo en un `.md` no puede
+    dejar a un agente sin correr— y por eso NO sirve para validar entrada de la
+    API: convierte "gemini" en "claude" y el 400 nunca sale. Pedir un motor que
+    no existe por API tiene que ser un error visible, no una sustitución
+    silenciosa.
+    """
+    raw = (value or "").strip().lower()
+    return bool(raw) and (raw in ENGINES or raw in ENGINE_ALIASES)
+
+
 def normalize_engine(value: str | None) -> EngineName:
     """Frontmatter → motor válido. Un valor desconocido cae al default con log.
 
@@ -72,15 +94,8 @@ def normalize_engine(value: str | None) -> EngineName:
         return DEFAULT_ENGINE
     if raw in ENGINES:
         return raw  # type: ignore[return-value]
-    aliases = {
-        "claude-code": "claude",
-        "anthropic": "claude",
-        "openai": "codex",
-        "codex-cli": "codex",
-        "gpt": "codex",
-    }
-    if raw in aliases:
-        return aliases[raw]  # type: ignore[return-value]
+    if raw in ENGINE_ALIASES:
+        return ENGINE_ALIASES[raw]
     logging.getLogger(__name__).warning(
         "motor '%s' desconocido en el frontmatter — uso '%s'. Válidos: %s",
         value, DEFAULT_ENGINE, ", ".join(ENGINES),

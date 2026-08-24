@@ -266,7 +266,7 @@ async def run_agent(
         options_kwargs["hooks"] = guard_hooks
     # MCP servers merge order (v0.7.1 second fix — platform wins):
     #   - Per-agent configured servers come first.
-    #   - Platform-provided servers (rugol-soul, rugol-telegram)
+    #   - Platform-provided servers (rugol-memory, rugol-telegram)
     #     overwrite ANY collision with their canonical name. This prevents
     #     a stale or wrong per-agent MCP config from silently breaking the
     #     in-process tools the runtime depends on.

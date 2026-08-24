@@ -56,6 +56,11 @@ interface Turn {
 
 type TaskType = "fast" | "think" | "deep";
 
+// Motor por corrida. El agente tiene el suyo configurado; acá se puede probar
+// el otro sin tocar su .md — que es exactamente lo que uno quiere hacer cuando
+// una respuesta no convence: la misma pregunta, el otro motor.
+type EngineChoice = "default" | "claude" | "codex";
+
 const TASK_TYPES: { id: TaskType; labelKey: string; hintKey: string; icon: typeof Zap }[] = [
   { id: "fast", labelKey: "chat.fast", hintKey: "chat.fastHint", icon: Zap },
   { id: "think", labelKey: "chat.think", hintKey: "chat.thinkHint", icon: Brain },
@@ -103,6 +108,7 @@ export function AgentChat({
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [taskType, setTaskType] = useState<TaskType>("think");
+  const [engine, setEngine] = useState<EngineChoice>("default");
   const [seekAdvocate, setSeekAdvocate] = useState(false);
   const tailRef = useRef<HTMLDivElement>(null);
   const liveTurnIdRef = useRef<string | null>(null);
@@ -134,6 +140,7 @@ export function AgentChat({
       const opts: RunNowOptions = {
         session_id: lastSessionId,
         task_type: taskType,
+        engine: engine === "default" ? null : engine,
         seek_devils_advocate: seekAdvocate,
       };
       const res = await runAgentNow(agentId, prompt, opts);
@@ -484,6 +491,20 @@ export function AgentChat({
                 </button>
               );
             })}
+          </div>
+          <div className="inline-flex items-center gap-1.5 ml-auto mr-2">
+            <select
+              value={engine}
+              onChange={(e) => setEngine(e.target.value as EngineChoice)}
+              disabled={!!liveTurn}
+              title={t("chat.engineHint")}
+              aria-label={t("chat.engineHint")}
+              className="surface px-2 py-1 rounded-md text-[11px] text-[--color-fg-muted] hover:text-[--color-fg] disabled:opacity-50 bg-transparent"
+            >
+              <option value="default">{t("chat.engineDefault")}</option>
+              <option value="claude">Claude</option>
+              <option value="codex">Codex</option>
+            </select>
           </div>
           <label
             className={`inline-flex items-center gap-1.5 cursor-pointer transition ${

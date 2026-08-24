@@ -649,6 +649,8 @@ const ES: Dict = {
   "chat.thinkHint": "modelo del agente",
   "chat.deep": "Deliberar",
   "chat.deepHint": "razonamiento profundo (opus)",
+  "chat.engineDefault": "motor del agente",
+  "chat.engineHint": "Motor sólo para esta corrida — no cambia la configuración del agente",
   "chat.devilsAdvocate": "Pedir abogado del diablo",
   "chat.devilsAdvocateHint":
     "Después de la respuesta, dispara un segundo run con Opus que la cuestiona.",
@@ -1464,6 +1466,8 @@ const EN: Dict = {
   "chat.thinkHint": "agent's model",
   "chat.deep": "Deliberate",
   "chat.deepHint": "deep reasoning (opus)",
+  "chat.engineDefault": "agent's engine",
+  "chat.engineHint": "Engine for this run only — does not change the agent's config",
   "chat.devilsAdvocate": "Request devil's advocate",
   "chat.devilsAdvocateHint":
     "After the reply, fires a second run with Opus that challenges it.",

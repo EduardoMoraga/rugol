@@ -95,7 +95,7 @@ async def run_checkpoint(
 
     The checkpoint:
     - Uses Haiku (cheapest model) — the evaluation is structured.
-    - Has the rugol-soul MCP server attached so save_memory works.
+    - Has the rugol-memory MCP server attached so save_memory works.
     - Is best-effort — failures are logged but never propagate.
     """
     settings = get_settings()

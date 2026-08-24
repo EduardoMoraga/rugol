@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import desc, select
 from sqlalchemy.orm import selectinload
 
@@ -15,7 +15,7 @@ from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.mcp import test_mcp_server
 from core.registry.service import upsert_agent_file
-from core.runner.base import DEFAULT_ENGINE, ENGINES, normalize_engine
+from core.runner.base import DEFAULT_ENGINE, ENGINES, is_known_engine, normalize_engine
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -45,8 +45,17 @@ class AgentDTO(BaseModel):
 
 
 class RunNowBody(BaseModel):
+    # Extra = forbid a propósito. Antes, un `{"engine": "codex"}` se descartaba
+    # en silencio y la corrida salía en Claude: pedías una cosa, pasaba otra, y
+    # nada lo decía. Un campo que no existe tiene que ser un 422, no un silencio.
+    model_config = ConfigDict(extra="forbid")
+
     prompt: str
     session_id: str | None = None
+    # Motor para ESTA corrida, sin tocar la configuración del agente. Telegram
+    # ya lo permitía con /motor; la API no, así que ni el dashboard ni un script
+    # podían elegir. Vacío = el motor que el agente tiene configurado.
+    engine: str | None = None
     # Capa 4 — System 1 vs System 2 explicit. Overrides the agent's default
     # model choice based on the *type of thinking* the user expects:
     # - "fast"   → haiku   (heuristic, low-stakes, classification)
@@ -204,14 +213,35 @@ async def run_now(agent_id: int, body: RunNowBody) -> dict:
         if a is None:
             raise HTTPException(status_code=404, detail="agent not found")
         agent_name = a.name
+        agent_engine = a.engine or DEFAULT_ENGINE
 
     model_override = _TASK_TYPE_TO_MODEL.get((body.task_type or "").lower())
+
+    engine_override: str | None = None
+    if body.engine:
+        # Validar con `is_known_engine`, NO con el resultado de normalize_engine:
+        # normalize es permisivo por diseño y convierte "gemini" en "claude", así
+        # que comparar la salida contra ENGINES nunca falla y el 400 no sale.
+        if not is_known_engine(body.engine):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Motor '{body.engine}' desconocido. Válidos: {', '.join(sorted(ENGINES))}",
+            )
+        engine_override = normalize_engine(body.engine)
+        # Cambiar de motor invalida la sesión: un session_id pertenece al CLI
+        # que lo creó. Pasarlo al otro motor da "no rollout found" y la corrida
+        # muere por una razón que no tiene nada que ver con lo que pediste.
+        session_id = None if engine_override != agent_engine else body.session_id
+    else:
+        session_id = body.session_id
+
     run_id = await get_orchestrator().enqueue(RunRequest(
         agent_name=agent_name,
         prompt=body.prompt,
         source="dashboard",
-        session_id=body.session_id,
+        session_id=session_id,
         model_override=model_override,
+        engine_override=engine_override,
         seek_devils_advocate=body.seek_devils_advocate,
     ))
     return {"run_id": run_id, "status": "queued"}

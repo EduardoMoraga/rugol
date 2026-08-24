@@ -87,12 +87,22 @@ def test_the_in_process_memory_server_is_gone():
 
 
 def test_memory_tool_names_target_the_shared_service():
-    from core.mcp.memory_service import MCP_SERVER_NAME, MEMORY_TOOL_NAMES
+    from core.mcp.memory_service import MCP_SERVER_NAME, MEMORY_TOOL_NAMES, TOOLS
 
     assert MCP_SERVER_NAME == "rugol-memory"
-    assert len(MEMORY_TOOL_NAMES) == 4
     for name in MEMORY_TOOL_NAMES:
         assert name.startswith(f"mcp__{MCP_SERVER_NAME}__")
+
+    # El contrato real no es "son cuatro": es que la allowlist y las
+    # herramientas no se desincronicen. Agregar una herramienta y olvidarse de
+    # la allowlist la deja invisible para Claude sin que nada falle; sacar una y
+    # dejar el nombre pone un permiso que apunta a la nada.
+    expuestas = {f"mcp__{MCP_SERVER_NAME}__{t['name']}" for t in TOOLS}
+    assert expuestas == set(MEMORY_TOOL_NAMES), (
+        "la allowlist y las herramientas del servicio se desincronizaron: "
+        f"sólo en TOOLS={expuestas - set(MEMORY_TOOL_NAMES)}, "
+        f"sólo en la allowlist={set(MEMORY_TOOL_NAMES) - expuestas}"
+    )
 
 
 def test_the_checkpoint_writes_to_the_agents_store_not_the_checkpoints(tmp_path, monkeypatch):

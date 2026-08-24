@@ -22,7 +22,7 @@ from core.mcp.memory_service import (
     MCP_SERVER_VERSION,
     PROTOCOL_VERSION,
     TOOLS,
-    call_tool,
+    call_tool_async,
     resolve_token,
 )
 
@@ -39,7 +39,7 @@ def _rpc_error(request_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
 
 
-def _handle(message: dict[str, Any], agent_name: str) -> dict[str, Any] | None:
+async def _handle(message: dict[str, Any], agent_name: str) -> dict[str, Any] | None:
     """Un mensaje JSON-RPC → la respuesta, o None si era una notificación."""
     method = message.get("method") or ""
     request_id = message.get("id")
@@ -65,7 +65,7 @@ def _handle(message: dict[str, Any], agent_name: str) -> dict[str, Any] | None:
     if method == "tools/call":
         name = str(params.get("name") or "")
         args = params.get("arguments") or {}
-        outcome = call_tool(agent_name, name, args)
+        outcome = await call_tool_async(agent_name, name, args)
         # El resultado de una herramienta es un `result` válido incluso cuando
         # `isError` viene en True: es un error de la herramienta, no del RPC.
         return _rpc_result(request_id, outcome)
@@ -106,7 +106,13 @@ async def mcp_post(request: Request) -> Response:
 
     # Un cliente puede mandar un lote.
     if isinstance(payload, list):
-        responses = [r for r in (_handle(m, agent_name) for m in payload) if r is not None]
+        # Secuencial a propósito: un batch que escribe en el grafo tiene que
+        # aplicarse en el orden que el modelo pidió.
+        responses = []
+        for m in payload:
+            r = await _handle(m, agent_name)
+            if r is not None:
+                responses.append(r)
         if not responses:
             return Response(status_code=202)
         return JSONResponse(responses)
@@ -118,7 +124,7 @@ async def mcp_post(request: Request) -> Response:
             status_code=400,
         )
 
-    response = _handle(payload, agent_name)
+    response = await _handle(payload, agent_name)
     if response is None:
         # Notificación: 202 sin cuerpo es lo que espera el transporte HTTP.
         return Response(status_code=202)

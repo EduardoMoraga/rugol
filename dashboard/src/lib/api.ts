@@ -442,6 +442,8 @@ export interface RunNowOptions {
   session_id?: string | null;
   task_type?: "fast" | "think" | "deep";
   seek_devils_advocate?: boolean;
+  /** Motor para esta corrida. Vacío = el que el agente tiene configurado. */
+  engine?: "claude" | "codex" | null;
 }
 export const runAgentNow = (id: number, prompt: string, opts: RunNowOptions = {}) =>
   post<{ run_id: number; status: string }>(`/api/agents/${id}/run`, {
@@ -449,6 +451,7 @@ export const runAgentNow = (id: number, prompt: string, opts: RunNowOptions = {}
     session_id: opts.session_id ?? null,
     task_type: opts.task_type ?? null,
     seek_devils_advocate: opts.seek_devils_advocate ?? false,
+    engine: opts.engine ?? null,
   });
 
 export const fetchSchedules = () => get<Schedule[]>("/api/schedules");

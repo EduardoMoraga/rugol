@@ -49,3 +49,82 @@ TASK_TYPE_MODELS: dict[str, str] = {
     "think": SONNET,  # placeholder — actually replaced by agent's own model at runtime
     "deep": OPUS,
 }
+
+
+# ── Modelos por motor ────────────────────────────────────────────────────────
+# Cambiar de motor no puede costar la corrida. Antes, un agente con
+# `model: gpt-5.6-luna` que pasaba a Claude fallaba con "issue with the selected
+# model", y al revés Codex rechazaba un id de Claude. Ahora el modelo se traduce
+# por NIVEL, que es la intención real del usuario: si elegiste el rápido, seguís
+# en el rápido.
+
+# Nivel → (modelo Claude, modelo Codex). Verificado contra
+# ~/.codex/models_cache.json de codex-cli 0.149.0.
+TIERS: dict[str, dict[str, str]] = {
+    "frontier": {"claude": OPUS, "codex": "gpt-5.6-sol"},
+    "balanced": {"claude": SONNET, "codex": "gpt-5.6-terra"},
+    "fast": {"claude": HAIKU, "codex": "gpt-5.6-luna"},
+}
+
+# Lo que ofrece la UI para cada motor, en orden de nivel.
+ENGINE_MODEL_CHOICES: dict[str, tuple[tuple[str, str], ...]] = {
+    "claude": (
+        (SONNET, "Sonnet 5 — equilibrado (recomendado)"),
+        (OPUS, "Opus 5 — razonamiento profundo"),
+        (HAIKU, "Haiku 4.5 — rápido y barato"),
+    ),
+    "codex": (
+        ("gpt-5.6-terra", "GPT-5.6 Terra — equilibrado (recomendado)"),
+        ("gpt-5.6-sol", "GPT-5.6 Sol — frontera, agéntico"),
+        ("gpt-5.6-luna", "GPT-5.6 Luna — rápido y barato"),
+        ("gpt-5.5", "GPT-5.5 — frontera anterior"),
+        ("gpt-5.4-mini", "GPT-5.4 Mini — el más económico"),
+    ),
+}
+
+ENGINE_DEFAULT_MODEL: dict[str, str] = {
+    "claude": SONNET,
+    "codex": "gpt-5.6-terra",
+}
+
+
+def tier_of(model: str) -> str | None:
+    """A qué nivel pertenece un modelo, sin importar el motor."""
+    for tier, per_engine in TIERS.items():
+        if model in per_engine.values():
+            return tier
+    # Generaciones anteriores de Claude, por su nombre de familia.
+    lowered = (model or "").lower()
+    if "opus" in lowered:
+        return "frontier"
+    if "sonnet" in lowered:
+        return "balanced"
+    if "haiku" in lowered:
+        return "fast"
+    return None
+
+
+def belongs_to(model: str, engine: str) -> bool:
+    if not model:
+        return False
+    if engine == "claude":
+        return model.startswith("claude-")
+    if engine == "codex":
+        return model.startswith(("gpt-", "o1", "o3", "codex-"))
+    return False
+
+
+def resolve_model(engine: str, model: str | None) -> str:
+    """El modelo que hay que pasarle a `engine`, respetando el nivel elegido.
+
+    - Si el modelo ya es de ese motor, se usa tal cual.
+    - Si es de otro motor, se traduce al equivalente del mismo nivel.
+    - Si no se puede inferir el nivel, se usa el default del motor.
+    """
+    engine = engine if engine in ENGINE_DEFAULT_MODEL else "claude"
+    if model and belongs_to(model, engine):
+        return model
+    tier = tier_of(model or "")
+    if tier:
+        return TIERS[tier][engine]
+    return ENGINE_DEFAULT_MODEL[engine]

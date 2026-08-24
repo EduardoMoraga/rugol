@@ -397,3 +397,135 @@ def test_engines_endpoint_carries_what_the_ui_needs():
     # UI es mejor que que el usuario lo descubra cuando el agente no recuerda.
     assert engines["codex"]["supports_memory"] is False
     assert engines["codex"]["connect_command"] == "rugol login --codex"
+
+
+# ── Memoria compartida: el corazón de 2.0 ────────────────────────────────────
+# Hasta 2.0 la memoria era un MCP in-process de la SDK de Claude, así que un
+# agente en Codex no recordaba nada. Ahora vive en el core, se sirve por MCP
+# sobre HTTP, y los dos motores usan el MISMO almacén.
+
+def test_memory_token_resolves_to_one_agent_only():
+    """La garantía que había que reconstruir: el agente A no puede escribir en
+    la memoria de B. Antes era un closure; ahora es un token."""
+    from core.mcp.memory_service import issue_token, resolve_token, revoke_token
+
+    ta = issue_token("agente-a", run_id=1)
+    tb = issue_token("agente-b", run_id=2)
+    assert resolve_token(ta) == "agente-a"
+    assert resolve_token(tb) == "agente-b"
+    assert resolve_token("inventado") is None
+
+    revoke_token(ta)
+    assert resolve_token(ta) is None, "el token muere con la corrida"
+    assert resolve_token(tb) == "agente-b", "revocar uno no toca el otro"
+
+
+def test_tools_never_take_an_agent_name_parameter():
+    """Si el modelo pudiera escribir el nombre del agente, podría falsearlo."""
+    from core.mcp.memory_service import TOOLS
+
+    for tool in TOOLS:
+        props = tool["inputSchema"].get("properties", {})
+        assert "agent_name" not in props, tool["name"]
+        assert "agent" not in props, tool["name"]
+
+
+def test_both_engines_get_the_same_endpoint():
+    from core.mcp.memory_service import (
+        claude_server_config,
+        codex_config_overrides,
+        endpoint_url,
+        issue_token,
+    )
+
+    token = issue_token("compartido", run_id=7)
+    url = endpoint_url(token, port=9999)
+
+    claude = claude_server_config(token, port=9999)
+    assert claude == {"type": "http", "url": url}
+
+    codex = codex_config_overrides(token, port=9999)
+    assert any(url in arg for arg in codex), codex
+    assert "-c" in codex
+
+
+def test_memory_tools_round_trip_through_the_service(tmp_path, monkeypatch):
+    """save → list → search → forget, por la misma vía que usan los motores."""
+    from core.mcp.memory_service import call_tool
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+
+    saved = call_tool("agente-x", "save_memory", {
+        "name": "prefiere-breve", "description": "respuestas cortas",
+        "content": "Pidió respuestas de una línea.", "kind": "feedback",
+    })
+    assert saved["isError"] is False, saved
+    assert "prefiere-breve" in saved["content"][0]["text"]
+
+    listed = call_tool("agente-x", "list_my_memories", {})["content"][0]["text"]
+    assert "prefiere-breve" in listed
+
+    found = call_tool("agente-x", "search_memories", {"query": "cortas"})["content"][0]["text"]
+    assert "prefiere-breve" in found
+    miss = call_tool("agente-x", "search_memories", {"query": "zzzz"})["content"][0]["text"]
+    assert "nothing matched" in miss
+
+    # Aislamiento: otro agente no ve nada.
+    other = call_tool("agente-y", "list_my_memories", {})["content"][0]["text"]
+    assert "prefiere-breve" not in other
+
+    gone = call_tool("agente-x", "forget_memory", {"file_or_name": "prefiere-breve"})
+    assert gone["isError"] is False, gone
+    assert "prefiere-breve" not in call_tool(
+        "agente-x", "list_my_memories", {})["content"][0]["text"]
+
+
+def test_bad_tool_input_comes_back_as_a_readable_error(tmp_path, monkeypatch):
+    from core.mcp.memory_service import call_tool
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    r = call_tool("a", "save_memory", {"name": "", "description": "d", "content": "c"})
+    assert r["isError"] is True and "non-empty" in r["content"][0]["text"]
+    r = call_tool("a", "save_memory", {"name": "n", "description": "d",
+                                       "content": "c", "kind": "inventado"})
+    assert r["isError"] is True and "kind must be" in r["content"][0]["text"]
+    r = call_tool("a", "herramienta-que-no-existe", {})
+    assert r["isError"] is True
+
+
+# ── Cambiar de motor no puede costar la corrida ───────────────────────────────
+@pytest.mark.parametrize(
+    ("engine", "model", "expected"),
+    [
+        # El modelo del otro motor se traduce al MISMO NIVEL, que es la
+        # intención real: si elegiste el rápido, seguís en el rápido.
+        ("claude", "gpt-5.6-luna", "claude-haiku-4-5"),
+        ("claude", "gpt-5.6-sol", "claude-opus-5"),
+        ("claude", "gpt-5.6-terra", "claude-sonnet-5"),
+        ("codex", "claude-opus-5", "gpt-5.6-sol"),
+        ("codex", "claude-haiku-4-5", "gpt-5.6-luna"),
+        ("codex", "claude-sonnet-4-6", "gpt-5.6-terra"),
+        # El modelo propio del motor no se toca.
+        ("claude", "claude-opus-5", "claude-opus-5"),
+        ("codex", "gpt-5.5", "gpt-5.5"),
+        # Sin modelo o con basura → el default del motor.
+        ("claude", None, "claude-sonnet-5"),
+        ("codex", "", "gpt-5.6-terra"),
+        ("claude", "no-existe", "claude-sonnet-5"),
+    ],
+)
+def test_model_translates_across_engines(engine, model, expected):
+    from core.llm_models import resolve_model
+    assert resolve_model(engine, model) == expected
+
+
+def test_every_engine_choice_belongs_to_its_engine():
+    """Que la UI no ofrezca un modelo que ese motor va a rechazar."""
+    from core.llm_models import ENGINE_DEFAULT_MODEL, ENGINE_MODEL_CHOICES, belongs_to
+
+    for engine, choices in ENGINE_MODEL_CHOICES.items():
+        assert choices, engine
+        for value, label in choices:
+            assert belongs_to(value, engine), f"{value} no es de {engine}"
+            assert label.strip()
+        assert belongs_to(ENGINE_DEFAULT_MODEL[engine], engine)

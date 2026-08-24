@@ -49,8 +49,11 @@ SCHEMA_VERSION = 1
 VALID_STATUSES = {"active", "archived", "proposed", "rejected", "accepted"}
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent.parent.parent
+def _soul_root() -> Path:
+    """Raíz del archivo de linajes. Fuera del directorio de la app por lo mismo
+    que las memorias: reinstalar no puede borrar cómo evolucionó un agente."""
+    from core.config import state_dir
+    return state_dir("agent-soul")
 
 
 def _slug(text: str) -> str:
@@ -60,7 +63,7 @@ def _slug(text: str) -> str:
 
 
 def archive_dir(agent_name: str) -> Path:
-    return _repo_root() / "agent-soul" / _slug(agent_name)
+    return _soul_root() / _slug(agent_name)
 
 
 def _versions_dir(agent_name: str) -> Path:

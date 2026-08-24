@@ -38,9 +38,11 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def _repo_root() -> Path:
-    # core/memory/store.py → core → repo
-    return Path(__file__).resolve().parent.parent.parent
+def _memory_root() -> Path:
+    """Raíz de las memorias. Fuera del directorio de la app: una reinstalación
+    borra el código, nunca lo que los agentes aprendieron."""
+    from core.config import state_dir
+    return state_dir("agent-memory")
 
 
 def _slug(text: str) -> str:
@@ -52,7 +54,7 @@ def _slug(text: str) -> str:
 
 def memory_dir(agent_name: str) -> Path:
     safe = _slug(agent_name)
-    return _repo_root() / "agent-memory" / safe
+    return _memory_root() / safe
 
 
 def _index_path(agent_name: str) -> Path:

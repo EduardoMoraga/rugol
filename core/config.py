@@ -37,6 +37,55 @@ def data_dir() -> Path:
     return base
 
 
+def state_dir(name: str) -> Path:
+    """Carpetas de estado que NO son la base de datos: `agent-memory`,
+    `agent-soul`.
+
+    Vivían dentro del directorio de la app, que una reinstalación borra. Son el
+    corazón del producto —lo que los agentes aprendieron y cómo evolucionaron
+    sus prompts— guardado en el lugar más frágil de la instalación.
+    """
+    base = data_dir_path() / name
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def adopt_legacy_state_dirs(names: tuple[str, ...] = ("agent-memory", "agent-soul")) -> list[str]:
+    """Mueve las carpetas de estado que quedaron dentro del código.
+
+    A diferencia de `adopt_legacy_data` (que copia archivos sueltos), acá
+    copiamos árboles completos y sólo lo que falta en el destino, para no
+    pisar nada que ya exista.
+    """
+    import shutil as _shutil
+
+    if data_dir_path().resolve() == REPO_ROOT.resolve():
+        return []
+    adopted: list[str] = []
+    for name in names:
+        legacy = REPO_ROOT / name
+        if not legacy.is_dir():
+            continue
+        target = data_dir_path() / name
+        moved_any = False
+        for child in legacy.iterdir():
+            dest = target / child.name
+            if dest.exists():
+                continue
+            target.mkdir(parents=True, exist_ok=True)
+            try:
+                if child.is_dir():
+                    _shutil.copytree(child, dest)
+                else:
+                    _shutil.copy2(child, dest)
+                moved_any = True
+            except OSError:
+                pass
+        if moved_any:
+            adopted.append(name)
+    return adopted
+
+
 def adopt_legacy_data(names: tuple[str, ...] = ("settings.json", "scheduler.db")) -> list[str]:
     """One-time pickup of state left behind in `<repo>/data` by older versions.
 

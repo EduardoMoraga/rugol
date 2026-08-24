@@ -163,6 +163,7 @@ def build_command(
     model: str | None,
     session_id: str | None,
     output_file: Path,
+    extra_config_args: list[str] | None = None,
 ) -> list[str]:
     """El argv exacto. Separado para poder testearlo sin lanzar nada.
 
@@ -182,7 +183,17 @@ def build_command(
         "--json",
         "--skip-git-repo-check",
         "-o", str(output_file),
+        # Sin esto, Codex pide aprobación humana para las herramientas MCP y la
+        # corrida vuelve con "la herramienta requiere aprobación". Rugol corre
+        # desatendido: no hay nadie a quien preguntarle. `never` devuelve los
+        # fallos al modelo, que es lo que queremos. La contención sigue siendo
+        # el sandbox, que no se toca.
+        "-c", 'approval_policy="never"',
     ]
+    # Overrides extra (`-c clave=valor`): así entra el servidor de memoria por
+    # MCP/HTTP, el mismo que usa Claude.
+    if extra_config_args:
+        cmd += list(extra_config_args)
     # Si el agente trae un modelo de Claude en el frontmatter, NO lo pasamos:
     # Codex lo rechazaría. Que use su default configurado.
     if model and not _looks_like_a_claude_model(model):
@@ -216,6 +227,7 @@ async def run(
     run_id: int | None = None,
     system_context: str | None = None,
     timeout_seconds: float | None = None,
+    extra_config_args: list[str] | None = None,
     **ignored,
 ) -> RunResult:
     """Corre un agente con Codex y devuelve el mismo `RunResult` que Claude."""
@@ -240,6 +252,7 @@ async def run(
     cmd = build_command(
         cli_path=cli, workspace_dir=workspace_dir, model=model,
         session_id=session_id, output_file=out_file,
+        extra_config_args=extra_config_args,
     )
     full_prompt = compose_prompt(prompt=prompt, system_context=system_context)
 

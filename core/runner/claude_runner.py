@@ -11,6 +11,8 @@ from pathlib import Path
 
 from core.bus import bus
 from core.config import get_settings
+from core.mcp.memory_service import MCP_SERVER_NAME as MEMORY_MCP_NAME
+from core.mcp.memory_service import MEMORY_TOOL_NAMES
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +152,7 @@ async def run_agent(
     telegram_mcp_server=None,
     telegram_tool_names: tuple[str, ...] = (),
     skills_catalogue: str | None = None,
+    memory_mcp: dict | None = None,
 ) -> RunResult:
     """Invoke claude-agent-sdk and stream events while collecting the result.
 
@@ -280,6 +283,10 @@ async def run_agent(
         merged_mcp["rugol-soul"] = soul_mcp_server
     if telegram_mcp_server is not None:
         merged_mcp["rugol-telegram"] = telegram_mcp_server
+    # La memoria por HTTP: el MISMO servidor que usa Codex. Antes era un MCP
+    # in-process de la SDK de Claude, y por eso un agente en Codex no recordaba.
+    if memory_mcp:
+        merged_mcp[MEMORY_MCP_NAME] = memory_mcp
 
     # Built-in tools — preset (None) or agent whitelist (list).
     # CRITICAL: when the agent has a whitelist, MCP tools must be added
@@ -291,7 +298,8 @@ async def run_agent(
     # platform MCP tools were never in it, so the model never saw
     # save_memory existing — it just acknowledged like a polite assistant.
     platform_tool_names: list[str] = []
-    for extra in list(soul_tool_names) + list(telegram_tool_names):
+    memory_names = list(MEMORY_TOOL_NAMES) if memory_mcp else []
+    for extra in memory_names + list(soul_tool_names) + list(telegram_tool_names):
         if extra not in platform_tool_names:
             platform_tool_names.append(extra)
 

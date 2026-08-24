@@ -12,8 +12,13 @@ import core.memory.store as store
 
 
 def _isolate(tmp_path, monkeypatch):
-    """Point the store at a temp repo root so tests never touch real memory."""
-    monkeypatch.setattr(store, "_repo_root", lambda: tmp_path)
+    """Apunta el store a un directorio temporal.
+
+    Se hace por la variable de entorno, no parcheando un símbolo interno: así
+    el test ejercita el mecanismo real (`RUGOL_DATA_DIR` → `state_dir`) y no se
+    rompe cuando ese símbolo se renombra.
+    """
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
 
 
 def test_alias_frontmatter_lets_wikilinks_resolve(tmp_path, monkeypatch):

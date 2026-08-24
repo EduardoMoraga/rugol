@@ -24,6 +24,7 @@ from core.api import (
     evolution,
     health,
     improvements,
+    mcp_endpoint,
     memories,
     memory_graph,
     ontology,
@@ -37,7 +38,12 @@ from core.api import (
     voice,
 )
 from core.api import settings as settings_api
-from core.config import adopt_legacy_data, data_dir, get_settings
+from core.config import (
+    adopt_legacy_data,
+    adopt_legacy_state_dirs,
+    data_dir,
+    get_settings,
+)
 from core.db import init_db
 from core.registry.service import build_watcher, initial_scan
 from core.resilience import set_last_report, startup_recovery
@@ -59,7 +65,7 @@ async def lifespan(app: FastAPI):
     # jobstore next to the CODE, so reinstalling wiped your schedules and your
     # dashboard-saved tokens. They live in RUGOL_DATA_DIR now; adopt whatever
     # the old location still holds, once, before anything reads it.
-    adopted = adopt_legacy_data()
+    adopted = adopt_legacy_data() + adopt_legacy_state_dirs()
     if adopted:
         logger.info("estado migrado a %s: %s", data_dir(), ", ".join(adopted))
 
@@ -158,6 +164,11 @@ def create_app() -> FastAPI:
     app.include_router(evolution.router, prefix="/api")
     app.include_router(voice.router, prefix="/api")
     app.include_router(cv_sources.router, prefix="/api")
+
+    # MCP sobre HTTP — la memoria como servicio, para los dos motores. Va SIN
+    # el prefijo /api: es un endpoint de protocolo, no del API del dashboard, y
+    # la URL viaja tal cual en la config de cada CLI.
+    app.include_router(mcp_endpoint.router)
 
     # Capture the app for the agent runtime's endpoint inventory (so agents
     # see the exact list of REST paths and don't hallucinate new ones).

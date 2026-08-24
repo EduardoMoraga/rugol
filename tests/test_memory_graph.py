@@ -13,7 +13,9 @@ from core.memory.graph import build_memory_graph, extract_wikilinks
 
 
 def _isolate(tmp_path, monkeypatch):
-    monkeypatch.setattr(store, "_repo_root", lambda: tmp_path)
+    # Por la variable de entorno, no por un símbolo interno: el test ejercita
+    # el mecanismo real (`RUGOL_DATA_DIR` → `state_dir`).
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
 
 
 def test_extract_wikilinks_variants():

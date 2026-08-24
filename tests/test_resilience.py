@@ -245,3 +245,60 @@ def test_interrupted_is_a_terminal_status():
     assert "interrupted" in TERMINAL_RUN_STATUSES
     assert "running" not in TERMINAL_RUN_STATUSES
     assert "queued" not in TERMINAL_RUN_STATUSES
+
+
+# ── Lo que los agentes aprendieron no puede vivir en el código ────────────────
+# El defecto: `agent-memory/` y `agent-soul/` vivían DENTRO del directorio de la
+# app. Una reinstalación borra ese directorio. O sea: el corazón del producto
+# —las memorias y la evolución de los prompts— guardado en el único lugar que la
+# instalación destruye.
+
+def test_memories_live_outside_the_app_directory(tmp_path, monkeypatch):
+    import core.memory.store as store
+    from core.config import REPO_ROOT
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    target = store.memory_dir("un-agente")
+
+    assert str(target).startswith(str(tmp_path)), target
+    assert REPO_ROOT not in target.parents, (
+        "las memorias no pueden vivir dentro del directorio de la app: "
+        "reinstalar las borraría"
+    )
+
+
+def test_soul_archive_lives_outside_the_app_directory(tmp_path, monkeypatch):
+    from core.config import REPO_ROOT
+    from core.soul.evolution.archive import archive_dir
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    target = archive_dir("un-agente")
+
+    assert str(target).startswith(str(tmp_path)), target
+    assert REPO_ROOT not in target.parents
+
+
+def test_legacy_state_dirs_are_adopted_without_clobbering(tmp_path, monkeypatch):
+    """Al actualizar, lo que quedó en el código se copia — sin pisar lo nuevo."""
+    from core.config import REPO_ROOT, adopt_legacy_state_dirs
+
+    legacy = REPO_ROOT / "agent-memory"
+    legacy.mkdir(parents=True, exist_ok=True)
+    probe = legacy / "agente-de-prueba-adopcion"
+    probe.mkdir(exist_ok=True)
+    (probe / "MEMORY.md").write_text("- memoria vieja\n", encoding="utf-8")
+
+    try:
+        monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+        assert "agent-memory" in adopt_legacy_state_dirs(("agent-memory",))
+        adoptada = tmp_path / "agent-memory" / "agente-de-prueba-adopcion" / "MEMORY.md"
+        assert adoptada.read_text() == "- memoria vieja\n"
+        assert probe.exists(), "el original queda como respaldo"
+
+        # Segunda pasada: no pisa lo que ya está.
+        adoptada.write_text("- memoria nueva\n", encoding="utf-8")
+        adopt_legacy_state_dirs(("agent-memory",))
+        assert adoptada.read_text() == "- memoria nueva\n"
+    finally:
+        import shutil
+        shutil.rmtree(probe, ignore_errors=True)

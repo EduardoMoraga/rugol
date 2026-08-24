@@ -416,7 +416,11 @@ cmd_logs() {
   local svc="${1:-core}" f
   case "$svc" in
     dashboard|dash|ui) f="$LOGS_DIR/dashboard.log" ;;
-    *)                 f="$LOGS_DIR/core.log" ;;
+    # El log de la aplicación lo escribe Python (rotativo, con techo). core.log
+    # sólo tiene lo que se rompe antes de que el logging esté en pie.
+    boot|arranque)     f="$LOGS_DIR/core.log" ;;
+    *)                 f="$LOGS_DIR/core.app.log"
+                       [ -f "$f" ] || f="$LOGS_DIR/core.log" ;;
   esac
   [ -f "$f" ] && tail -f -n 100 "$f" || warn "sin log todavía: $f"
 }
@@ -563,6 +567,18 @@ cmd_doctor() {
     else
       warn "auth: la cuenta de Claude no funciona — corré 'rugol auth --verify' para el detalle, 'rugol login' para arreglarlo"
       fail=1
+    fi
+
+    # Y el motor Codex, si hay agentes que lo usan o el CLI está instalado.
+    # `doctor` es el comando de salud: verificar sólo un motor deja al otro roto
+    # sin que nada avise.
+    if run_auth status --codex --json >/dev/null 2>&1; then
+      ok "codex: cuenta conectada"
+    elif command -v codex >/dev/null 2>&1; then
+      warn "codex: CLI instalado pero la cuenta NO está conectada — corré 'rugol login --codex'"
+      fail=1
+    else
+      say "  ${D}codex: no instalado (OK si no usás ese motor)${X}"
     fi
   else
     warn "falta config — corré 'rugol setup'"
@@ -871,7 +887,7 @@ ${B}Uso:${X}  rugol <comando>
   ${B}down${X}         Detiene todo
   ${B}restart${X}      Reinicia
   ${B}status${X}       Estado de servicios y salud
-  ${B}logs${X} [svc]   Logs en vivo (core | dashboard)
+  ${B}logs${X} [svc]   Logs en vivo (core | dashboard | boot)
   ${B}doctor${X}       Verifica runtime, puertos y configuración
   ${B}build${X}        (Re)compila el dashboard
   ${B}open${X}         Abre el dashboard

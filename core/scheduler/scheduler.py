@@ -79,6 +79,25 @@ class RugolScheduler:
         )
         logger.info("voice sync job programado cada %s min", interval_minutes)
 
+    def add_maintenance_job(self, hours: int = 1) -> None:
+        """Mantenimiento horario: respaldo diario de la base y barrido de logs.
+
+        Existe porque Rugol vive en una máquina que no se reinicia. Todo lo que
+        colgaba del arranque —el respaldo, la rotación— no pasaba nunca: se
+        encontró una instalación con dos meses de uptime, un respaldo de dos
+        meses (o sea ninguno) y un core.log de 143 MB.
+        """
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        self._scheduler.add_job(
+            _fire_maintenance,
+            trigger=IntervalTrigger(hours=hours),
+            id="internal:maintenance",
+            replace_existing=True,
+            next_run_time=None,  # el arranque ya respaldó; empezamos en la 1ª hora
+        )
+        logger.info("mantenimiento programado cada %s h", hours)
+
     def list_jobs(self) -> list[dict]:
         """Return live state of every job APScheduler currently has loaded.
 
@@ -150,6 +169,18 @@ async def _fire_schedule(schedule_id: int, agent_name: str, prompt: str) -> None
     except Exception:
         # Anotar el disparo es contabilidad: no puede hacer fallar la corrida.
         logger.exception("no pude registrar last_run_at del schedule %s", schedule_id)
+
+
+async def _fire_maintenance() -> None:
+    """Job interno. Nunca propaga: un fallo de mantenimiento no puede matar el scheduler."""
+    import asyncio
+
+    from core.maintenance import run_maintenance
+
+    try:
+        await asyncio.to_thread(run_maintenance)
+    except Exception:
+        logger.warning("mantenimiento: el ciclo falló", exc_info=True)
 
 
 async def _fire_voice_sync() -> None:

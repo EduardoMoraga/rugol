@@ -45,15 +45,19 @@ from core.config import (
     get_settings,
 )
 from core.db import init_db
+from core.logging_setup import setup_logging
+from core.maintenance import note_startup_backup
 from core.registry.service import build_watcher, initial_scan
 from core.resilience import set_last_report, startup_recovery
 from core.scheduler import get_scheduler
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+# Consola + archivo rotativo. La redirección de la shell sigue capturando lo
+# que pasa antes de esto (un traceback de importación); el log de la aplicación
+# lo maneja Python, que es el único que puede rotarlo sin depender del arranque.
+_LOG_FILE = setup_logging(logging.INFO)
 logger = logging.getLogger(__name__)
+if _LOG_FILE:
+    logger.info("log de aplicación: %s", _LOG_FILE)
 
 
 @asynccontextmanager
@@ -88,6 +92,11 @@ async def lifespan(app: FastAPI):
     # 3. Scheduler
     scheduler = get_scheduler()
     scheduler.start()
+
+    # Mantenimiento horario. startup_recovery ya respaldó, así que el contador
+    # arranca marcado para no duplicar el respaldo en la primera hora.
+    note_startup_backup()
+    scheduler.add_maintenance_job(hours=1)
 
     # 3b. Voice interviews — job de sync cada 5 min SOLO si ElevenLabs está
     # configurado. Idempotente; nunca fatal (no debe tumbar el backend).

@@ -1,0 +1,16 @@
+# Carpeta default de skills (SKILLS_DIR)
+
+Esta carpeta arranca vacía a propósito, igual que `agents-templates/`.
+Las skills que Rugol le ofrece al modelo llegan por catálogo desde el
+código, no como archivos sueltos acá.
+
+Aterrizan skills en esta carpeta cuando:
+
+1. Clonás un template desde `/projects` (cada template trae las suyas).
+2. Diseñás con Architect en `/architect` (deploy automático).
+3. Pegás tu propio `.md` con frontmatter acá (el watcher lo carga en
+   caliente).
+
+El archivo existe para que un clone limpio tenga el directorio: es el
+valor por defecto de `SKILLS_DIR` en `core/config.py`, y `rugol setup`
+lo mira para sembrar ejemplos si algún día los hay.

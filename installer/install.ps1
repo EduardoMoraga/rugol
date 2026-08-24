@@ -30,7 +30,13 @@ if ($env:RUGOL_SRC) {
     if (-not (Test-Path $env:RUGOL_SRC)) { Die "RUGOL_SRC no existe: $($env:RUGOL_SRC)" }
     if (Test-Path $AppDir) { Remove-Item -Recurse -Force $AppDir }
     New-Item -ItemType Directory -Force -Path $AppDir | Out-Null
-    robocopy $env:RUGOL_SRC $AppDir /E /XD .git node_modules .next .venv data logs /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+    # Los excluidos son los del .gitignore que pesan: sin ellos, una copia
+    # desde un repo de trabajo se lleva gigas de artefactos de build que ni
+    # estan versionados y que ningun usuario recibe al clonar (medido en Mac:
+    # 5 GB de desktop\release-*).
+    robocopy $env:RUGOL_SRC $AppDir /E /NFL /NDL /NJH /NJS /NC /NS `
+        /XD .git node_modules .next .venv data logs build-payload release release-* dist `
+            __pycache__ .mypy_cache .pytest_cache .ruff_cache agent-memory | Out-Null
     Ok "codigo copiado"
 } else {
     if (-not (Have "git")) { Die "git no esta instalado." }

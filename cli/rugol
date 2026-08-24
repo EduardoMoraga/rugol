@@ -69,11 +69,24 @@ rand_secret() {
   if have openssl; then openssl rand -hex 16
   else head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32; fi
 }
+# ¿El que contesta en el puerto es NUESTRO core?
+#
+# `curl -fs` sólo falla con 4xx/5xx: un 200 de cualquier app, o un 307 —que
+# curl ni siquiera sigue— cuentan como éxito. Medido en vivo: con otra
+# aplicación en el puerto, `rugol up` avisaba "el puerto está ocupado por otro
+# proceso — no lo toco" y dos líneas después cantaba "core saludable". El core
+# nunca había arrancado. La única prueba que sirve es que la respuesta traiga
+# la marca del core (core/api/health.py: SERVICE_ID).
+_core_responds() {
+  local port="${1:-$CORE_PORT}"
+  curl -fs -m 5 "http://127.0.0.1:${port}/api/health" 2>/dev/null | grep -q '"service"[[:space:]]*:[[:space:]]*"rugol-core"'
+}
+
 wait_for_health() {
   local tries="${1:-30}" i=0
   printf "  esperando al core"
   while [ "$i" -lt "$tries" ]; do
-    if curl -fs "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then echo ""; return 0; fi
+    if _core_responds; then echo ""; return 0; fi
     printf "."; sleep 1; i=$((i+1))
   done
   echo ""; return 1
@@ -136,7 +149,7 @@ start_backend() {
   # lanzar un duplicado que no va a poder bindear.
   local held; held="$(_pid_on_port "$CORE_PORT")"
   if [ -n "$held" ] && _is_ours "$held" "core.main:app"; then
-    if curl -fs -m 3 "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then
+    if _core_responds; then
       echo "$held" > "$RUN_DIR/core.pid"
       return 0
     fi
@@ -174,6 +187,33 @@ start_dashboard() {
   local pid=$!; echo "$pid" > "$RUN_DIR/dashboard.pid"; disown "$pid" 2>/dev/null || true
 }
 
+# El puerto del core queda HORNEADO en el build del dashboard: next.config.ts
+# lee NEXT_PUBLIC_API_URL al compilar y Next serializa el destino del proxy en
+# .next/routes-manifest.json. Cambiar CORE_PORT en el .env —que es exactamente
+# lo que dice docs/troubleshooting.md cuando el 8000 está ocupado— movía el
+# core y dejaba al dashboard hablándole al puerto viejo: todas las páginas
+# rotas y ni un mensaje que lo explicara. Medido en vivo: el core sano en 8056
+# y el dashboard proxyeando a 8010, que era de otra aplicación.
+_dashboard_api_port() {
+  local m="$DASH_DIR/.next/routes-manifest.json"
+  [ -f "$m" ] || return 1
+  local hit
+  hit="$(grep -o '"destination":"http://127\.0\.0\.1:[0-9]*' "$m" 2>/dev/null | head -1)"
+  [ -n "$hit" ] || return 1
+  echo "${hit##*:}"
+}
+
+# Recompila si el build apunta a un puerto distinto del que va a usar el core.
+# Devuelve 0 si recompiló, 1 si no hizo falta (o si no pudo).
+_rebuild_if_port_changed() {
+  local baked; baked="$(_dashboard_api_port)" || return 1
+  [ "$baked" = "$CORE_PORT" ] && return 1
+  warn "el dashboard fue compilado contra el puerto $baked y el core ahora usa $CORE_PORT"
+  say "  Recompilo para que el dashboard le hable al core correcto."
+  build_dashboard || return 1
+  return 0
+}
+
 build_dashboard() {
   require_app
   # Usar el Node embebido si existe (instalado por install.sh), si no el del sistema.
@@ -204,6 +244,21 @@ build_dashboard() {
   ok "Dashboard compilado."
 }
 
+# Copia los .md de una carpeta de plantillas a la del usuario, sólo si la
+# destino está vacía. Silencioso cuando no hay nada que copiar.
+_seed_dir() {
+  local src="$1" dst="$2" label="$3" n=0
+  [ -d "$src" ] || return 0
+  [ -z "$(ls -A "$dst" 2>/dev/null)" ] || return 0
+  local f
+  for f in "$src"/*.md; do
+    [ -f "$f" ] || continue
+    cp "$f" "$dst/" 2>/dev/null && n=$((n+1))
+  done
+  [ "$n" -gt 0 ] && ok "$label copiados a $dst ($n)"
+  return 0
+}
+
 # ── Commands ─────────────────────────────────────────────────────────────────
 cmd_setup() {
   require_app
@@ -213,14 +268,14 @@ cmd_setup() {
   echo ""
   mkdir -p "$RUGOL_HOME" "$DATA_DIR" "$LOGS_DIR" "$AGENTS_DIR_H" "$SKILLS_DIR_H" "$RUN_DIR"
 
-  if [ -z "$(ls -A "$AGENTS_DIR_H" 2>/dev/null)" ] && [ -d "$APP_DIR/agents-templates" ]; then
-    cp -R "$APP_DIR/agents-templates/." "$AGENTS_DIR_H/" 2>/dev/null || true
-    ok "Agentes de ejemplo copiados a $AGENTS_DIR_H"
-  fi
-  if [ -z "$(ls -A "$SKILLS_DIR_H" 2>/dev/null)" ] && [ -d "$APP_DIR/skills-templates" ]; then
-    cp -R "$APP_DIR/skills-templates/." "$SKILLS_DIR_H/" 2>/dev/null || true
-    ok "Skills de ejemplo copiadas a $SKILLS_DIR_H"
-  fi
+  # Semillas opcionales. Sólo `.md`: las carpetas del repo arrancan vacías a
+  # propósito (el catálogo de templates vive en core/templates/catalog.py y se
+  # clona con un click desde /projects), así que acá casi nunca hay nada que
+  # copiar. Antes copiábamos el directorio entero —incluido el `.gitkeep`— y
+  # anunciábamos "Agentes de ejemplo copiados" en una instalación que se
+  # quedaba con cero agentes. Ahora sólo avisamos si copiamos algo de verdad.
+  _seed_dir "$APP_DIR/agents-templates" "$AGENTS_DIR_H" "Agentes de ejemplo"
+  _seed_dir "$APP_DIR/skills-templates" "$SKILLS_DIR_H" "Skills de ejemplo"
 
   # ── Auth ──
   echo "${B}1) Autenticación con Claude${X}"
@@ -306,9 +361,13 @@ cmd_setup() {
     done
   fi
 
-  local secret; secret="$(rand_secret)"
   umask 077
-  cat > "$ENV_FILE" <<EOF
+  if [ ! -f "$ENV_FILE" ]; then
+    # Primera vez: escribimos el archivo completo, con los comentarios que
+    # explican cada clave. Es el único momento en que setup manda sobre el
+    # archivo entero.
+    local secret; secret="$(rand_secret)"
+    cat > "$ENV_FILE" <<EOF
 # Generado por \`rugol setup\` — $(date -u +%Y-%m-%dT%H:%M:%SZ)
 USE_SUBSCRIPTION=${use_sub}
 ANTHROPIC_API_KEY=${api_key}
@@ -329,6 +388,29 @@ CORE_PORT=${CORE_PORT}
 DASHBOARD_PORT=${DASHBOARD_PORT}
 SESSION_SECRET=${secret}
 EOF
+  else
+    # Ya había configuración: tocamos SÓLO lo que el usuario acaba de
+    # contestar. El .env acepta unas 40 claves y setup pregunta por once;
+    # reescribir el archivo entero borraba OPENAI_API_KEY, CODEX_*, SAFETY_*,
+    # HONCHO_*, SCHEDULER_TIMEZONE, MAX_CONCURRENT_RUNS… sin decir nada, y
+    # rotaba el SESSION_SECRET de paso. Medido en vivo.
+    local -a kv=(
+      "USE_SUBSCRIPTION=${use_sub}"
+      "DEFAULT_MODEL=${model}"
+      "DEFAULT_AGENT=${default_agent}"
+      "CORE_PORT=${CORE_PORT}"
+      "DASHBOARD_PORT=${DASHBOARD_PORT}"
+    )
+    # Credenciales: sólo las que efectivamente escribió. Vaciarlas porque
+    # apretó Enter sería desconectarle la cuenta que puso con `rugol login`.
+    [ -n "$api_key" ]     && kv+=("ANTHROPIC_API_KEY=${api_key}")
+    [ -n "$oauth_token" ] && kv+=("CLAUDE_CODE_OAUTH_TOKEN=${oauth_token}")
+    # Telegram: "Enter para saltar" tiene que SALTAR. Antes borraba tus bots.
+    if [ -n "$tg_token" ]; then
+      kv+=("TELEGRAM_BOT_TOKEN=${tg_token}" "TELEGRAM_ALLOWED_USERS=${tg_users}" "TELEGRAM_BOTS=[${bots_json}]")
+    fi
+    run_auth env-set "${kv[@]}" >/dev/null || { err "no pude actualizar $ENV_FILE"; return 1; }
+  fi
   echo ""
   ok "Configuración guardada en $ENV_FILE"
 
@@ -354,14 +436,29 @@ cmd_up() {
   # Build dashboard on first run if needed.
   if [ ! -f "$DASH_DIR/.next/standalone/server.js" ]; then
     build_dashboard || { err "No pude preparar el dashboard."; exit 1; }
+  elif _rebuild_if_port_changed; then
+    # El build viejo le habla al puerto viejo: hay que reemplazar el proceso.
+    _stop_pid "$RUN_DIR/dashboard.pid" "dashboard viejo" >/dev/null 2>&1
   fi
   # Backend
   if _pid_running "$RUN_DIR/core.pid"; then
     ok "core ya estaba corriendo"
   else
-    say "Levantando el core..."; start_backend
+    say "Levantando el core..."
+    # start_backend falla cuando el puerto lo tiene un proceso ajeno. Seguir
+    # de largo era el bug: el dashboard arrancaba contra un core inexistente y
+    # el usuario leía "core saludable" porque la otra app contestaba.
+    if ! start_backend; then
+      err "No levanté el core: el puerto ${CORE_PORT} lo tiene otro programa."
+      say "    Cerralo, o cambiá ${B}CORE_PORT${X} en $ENV_FILE y corré ${B}rugol up${X} de nuevo."
+      exit 1
+    fi
     if wait_for_health 30; then ok "core saludable en http://127.0.0.1:${CORE_PORT}"
-    else warn "El core tardó. Mirá:  ${B}rugol logs core${X}"; fi
+    else
+      err "El core no respondió en 30s — no arranco el dashboard contra un core caído."
+      say "    Mirá:  ${B}rugol logs core${X}"
+      exit 1
+    fi
   fi
   # Dashboard
   if _pid_running "$RUN_DIR/dashboard.pid"; then
@@ -405,7 +502,10 @@ cmd_status() {
   _pid_running "$RUN_DIR/dashboard.pid" && ok "dashboard (pid $(cat "$RUN_DIR/dashboard.pid"))" || warn "dashboard detenido"
   echo ""
   echo "${B}Salud${X}"
-  curl -fs "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1 && ok "API  → http://127.0.0.1:${CORE_PORT}" || warn "API  → no responde"
+  if _core_responds; then ok "API  → http://127.0.0.1:${CORE_PORT}"
+  elif curl -fs -m 5 "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then
+    warn "API  → el puerto ${CORE_PORT} responde, pero NO es el core de Rugol (otra app lo tiene)"
+  else warn "API  → no responde"; fi
   curl -fs "http://127.0.0.1:${DASHBOARD_PORT}/" >/dev/null 2>&1     && ok "UI   → http://127.0.0.1:${DASHBOARD_PORT}" || warn "UI   → no responde"
   echo ""
   echo "${B}Home${X}   $RUGOL_HOME"
@@ -429,7 +529,7 @@ cmd_logs() {
 cmd_motor() {
   require_app
   local base="http://127.0.0.1:${CORE_PORT}"
-  curl -fs "$base/api/health" >/dev/null 2>&1 || { err "El core no responde. Corré 'rugol up' primero."; return 1; }
+  _core_responds || { err "El core no responde. Corré 'rugol up' primero."; return 1; }
 
   # Sin argumentos: estado de los motores + qué usa cada agente.
   if [ $# -eq 0 ]; then
@@ -669,7 +769,7 @@ cmd_supervise() {
     if ! _pid_running "$RUN_DIR/core.pid"; then
       _log_sup "core no está corriendo — lo levanto"
       start_backend; core_fails=0
-    elif curl -fs -m 5 "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then
+    elif _core_responds; then
       [ "$core_fails" -gt 0 ] && _log_sup "core volvió a responder"
       core_fails=0
     else
@@ -833,7 +933,7 @@ cmd_evolve() {
   local agent="${1:-}"
   [ -z "$agent" ] && { err "Uso: rugol evolve <agente>   (ej. rugol evolve assistant)"; return 1; }
   local base="http://127.0.0.1:${CORE_PORT}"
-  curl -fs "$base/api/health" >/dev/null 2>&1 || { err "El core no responde. Corré ${B}rugol up${X} primero."; return 1; }
+  _core_responds || { err "El core no responde. Corré ${B}rugol up${X} primero."; return 1; }
   local py; py="$(resolve_python)"
   # Resolver agent_id por nombre.
   local aid

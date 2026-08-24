@@ -106,8 +106,8 @@ When in doubt, ask `rugol-architect` first.
 ├── installer/
 │   ├── install.ps1           (Windows one-liner: uv + Node + launcher + build)
 │   └── install.sh            (Mac/Linux one-liner)
-├── agents-templates/         (4 starter agents bundled with the install)
-├── skills-templates/         (3 starter skills bundled)
+├── agents-templates/         (default AGENTS_DIR — empty on purpose, see .gitkeep)
+├── skills-templates/         (default SKILLS_DIR — empty on purpose, see .gitkeep)
 ├── docs/
 │   ├── adrs/                 (architecture decision records)
 │   ├── quickstart.md

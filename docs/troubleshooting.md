@@ -127,6 +127,22 @@ lsof -nP -iTCP:8000 -sTCP:LISTEN
 Para mover los puertos, editá `CORE_PORT` / `DASHBOARD_PORT` en `~/.rugol/.env`
 y `rugol restart`.
 
+El puerto del core queda **horneado en el build del dashboard** (Next.js
+serializa el destino del proxy al compilar), así que mover `CORE_PORT` obliga a
+recompilar. `rugol up` y `rugol restart` lo detectan solos y recompilan: vas a
+ver *"el dashboard fue compilado contra el puerto X y el core ahora usa Y"* y
+un build de 1-2 minutos. No hace falta que corras `rugol build` a mano.
+
+## `rugol up` dice "core saludable" pero el dashboard está roto
+
+No debería pasar más: `up` sólo canta verde si el que contesta en el puerto es
+el core de Rugol —lo comprueba por la marca que devuelve `/api/health`—, y se
+detiene si el puerto lo tiene otro programa. Si ves *"el puerto N lo tiene otro
+programa"*, cerralo o cambiá `CORE_PORT` como se explica arriba.
+
+`rugol status` distingue los tres casos: el core responde, el puerto responde
+pero **no es Rugol**, o no responde nadie.
+
 ## Cambié el `.env` y no pasó nada
 
 El `.env` se lee **al arrancar**. `rugol restart`.

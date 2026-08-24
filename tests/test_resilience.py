@@ -350,7 +350,9 @@ def test_the_supervisor_checks_health_not_just_the_pid():
     src = _launcher()
     sup = src[src.index("cmd_supervise() {"):]
     sup = sup[:sup.index("\n}\n") + 3]
-    assert "/api/health" in sup, "el supervisor tiene que mirar salud"
+    # Pasa por `_core_responds`, que además exige que el que contesta sea
+    # NUESTRO core: un 200 de otra app en el puerto no es un core sano.
+    assert "_core_responds" in sup, "el supervisor tiene que mirar salud"
     assert "tolerancia" in sup, "no debe reaccionar a un pico transitorio"
     assert "core_fails" in sup
 

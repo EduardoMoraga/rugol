@@ -55,11 +55,31 @@ function Require-App {
 }
 function Require-Env { if (-not (Test-Path $EnvFile)) { Err "Falta config. Corre primero:  rugol setup"; exit 1 } }
 
+# .Es NUESTRO core el que contesta en el puerto?
+#
+# "algo respondio" no es "el core arranco". Si el puerto lo tiene otra
+# aplicacion, su 200 pasa por sano y 'rugol up' canta verde con el core caido
+# (medido en vivo en Mac, y aca es peor: Start-Backend ni siquiera miraba si el
+# puerto estaba tomado). La unica prueba que sirve es la marca del core
+# (core/api/health.py: SERVICE_ID).
+function Core-Responds([int]$Port = 0) {
+    if ($Port -eq 0) { $Port = $CorePort }
+    try {
+        $r = Invoke-RestMethod "http://127.0.0.1:$Port/api/health" -TimeoutSec 5 -MaximumRedirection 0 -ErrorAction Stop
+        return ($r.service -eq "rugol-core")
+    } catch { return $false }
+}
+# .Hay algo escuchando en el puerto que NO es el core?
+function Port-Taken([int]$Port) {
+    try { return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop) }
+    catch { return $false }
+}
+
 function Wait-Health([int]$Tries = 30) {
     Write-Host -NoNewline "  esperando al core"
     for ($i = 0; $i -lt $Tries; $i++) {
-        try { Invoke-RestMethod "http://127.0.0.1:$CorePort/api/health" -TimeoutSec 2 | Out-Null; Write-Host ""; return $true }
-        catch { Write-Host -NoNewline "."; Start-Sleep 1 }
+        if (Core-Responds) { Write-Host ""; return $true }
+        Write-Host -NoNewline "."; Start-Sleep 1
     }
     Write-Host ""; return $false
 }
@@ -85,6 +105,14 @@ function Rotate-Log($file, $maxMB = 50) {
 
 function Start-Backend {
     $py = Resolve-Python
+    # Si el puerto ya lo tiene un core nuestro sano, lo ADOPTAMOS. Si lo tiene
+    # otra cosa, uvicorn no va a poder bindear y el usuario terminaba viendo
+    # "core saludable" por la respuesta de esa otra app: mejor parar aca.
+    if (Core-Responds) { return $true }
+    if (Port-Taken $CorePort) {
+        Warn "el puerto $CorePort esta ocupado por otro programa - no lo toco"
+        return $false
+    }
     New-Item -ItemType Directory -Force -Path $RunDir, $LogsDir | Out-Null
     Rotate-Log (Join-Path $LogsDir "core.out.log")
     Rotate-Log (Join-Path $LogsDir "core.err.log")
@@ -105,6 +133,7 @@ function Start-Backend {
         -RedirectStandardOutput (Join-Path $LogsDir "core.out.log") `
         -RedirectStandardError  (Join-Path $LogsDir "core.err.log")
     $p.Id | Set-Content (Join-Path $RunDir "core.pid")
+    return $true
 }
 function Start-Dashboard {
     $node = Resolve-Node
@@ -160,6 +189,17 @@ function Build-Dashboard {
     $script:BuildOk = $true
 }
 
+# Copia los .md de una carpeta de plantillas a la del usuario, solo si la
+# destino esta vacia. Silenciosa cuando no hay nada que copiar.
+function Seed-Dir([string]$Src, [string]$Dst, [string]$Label) {
+    if (-not (Test-Path $Src)) { return }
+    if (Get-ChildItem $Dst -ErrorAction SilentlyContinue) { return }
+    $files = @(Get-ChildItem (Join-Path $Src "*.md") -File -ErrorAction SilentlyContinue)
+    if ($files.Count -eq 0) { return }
+    $files | Copy-Item -Destination $Dst -Force
+    Ok "$Label copiados a $Dst ($($files.Count))"
+}
+
 # __ Commands _________________________________________________________________
 function Cmd-Setup {
     Require-App
@@ -169,10 +209,13 @@ function Cmd-Setup {
     foreach ($d in @($HomeDir, $DataDir, $LogsDir, $RunDir, (Join-Path $HomeDir "agents"), (Join-Path $HomeDir "skills"))) {
         New-Item -ItemType Directory -Force -Path $d | Out-Null
     }
-    $atpl = Join-Path $AppDir "agents-templates"; $stpl = Join-Path $AppDir "skills-templates"
-    $agD = Join-Path $HomeDir "agents"; $skD = Join-Path $HomeDir "skills"
-    if ((Test-Path $atpl) -and -not (Get-ChildItem $agD -ErrorAction SilentlyContinue)) { Copy-Item "$atpl\*" $agD -Recurse -Force; Ok "Agentes de ejemplo copiados" }
-    if ((Test-Path $stpl) -and -not (Get-ChildItem $skD -ErrorAction SilentlyContinue)) { Copy-Item "$stpl\*" $skD -Recurse -Force; Ok "Skills de ejemplo copiadas" }
+    # Semillas opcionales. Solo .md: las carpetas del repo arrancan vacias a
+    # proposito (el catalogo de templates vive en core/templates/catalog.py y se
+    # clona con un click desde /projects). Antes copiabamos el directorio
+    # entero -incluido el .gitkeep- y anunciabamos "Agentes de ejemplo
+    # copiados" en una instalacion que se quedaba con cero agentes.
+    Seed-Dir (Join-Path $AppDir "agents-templates") (Join-Path $HomeDir "agents") "Agentes de ejemplo"
+    Seed-Dir (Join-Path $AppDir "skills-templates") (Join-Path $HomeDir "skills") "Skills de ejemplo"
 
     Write-Host "1) Autenticacion con Claude"
     Write-Host "   [1] Suscripcion Pro/Max  (recomendado - usa tu plan, sin costo extra)"
@@ -214,6 +257,34 @@ function Cmd-Setup {
 
     $secret = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Max 16) })
     $stamp  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    if (Test-Path $EnvFile) {
+        # Ya habia configuracion: tocamos SOLO lo que el usuario acaba de
+        # contestar. El .env acepta unas 40 claves y setup pregunta por ocho;
+        # reescribir el archivo entero borraba OPENAI_API_KEY, CODEX_*,
+        # SAFETY_*, HONCHO_*, TELEGRAM_BOTS (los bots multiproyecto que este
+        # wizard ni siquiera pregunta) y rotaba el SESSION_SECRET.
+        $kv = @(
+            "USE_SUBSCRIPTION=$useSub",
+            "DEFAULT_MODEL=$model",
+            "DEFAULT_AGENT=$defaultAgent",
+            "CORE_PORT=$CorePort",
+            "DASHBOARD_PORT=$DashPort"
+        )
+        # Credenciales: solo las que escribio. Vaciarlas porque apreto Enter
+        # seria desconectarle la cuenta que puso con 'rugol login'.
+        if ($apiKey)     { $kv += "ANTHROPIC_API_KEY=$apiKey" }
+        if ($oauthToken) { $kv += "CLAUDE_CODE_OAUTH_TOKEN=$oauthToken" }
+        # Telegram: "Enter para saltar" tiene que SALTAR, no borrar tus bots.
+        if ($tgToken) { $kv += @("TELEGRAM_BOT_TOKEN=$tgToken", "TELEGRAM_ALLOWED_USERS=$tgUsers") }
+        Invoke-Auth (@("env-set") + $kv) | Out-Null
+        Write-Host ""; Ok "Configuracion guardada en $EnvFile"
+        if ((Pid-Running (Join-Path $RunDir "core.pid")) -or (Pid-Running (Join-Path $RunDir "dashboard.pid"))) {
+            Write-Host ""; Write-Host "Rugol estaba corriendo - lo reinicio para aplicar la nueva configuracion..."; Cmd-Restart
+        }
+        return
+    }
+    # Primera vez: el archivo completo, con los comentarios que explican cada
+    # clave. Es el unico momento en que setup manda sobre el archivo entero.
     @"
 # Generado por ``rugol setup`` - $stamp
 USE_SUBSCRIPTION=$useSub
@@ -269,12 +340,52 @@ function Cmd-Auth {
 
 function Cmd-Build { Build-Dashboard }
 
+# El puerto del core queda HORNEADO en el build: next.config.ts lee
+# NEXT_PUBLIC_API_URL al compilar y Next lo serializa en routes-manifest.json.
+# Cambiar CORE_PORT en el .env -lo que dice el troubleshooting cuando el 8000
+# esta ocupado- movia el core y dejaba al dashboard hablandole al puerto viejo:
+# todas las paginas rotas, sin un mensaje que lo explicara.
+function Dashboard-ApiPort {
+    $m = Join-Path $DashDir ".next\routes-manifest.json"
+    if (-not (Test-Path $m)) { return 0 }
+    $hit = Select-String -Path $m -Pattern '"destination":"http://127\.0\.0\.1:(\d+)' -AllMatches |
+           Select-Object -First 1
+    if (-not $hit) { return 0 }
+    return [int]$hit.Matches[0].Groups[1].Value
+}
+# Recompila si el build apunta a otro puerto. $true si recompilo.
+function Rebuild-IfPortChanged {
+    $baked = Dashboard-ApiPort
+    if ($baked -eq 0 -or $baked -eq $CorePort) { return $false }
+    Warn "el dashboard fue compilado contra el puerto $baked y el core ahora usa $CorePort"
+    Write-Host "  Recompilo para que el dashboard le hable al core correcto."
+    Build-Dashboard
+    return [bool]$script:BuildOk
+}
+
 function Cmd-Up {
     Require-App; Require-Env
     Write-Host ""
     if (-not (Test-Path (Join-Path $DashDir ".next\standalone\server.js"))) { Build-Dashboard; if (-not $script:BuildOk) { Err "No pude preparar el dashboard."; exit 1 } }
+    elseif (Rebuild-IfPortChanged) { Stop-One (Join-Path $RunDir "dashboard.pid") "dashboard viejo" }
     if (Pid-Running (Join-Path $RunDir "core.pid")) { Ok "core ya estaba corriendo" }
-    else { Write-Host "Levantando el core..."; Start-Backend; if (Wait-Health 30) { Ok "core saludable en http://127.0.0.1:$CorePort" } else { Warn "El core tardo. Mira: rugol logs core" } }
+    else {
+        Write-Host "Levantando el core..."
+        # Start-Backend devuelve $false cuando el puerto lo tiene otro programa.
+        # Seguir de largo era el bug: el dashboard arrancaba contra un core
+        # inexistente y el usuario leia "core saludable" por la otra app.
+        if (-not (Start-Backend)) {
+            Err "No levante el core: el puerto $CorePort lo tiene otro programa."
+            Write-Host "    Cerralo, o cambia CORE_PORT en $EnvFile y corre 'rugol up' de nuevo."
+            exit 1
+        }
+        if (Wait-Health 30) { Ok "core saludable en http://127.0.0.1:$CorePort" }
+        else {
+            Err "El core no respondio en 30s - no arranco el dashboard contra un core caido."
+            Write-Host "    Mira:  rugol logs core"
+            exit 1
+        }
+    }
     if (Pid-Running (Join-Path $RunDir "dashboard.pid")) { Ok "dashboard ya estaba corriendo" }
     else { Start-Dashboard; Ok "dashboard en http://127.0.0.1:$DashPort" }
     $dash = "http://127.0.0.1:$DashPort"
@@ -291,7 +402,9 @@ function Cmd-Status {
     if (Pid-Running (Join-Path $RunDir "core.pid")) { Ok "core      (pid $(Get-Content (Join-Path $RunDir 'core.pid')))" } else { Warn "core      detenido" }
     if (Pid-Running (Join-Path $RunDir "dashboard.pid")) { Ok "dashboard (pid $(Get-Content (Join-Path $RunDir 'dashboard.pid')))" } else { Warn "dashboard detenido" }
     Write-Host ""; Write-Host "Salud" -ForegroundColor White
-    try { Invoke-RestMethod "http://127.0.0.1:$CorePort/api/health" -TimeoutSec 2 | Out-Null; Ok "API -> :$CorePort" } catch { Warn "API -> no responde" }
+    if (Core-Responds) { Ok "API -> :$CorePort" }
+    elseif (Port-Taken $CorePort) { Warn "API -> el puerto $CorePort responde, pero NO es el core de Rugol (otra app lo tiene)" }
+    else { Warn "API -> no responde" }
     try { Invoke-WebRequest "http://127.0.0.1:$DashPort/" -TimeoutSec 2 -UseBasicParsing | Out-Null; Ok "UI  -> :$DashPort" } catch { Warn "UI  -> no responde" }
     Write-Host ""; Write-Host "Home   $HomeDir"
 }
@@ -433,7 +546,7 @@ function Cmd-Evolve {
     $agent = if ($Rest -and $Rest.Count -gt 0) { $Rest[0] } else { "" }
     if (-not $agent) { Err "Uso: rugol evolve <agente>   (ej. rugol evolve assistant)"; return }
     $base = "http://127.0.0.1:$CorePort"
-    try { Invoke-RestMethod "$base/api/health" -TimeoutSec 3 | Out-Null } catch { Err "El core no responde. Corre 'rugol up' primero."; return }
+    if (-not (Core-Responds)) { Err "El core no responde. Corre 'rugol up' primero."; return }
     try { $agents = Invoke-RestMethod "$base/api/agents" } catch { Err "No pude listar los agentes."; return }
     $a = $agents | Where-Object { $_.name -eq $agent } | Select-Object -First 1
     if (-not $a) { Err "No existe el agente '$agent'. Mira la lista en el dashboard."; return }

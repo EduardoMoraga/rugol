@@ -13,7 +13,13 @@ APP_DIR="$RUGOL_HOME/app"
 RT="$RUGOL_HOME/runtime"
 REPO="${RUGOL_REPO:-https://github.com/EduardoMoraga/rugol.git}"
 REF="${RUGOL_REF:-main}"
-BIN_DIR="$HOME/.local/bin"
+# El launcher va a ~/.local/bin sólo en la instalación por defecto. Con un
+# RUGOL_HOME propio —ensayar una instalación limpia en paralelo, que es lo que
+# recomienda docs/install-on-new-pc.md— iba igual a ~/.local/bin y pisaba el
+# launcher de la instalación real. Un ensayo no puede tocar lo que ya funciona.
+if [ -n "${RUGOL_BIN_DIR:-}" ]; then BIN_DIR="$RUGOL_BIN_DIR"
+elif [ "$RUGOL_HOME" = "$HOME/.rugol" ]; then BIN_DIR="$HOME/.local/bin"
+else BIN_DIR="$RUGOL_HOME/bin"; fi
 NODE_VER="v20.18.1"
 
 G=$'\033[32m'; Y=$'\033[33m'; R=$'\033[31m'; B=$'\033[1m'; X=$'\033[0m'
@@ -31,8 +37,14 @@ mkdir -p "$RUGOL_HOME"
 if [ -n "${RUGOL_SRC:-}" ]; then
   [ -d "$RUGOL_SRC" ] || die "RUGOL_SRC no es un directorio: $RUGOL_SRC"
   rm -rf "$APP_DIR"; mkdir -p "$APP_DIR"
+  # `--filter ':- .gitignore'` hace que la copia respete el .gitignore del
+  # repo. Sin eso la lista de excludes era una enumeración a mano que se
+  # quedaba corta: medido, una copia desde el repo de trabajo se llevaba 5 GB
+  # de artefactos de build (desktop/release-*, build-payload) que ni siquiera
+  # están versionados y que ningún usuario recibe al clonar.
   if have rsync; then
-    rsync -a --exclude '.git' --exclude 'node_modules' --exclude '.next' \
+    rsync -a --filter=':- .gitignore' \
+          --exclude '.git' --exclude 'node_modules' --exclude '.next' \
           --exclude '.venv' --exclude 'data' --exclude 'logs' "$RUGOL_SRC"/ "$APP_DIR"/
   else cp -R "$RUGOL_SRC"/. "$APP_DIR"/; fi
   ok "código copiado desde $RUGOL_SRC"
@@ -98,7 +110,8 @@ RUGOL_HOME="$RUGOL_HOME" RUGOL_APP_DIR="$APP_DIR" "$BIN_DIR/rugol" build >/dev/n
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) : ;;
-  *) warn "$BIN_DIR no está en tu PATH — agregá:  export PATH=\"\$HOME/.local/bin:\$PATH\"" ;;
+  *) warn "$BIN_DIR no está en tu PATH — agregá:  export PATH=\"$BIN_DIR:\$PATH\""
+     warn "o invocalo por ruta completa:  $BIN_DIR/rugol" ;;
 esac
 
 echo ""

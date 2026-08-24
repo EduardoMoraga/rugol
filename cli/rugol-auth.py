@@ -364,6 +364,34 @@ def cmd_logout() -> int:
     return 0
 
 
+def cmd_env_set(pairs: list[str]) -> int:
+    """`rugol-auth env-set KEY=VALUE ...` — upsert quirúrgico del .env.
+
+    Existe para que `rugol setup` deje de reescribir el archivo entero. El
+    .env acepta ~40 claves (OPENAI_API_KEY, CODEX_*, SAFETY_*, HONCHO_*,
+    SCHEDULER_TIMEZONE, MAX_CONCURRENT_RUNS…) y setup sólo pregunta por once:
+    cada re-corrida borraba las otras veintipico sin decir nada. Medido en
+    vivo. `rugol login` ya editaba clave por clave desde el Sprint 7; esto le
+    da el mismo trato a setup, con la MISMA función.
+    """
+    updates: dict[str, str] = {}
+    for pair in pairs:
+        if "=" not in pair:
+            err(f"esperaba KEY=VALUE, recibí: {pair}")
+            return 2
+        key, _, value = pair.partition("=")
+        key = key.strip()
+        if not key:
+            err(f"clave vacía en: {pair}")
+            return 2
+        updates[key] = value
+    if not updates:
+        err("no me pasaste ninguna clave")
+        return 2
+    set_env_keys(updates)
+    return 0
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="rugol-auth", add_help=True)
     sub = parser.add_subparsers(dest="cmd")
@@ -382,6 +410,9 @@ def main(argv: list[str]) -> int:
     sub.add_parser("path")
     sub.add_parser("token")
 
+    p_env = sub.add_parser("env-set")
+    p_env.add_argument("pairs", nargs="+", metavar="KEY=VALUE")
+
     args = parser.parse_args(argv)
     cmd = args.cmd or "status"
 
@@ -398,6 +429,8 @@ def main(argv: list[str]) -> int:
             if find_codex():
                 cmd_codex_status(as_json=False)
         return rc
+    if cmd == "env-set":
+        return cmd_env_set(args.pairs)
     if cmd == "path":
         return cmd_path()
     if cmd == "logout":

@@ -16,6 +16,10 @@ from core.runner.orchestrator import get_orchestrator
 
 router = APIRouter()
 
+# Marca de identidad del core. Cambiarla rompe la espera de arranque de los
+# dos launchers (hay test que lo vigila).
+SERVICE_ID = "rugol-core"
+
 
 @router.get("/health")
 async def health() -> dict:
@@ -24,6 +28,12 @@ async def health() -> dict:
     # del dashboard sirve a las tres apps.
     return {
         "status": "ok",
+        # Identidad. Los launchers esperan al core con `curl /api/health`, y
+        # "algo respondió" no es "el core arrancó": si el puerto lo tiene otra
+        # aplicación, su 200 —o su 307— pasa por sano y `rugol up` canta
+        # verde con el core caído. Este campo es la única respuesta que sirve
+        # como prueba, y por eso lo verifican los dos launchers.
+        "service": SERVICE_ID,
         "version": __version__,
         "active_runs": get_orchestrator().active_count,
         "brand": os.environ.get("RUGOL_BRAND_NAME", "Rugol"),
@@ -59,6 +69,12 @@ async def health_full() -> dict:
         )).scalar_one()
     return {
         "status": "ok",
+        # Identidad. Los launchers esperan al core con `curl /api/health`, y
+        # "algo respondió" no es "el core arrancó": si el puerto lo tiene otra
+        # aplicación, su 200 —o su 307— pasa por sano y `rugol up` canta
+        # verde con el core caído. Este campo es la única respuesta que sirve
+        # como prueba, y por eso lo verifican los dos launchers.
+        "service": SERVICE_ID,
         "version": __version__,
         "active_runs": get_orchestrator().active_count,
         "schema": {

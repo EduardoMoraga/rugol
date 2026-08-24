@@ -77,6 +77,8 @@ async def init_db() -> None:
             # Sprint 8: motor de ejecución por agente y por corrida.
             ("agents", "engine", "VARCHAR(16) DEFAULT 'claude'"),
             ("runs", "engine", "VARCHAR(16) DEFAULT 'claude'"),
+            # 2.0: override de motor por chat (`/motor` en Telegram).
+            ("channel_bindings", "engine", "VARCHAR(16)"),
         ]
 
         def _existing(sync_conn, table: str) -> set[str]:

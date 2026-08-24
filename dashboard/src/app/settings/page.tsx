@@ -182,11 +182,16 @@ function EnginesSection() {
               </div>
             )}
 
-            {!e.supports_memory && (
-              <p className="text-[12px] text-[--color-warn]">
-                {t("settings.engines.noMemory")}
+            {e.supports_memory && (
+              <p className="text-[12px] text-[--color-fg-subtle]">
+                {t("settings.engines.hasMemory")}
               </p>
             )}
+            {e.missing?.length ? (
+              <p className="text-[12px] text-[--color-warn]">
+                {t("settings.engines.missing")} {e.missing.join(" · ")}
+              </p>
+            ) : null}
           </div>
         ))}
 

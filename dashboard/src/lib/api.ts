@@ -510,8 +510,15 @@ export interface EngineStatus {
   /** Comando que instala el CLI, vacío si ya está. */
   install_command: string;
   default: boolean;
-  /** Si los agentes en este motor pueden usar la memoria de Rugol. */
+  /** Si los agentes en este motor usan la memoria de Rugol. Desde 2.0 los dos
+   *  la usan: vive en el core y se sirve por MCP sobre HTTP. */
   supports_memory: boolean;
+  /** Lo que este motor NO puede hacer, en palabras del usuario. */
+  missing: string[];
+  /** Los modelos de ESTE motor. El frontend no mantiene su propia copia:
+   *  ofrecer un modelo que el motor rechaza es un error garantizado. */
+  models: { value: string; label: string }[];
+  default_model: string;
 }
 
 export const fetchEngines = (verify = false) =>

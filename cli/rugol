@@ -364,6 +364,97 @@ cmd_logs() {
   [ -f "$f" ] && tail -f -n 100 "$f" || warn "sin log todavía: $f"
 }
 
+# ── motor: ver y cambiar el motor de los agentes ──────────────────────────────
+cmd_motor() {
+  require_app
+  local base="http://127.0.0.1:${CORE_PORT}"
+  curl -fs "$base/api/health" >/dev/null 2>&1 || { err "El core no responde. Corré 'rugol up' primero."; return 1; }
+
+  # Sin argumentos: estado de los motores + qué usa cada agente.
+  if [ $# -eq 0 ]; then
+    echo ""
+    echo "${B}Motores${X}"
+    curl -fs "$base/api/health/engines" | "$(resolve_python)" -c "
+import json,sys
+for e in json.load(sys.stdin)['engines']:
+    if not e['installed']: estado='sin instalar → '+e['install_command']
+    elif not e['connected']: estado='sin conectar → '+e['connect_command']
+    else: estado='listo'
+    mem='memoria: sí' if e['supports_memory'] else 'memoria: NO'
+    print(f\"  {e['label']:<22} {estado:<38} {mem}\")
+    print('    modelos: ' + ', '.join(m['value'] for m in e.get('models', [])))
+"
+    echo ""
+    echo "${B}Agentes${X}"
+    curl -fs "$base/api/agents" | "$(resolve_python)" -c "
+import json,sys
+for a in sorted(json.load(sys.stdin), key=lambda x: x['name']):
+    print(f\"  {a['name']:<24} {a.get('engine','claude'):<8} {a['model']}\")
+"
+    echo ""
+    echo "${D}Cambiar:  rugol motor <agente> <claude|codex>${X}"
+    echo ""
+    return 0
+  fi
+
+  local agente="$1" motor="${2:-}"
+  [ -n "$motor" ] || { err "Uso: rugol motor <agente> <claude|codex>"; return 1; }
+  "$(resolve_python)" - "$base" "$agente" "$motor" <<'PYEOF'
+import json, sys, urllib.request
+
+base, nombre, motor = sys.argv[1], sys.argv[2], sys.argv[3].lower()
+
+def get(path):
+    return json.load(urllib.request.urlopen(base + path))
+
+agentes = get("/api/agents")
+match = next((a for a in agentes if a["name"] == nombre), None)
+if not match:
+    print(f"  No existe el agente '{nombre}'. Están: " + ", ".join(a["name"] for a in agentes))
+    raise SystemExit(1)
+
+motores = {e["name"]: e for e in get("/api/health/engines")["engines"]}
+if motor not in motores:
+    print("  Motores válidos: " + ", ".join(motores))
+    raise SystemExit(1)
+info = motores[motor]
+if not info["installed"]:
+    print(f"  El CLI de {info['label']} no está instalado.\n  Corré: {info['install_command']}")
+    raise SystemExit(1)
+if not info["connected"]:
+    print(f"  La cuenta de {info['label']} no está conectada.\n  Corré: {info['connect_command']}")
+    raise SystemExit(1)
+
+fuente = get(f"/api/agents/{match['id']}/source")
+# El modelo salta al default del motor: dejar uno de la otra familia hacía
+# fallar la corrida.
+payload = {
+    "name": match["name"],
+    "model": info["default_model"],
+    "engine": motor,
+    "description": match["description"],
+    "body": fuente["body"],
+}
+req = urllib.request.Request(
+    f"{base}/api/agents/{match['id']}", method="PUT",
+    data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"},
+)
+try:
+    res = json.load(urllib.request.urlopen(req))
+except urllib.error.HTTPError as e:
+    # Un traceback de Python no le sirve a nadie: mostramos lo que dijo el API.
+    try:
+        detalle = json.loads(e.read()).get("detail", "")
+    except Exception:
+        detalle = ""
+    print(f"  No pude guardar el cambio ({e.code}). {detalle}")
+    raise SystemExit(1) from None
+print(f"  {res['name']} → motor {res['engine']}, modelo {res['model']}")
+for falta in info.get("missing") or []:
+    print(f"  Ojo: en este motor no está disponible {falta}.")
+PYEOF
+}
+
 # ── auth: login / logout / status ─────────────────────────────────────────────
 # Toda la lógica vive en cli/rugol-auth.py (un solo lugar para Mac/Linux y
 # Windows). El script edita el .env clave por clave: `rugol login` no vuelve a
@@ -671,6 +762,7 @@ ${B}Uso:${X}  rugol <comando>
   ${B}login${X}        Conecta tu cuenta de Claude (--token headless · --api-key)
   ${B}logout${X}       Desconecta la cuenta y limpia credenciales del .env
   ${B}auth${X}         Estado real de la cuenta (cuenta, plan, credencial en uso)
+  ${B}motor${X}        Ver motores y modelos · cambiar el de un agente
   ${B}up${X}           Levanta core + dashboard y abre el navegador
   ${B}down${X}         Detiene todo
   ${B}restart${X}      Reinicia
@@ -708,6 +800,7 @@ main() {
     open)             cmd_open "$@" ;;
     update|upgrade)   cmd_update "$@" ;;
     uninstall)        cmd_uninstall "$@" ;;
+    motor|engine)     cmd_motor "$@" ;;
     login)            cmd_login "$@" ;;
     logout)           cmd_logout ;;
     auth)             cmd_auth "$@" ;;

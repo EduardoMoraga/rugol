@@ -109,6 +109,9 @@ class _TelegramBot:
         app.add_handler(CommandHandler("start", self._cmd_start))
         app.add_handler(CommandHandler("status", self._cmd_status))
         app.add_handler(CommandHandler("bind", self._cmd_bind))
+        # 2.0: cambiar de motor sin salir del chat, tipo Hermes.
+        app.add_handler(CommandHandler("motor", self._cmd_engine))
+        app.add_handler(CommandHandler("engine", self._cmd_engine))
         app.add_handler(CommandHandler("agents", self._cmd_agents))
         app.add_handler(CommandHandler("whoami", self._cmd_whoami))
         # v0.6 — wizards conversacionales
@@ -184,7 +187,7 @@ class _TelegramBot:
             await update.message.reply_text(
                 f"Hola. Este chat está vinculado a *{bound['agent_name']}*. "
                 "Envía cualquier mensaje y se lo paso.\n\n"
-                "Comandos: /agents · /bind <agente> · /status · /whoami",
+                "Comandos: /agents · /bind <agente> · /motor · /memories · /status",
                 parse_mode="Markdown",
             )
         else:
@@ -229,6 +232,104 @@ class _TelegramBot:
             "Agentes disponibles:\n" + "\n".join(lines),
             parse_mode="Markdown",
         )
+
+    async def _cmd_engine(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        """`/motor` — ver o cambiar el motor de ESTE chat.
+
+        Cambiar el motor acá no reescribe el .md del agente: probar Codex en una
+        conversación no debería cambiar cómo corre ese agente en los horarios ni
+        en el dashboard. El override vive en el binding del chat.
+        """
+        if not self._is_authorized(update):
+            return
+        chat_id = str(update.effective_chat.id)
+        bound = await _resolve_binding_or_default(self._chat_key(chat_id), self.default_agent)
+        if not bound:
+            await update.message.reply_text(
+                "Este chat no está vinculado a ningún agente todavía. Usá `/bind <agente>`.",
+                parse_mode="Markdown",
+            )
+            return
+
+        from core.runner.base import ENGINES
+        from core.runner.codex_runner import auth_status as codex_auth
+        from core.runner.codex_runner import find_codex
+
+        pedido = " ".join(ctx.args).strip().lower() if ctx.args else ""
+
+        if not pedido:
+            actual = bound.get("engine") or bound.get("agent_engine") or "claude"
+            origen = "de este chat" if bound.get("engine") else f"del agente {bound['agent_name']}"
+            lineas = [
+                f"Motor actual: *{actual}* ({origen})",
+                "",
+                "Disponibles:",
+            ]
+            for name in ENGINES:
+                if name == "codex":
+                    listo = bool(find_codex()) and codex_auth().get("logged_in")
+                    estado = "listo" if listo else "no configurado — `rugol login --codex`"
+                else:
+                    estado = "listo"
+                marca = " ←" if name == actual else ""
+                lineas.append(f"· `{name}` — {estado}{marca}")
+            lineas += ["", "Cambialo con `/motor codex` o `/motor claude`.",
+                       "`/motor auto` vuelve al del agente."]
+            await update.message.reply_text("\n".join(lineas), parse_mode="Markdown")
+            return
+
+        if pedido in ("auto", "reset", "default"):
+            nuevo = None
+        elif pedido in ENGINES:
+            nuevo = pedido
+        else:
+            await update.message.reply_text(
+                f"No conozco el motor `{pedido}`. Válidos: "
+                + ", ".join(f"`{e}`" for e in ENGINES) + " o `auto`.",
+                parse_mode="Markdown",
+            )
+            return
+
+        # No dejamos cambiar a un motor que no va a poder correr: es mejor
+        # decirlo acá que fallar en el próximo mensaje.
+        if nuevo == "codex":
+            if not find_codex():
+                await update.message.reply_text(
+                    "El CLI de Codex no está instalado en esta máquina.\n"
+                    "En la terminal: `npm install -g @openai/codex`",
+                    parse_mode="Markdown",
+                )
+                return
+            if not codex_auth().get("logged_in"):
+                await update.message.reply_text(
+                    "La cuenta de Codex no está conectada.\n"
+                    "En la terminal: `rugol login --codex`",
+                    parse_mode="Markdown",
+                )
+                return
+
+        async with async_session_factory() as session:
+            b = await session.get(ChannelBinding, bound["binding_id"])
+            if b is None:
+                await update.message.reply_text("No encontré el vínculo de este chat.")
+                return
+            b.engine = nuevo
+            await session.commit()
+
+        if nuevo is None:
+            await update.message.reply_text(
+                f"Motor de este chat: *auto* — usa el del agente "
+                f"(*{bound.get('agent_engine', 'claude')}*).",
+                parse_mode="Markdown",
+            )
+        else:
+            extra = ""
+            if nuevo == "codex":
+                extra = "\n\n_La memoria sigue siendo la misma: es un servicio de Rugol, no del motor._"
+            await update.message.reply_text(
+                f"Motor de este chat: *{nuevo}*. El próximo mensaje ya lo usa.{extra}",
+                parse_mode="Markdown",
+            )
 
     async def _cmd_bind(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not self._is_authorized(update):
@@ -446,6 +547,7 @@ class _TelegramBot:
                 prompt=text,
                 source="telegram",
                 session_id=session_id,
+                engine_override=bound.get("engine"),
                 metadata={"chat_id": chat_id, "placeholder_msg_id": placeholder.message_id},
             ))
             _PENDING[run_id] = {
@@ -504,6 +606,7 @@ class _TelegramBot:
                 prompt=prompt,
                 source="telegram",
                 session_id=session_id,
+                engine_override=bound.get("engine"),
                 metadata={"chat_id": chat_id, "placeholder_msg_id": placeholder.message_id},
             ))
             _PENDING[run_id] = {
@@ -881,7 +984,14 @@ async def _lookup_binding(chat_id_str: str) -> dict | None:
         agent = await session.get(Agent, b.agent_id)
         if agent is None:
             return None
-        return {"agent_name": agent.name, "agent_id": agent.id, "binding_id": b.id}
+        return {
+            "agent_name": agent.name,
+            "agent_id": agent.id,
+            "binding_id": b.id,
+            # Override de motor de ESTE chat (None = el del agente).
+            "engine": b.engine,
+            "agent_engine": agent.engine or "claude",
+        }
 
 
 async def _resolve_binding_or_default(chat_id_str: str, default_name: str = "") -> dict | None:

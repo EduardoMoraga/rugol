@@ -8,7 +8,7 @@ import os
 from fastapi import APIRouter
 from sqlalchemy import func, select
 
-from core import __version__
+from core import __version__, llm_models
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run, Schedule
 from core.resilience import last_report
@@ -162,6 +162,12 @@ async def health_engines(verify: bool = False) -> dict:
         "install_command": "",
         "default": True,
         "supports_memory": True,
+        "missing": [],
+        "models": [
+            {"value": v, "label": lbl}
+            for v, lbl in llm_models.ENGINE_MODEL_CHOICES["claude"]
+        ],
+        "default_model": llm_models.ENGINE_DEFAULT_MODEL["claude"],
     }
     if verify and claude["logged_in"]:
         probe = await asyncio.to_thread(verify_credentials)
@@ -185,10 +191,16 @@ async def health_engines(verify: bool = False) -> dict:
         "connect_command": "rugol login --codex",
         "install_command": "" if find_codex() else "npm install -g @openai/codex",
         "default": False,
-        # Las tools de memoria de Rugol son MCP in-process de la SDK de Claude.
-        # Codex no tiene equivalente, así que un agente en Codex no recuerda.
-        # Decirlo en la UI es mejor que que el usuario lo descubra solo.
-        "supports_memory": False,
+        # 2.0: la memoria salió de los motores. Se sirve por MCP sobre HTTP y
+        # Codex la consume igual que Claude — verificado de punta a punta. Lo
+        # que este motor NO tiene son las tools in-process de Telegram.
+        "supports_memory": True,
+        "missing": ["tools de Telegram (mandar mensajes desde el agente)"],
+        "models": [
+            {"value": v, "label": lbl}
+            for v, lbl in llm_models.ENGINE_MODEL_CHOICES["codex"]
+        ],
+        "default_model": llm_models.ENGINE_DEFAULT_MODEL["codex"],
     }
 
     return {"engines": [claude_entry, codex_entry]}

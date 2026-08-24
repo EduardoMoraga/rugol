@@ -264,4 +264,13 @@ def codex_config_overrides(token: str, port: int | None = None) -> list[str]:
     return [
         "-c", f'mcp_servers.rugol_memory.url="{url}"',
         "-c", 'mcp_servers.rugol_memory.enabled=true',
+        # Sin esto Codex somete cada llamada a su revisión automática de riesgo
+        # y la corrida vuelve con "la herramienta requiere aprobación". Rugol
+        # corre desatendido: no hay nadie a quien preguntarle.
+        #
+        # El alcance importa: `auto` aplica SÓLO a este servidor, el de memoria
+        # de Rugol. Cualquier otra herramienta que el agente quiera usar sigue
+        # pasando por la revisión de Codex, y el sandbox no se toca.
+        # Valores válidos del CLI: auto | prompt | writes | approve.
+        "-c", 'mcp_servers.rugol_memory.default_tools_approval_mode="auto"',
     ]

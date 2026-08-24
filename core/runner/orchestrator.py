@@ -92,6 +92,10 @@ class RunRequest:
     seek_devils_advocate: bool = False
     # Internal: the parent run id when this is the devil's advocate run.
     advocate_for_run_id: int | None = None
+    # 2.0: motor para ESTA corrida, por encima del que trae el agente. Lo usa
+    # `/motor` de Telegram: probar Codex en una conversación no debe cambiar
+    # cómo corre ese agente en los horarios ni en el dashboard.
+    engine_override: str | None = None
 
 
 class RuntimeOrchestrator:
@@ -134,7 +138,7 @@ class RuntimeOrchestrator:
                 agent.last_run_at.isoformat() if agent.last_run_at else None
             )
 
-            agent_engine = agent.engine or "claude"
+            agent_engine = req.engine_override or agent.engine or "claude"
 
             run = Run(
                 agent_id=agent.id,

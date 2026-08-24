@@ -105,10 +105,22 @@ def _validate_spec(spec: AgentSpec) -> None:
             status_code=400,
             detail="Name must be lowercase, 3-64 chars, only letters/digits/dashes, no leading or trailing dash.",
         )
-    if spec.model not in ALLOWED_MODELS:
+    # El modelo se valida contra EL MOTOR del agente. La whitelist era sólo de
+    # Claude, así que guardar un agente en Codex con un modelo de Codex daba 400
+    # y cambiar de motor desde la terminal o el dashboard fallaba.
+    engine = normalize_engine(spec.engine)
+    valid_for_engine = {v for v, _ in llm_models.ENGINE_MODEL_CHOICES.get(engine, ())}
+    if engine == "claude":
+        # Los ids de generaciones anteriores siguen valiendo: un agente escrito
+        # hace meses no debe fallar al editarlo.
+        valid_for_engine |= set(llm_models.ALLOWED_MODELS)
+    if spec.model not in valid_for_engine:
         raise HTTPException(
             status_code=400,
-            detail=f"Model must be one of: {', '.join(sorted(ALLOWED_MODELS))}",
+            detail=(
+                f"Model '{spec.model}' is not valid for engine '{engine}'. "
+                f"Valid: {', '.join(sorted(valid_for_engine))}"
+            ),
         )
     if spec.engine and normalize_engine(spec.engine) != (spec.engine or "").strip().lower():
         # normalize_engine es permisivo a propósito para el frontmatter escrito

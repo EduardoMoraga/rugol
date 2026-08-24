@@ -257,6 +257,11 @@ class ChannelBinding(Base):
     external_id: Mapped[str] = mapped_column(String(128), index=True)
     agent_id: Mapped[int] = mapped_column(ForeignKey("agents.id", ondelete="CASCADE"))
     label: Mapped[str | None] = mapped_column(String(128), default=None)
+    # Override de motor para ESTE chat. NULL = usa el del agente.
+    # Existe para que `/motor codex` desde Telegram no tenga que reescribir el
+    # .md del agente: probar un motor en una conversación no debería cambiar
+    # cómo corre ese agente en los horarios ni en el dashboard.
+    engine: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

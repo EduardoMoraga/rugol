@@ -43,8 +43,13 @@ def test_new_session_command_shape():
     assert cmd[-1] == "-", "el prompt entra por stdin: sin eso, Windows rompe con prompts largos"
     assert "--json" in cmd and "--skip-git-repo-check" in cmd
     assert cmd[cmd.index("-C") + 1] == "/w"
-    assert cmd[cmd.index("--sandbox") + 1] == "workspace-write"
     assert cmd[cmd.index("-m") + 1] == "gpt-5.6-sol"
+    # `--approve-for-me` es lo único que deja a `codex exec` aprobar una
+    # herramienta MCP: `exec` fuerza approval_policy=never y sin esto la
+    # memoria de Rugol queda inaccesible. Ya implica workspace-write, y no se
+    # puede combinar con --sandbox.
+    assert "--approve-for-me" in cmd
+    assert "--sandbox" not in cmd
 
 
 def test_resume_omits_flags_that_resume_rejects():
@@ -57,8 +62,7 @@ def test_resume_omits_flags_that_resume_rejects():
     assert cmd[1:4] == ["exec", "resume", "uuid-123"]
     assert "-C" not in cmd
     assert "--sandbox" not in cmd
-    # El sandbox viaja por override de config, que resume sí acepta.
-    assert 'sandbox_mode="workspace-write"' in cmd
+    assert "--approve-for-me" in cmd
 
 
 def test_claude_model_is_not_passed_to_codex():
@@ -72,13 +76,30 @@ def test_claude_model_is_not_passed_to_codex():
 
 
 def test_sandbox_falls_back_on_a_bad_value(monkeypatch):
+    """Un valor inválido cae al default, que además habilita --approve-for-me."""
     monkeypatch.setenv("CODEX_SANDBOX", "modo-inventado")
     from core.config import get_settings
     get_settings.cache_clear()
     try:
         cmd = build_command(cli_path="c", workspace_dir=Path("/w"), model=None,
                             session_id=None, output_file=Path("/w/o.txt"))
-        assert cmd[cmd.index("--sandbox") + 1] == "workspace-write"
+        assert "--approve-for-me" in cmd
+        assert "--sandbox" not in cmd
+    finally:
+        get_settings.cache_clear()
+
+
+def test_a_deliberate_non_default_sandbox_is_respected(monkeypatch):
+    """Si el usuario eligió otro sandbox a propósito, gana su elección —
+    aunque eso cueste las herramientas de memoria. Lo avisa por log."""
+    monkeypatch.setenv("CODEX_SANDBOX", "read-only")
+    from core.config import get_settings
+    get_settings.cache_clear()
+    try:
+        cmd = build_command(cli_path="c", workspace_dir=Path("/w"), model=None,
+                            session_id=None, output_file=Path("/w/o.txt"))
+        assert cmd[cmd.index("--sandbox") + 1] == "read-only"
+        assert "--approve-for-me" not in cmd
     finally:
         get_settings.cache_clear()
 
@@ -387,16 +408,26 @@ def test_engines_endpoint_carries_what_the_ui_needs():
 
     for name, e in engines.items():
         for field in ("label", "installed", "connected", "connect_command",
-                      "install_command", "supports_memory", "default"):
+                      "install_command", "supports_memory", "default",
+                      "models", "default_model", "missing"):
             assert field in e, f"{name} le falta {field}"
         assert e["connect_command"], f"{name} sin comando para conectar"
 
     assert engines["claude"]["default"] is True
+    # 2.0: la memoria salió de los motores, así que los DOS la tienen. Antes
+    # este campo era False para Codex y la UI decía que no recordaba; después
+    # del cambio decirlo así sería mentir en la otra dirección.
     assert engines["claude"]["supports_memory"] is True
-    # Las tools de memoria son MCP in-process de la SDK de Claude: decirlo en la
-    # UI es mejor que que el usuario lo descubra cuando el agente no recuerda.
-    assert engines["codex"]["supports_memory"] is False
+    assert engines["codex"]["supports_memory"] is True
+    # Lo que Codex sí sigue sin tener: las tools in-process de Telegram.
+    assert engines["codex"]["missing"], "hay que decir qué le falta"
+    assert engines["claude"]["missing"] == []
     assert engines["codex"]["connect_command"] == "rugol login --codex"
+
+    # Y cada motor trae SUS modelos: el frontend no debe tener su propia copia.
+    for name, e in engines.items():
+        assert e["models"], f"{name} sin modelos"
+        assert e["default_model"] in [m["value"] for m in e["models"]]
 
 
 # ── Memoria compartida: el corazón de 2.0 ────────────────────────────────────

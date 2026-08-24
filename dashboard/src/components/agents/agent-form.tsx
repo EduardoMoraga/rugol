@@ -68,7 +68,16 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
   const engineInfo = engines.data?.engines.find((e) => e.name === engine);
   // El modelo del agente puede ser de una generación anterior: lo mantenemos
   // en la lista para no cambiárselo por debajo al editar otro campo.
-  const modelOptions = withCurrent(initial?.model);
+  // Los modelos los manda el backend por motor: si elegís Codex ves Sol/Terra/
+  // Luna, si elegís Claude ves Opus/Sonnet/Haiku. Mantener la lista acá era
+  // ofrecer modelos que el otro motor rechaza.
+  const engineModels = engineInfo?.models?.length
+    ? engineInfo.models
+    : withCurrent(initial?.model);
+  const modelOptions =
+    initial?.model && !engineModels.some((m) => m.value === initial.model)
+      ? [...engineModels, { value: initial.model, label: `${initial.model} — actual` }]
+      : engineModels;
   const [desc, setDesc] = useState(initial?.description ?? "");
   const [body, setBody] = useState(initial?.body ?? STARTER_BODY);
   const [submitting, setSubmitting] = useState(false);
@@ -172,7 +181,19 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
               del .md, así que desde la interfaz era invisible. */}
           <div className="space-y-1.5 mt-4">
             <FieldLabel hint="qué CLI ejecuta este agente">Motor</FieldLabel>
-            <Select value={engine} onChange={(e) => setEngine(e.target.value)}>
+            <Select
+              value={engine}
+              onChange={(e) => {
+                const next = e.target.value;
+                setEngine(next);
+                // El modelo tiene que seguir al motor: dejar uno de la otra
+                // familia hacía fallar la corrida con "issue with the selected
+                // model". El backend igual lo traduce por nivel, pero la UI no
+                // debe mostrar algo que no es lo que va a correr.
+                const info = engines.data?.engines.find((x) => x.name === next);
+                if (info?.default_model) setModel(info.default_model);
+              }}
+            >
               {(engines.data?.engines ?? [{ name: "claude", label: "Claude (Anthropic)" }]).map(
                 (e) => (
                   <option key={e.name} value={e.name}>
@@ -204,13 +225,16 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
                 {engineInfo.cli_version ? ` · ${engineInfo.cli_version}` : ""}
               </p>
             )}
-            {engineInfo && !engineInfo.supports_memory && (
-              <p className="text-[12.5px] text-[--color-warn]">
-                Ojo: los agentes en este motor <strong>no usan la memoria</strong> de Rugol.
-                Las herramientas de memoria viven dentro del proceso de Claude y este
-                motor no las puede ver.
+            {engineInfo?.supports_memory && (
+              <p className="text-[12.5px] text-[--color-fg-muted]">
+                La memoria de Rugol funciona en este motor: vive en el core, no en el CLI.
               </p>
             )}
+            {engineInfo?.missing?.length ? (
+              <p className="text-[12.5px] text-[--color-warn]">
+                No disponible en este motor: {engineInfo.missing.join(" · ")}.
+              </p>
+            ) : null}
             {engine !== "claude" && (
               <p className="text-[12.5px] text-[--color-fg-subtle]">
                 El modelo de arriba se ignora si es de Claude: este motor usa el suyo.

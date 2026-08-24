@@ -3,7 +3,7 @@
 La forma del CLI está verificada contra `codex-cli 0.149.0`, no supuesta:
 
     codex exec --json --skip-git-repo-check -C <dir> [-m MODEL]
-               [--sandbox workspace-write] [-o <archivo>] -
+               --approve-for-me [-o <archivo>] -
 
 y el prompt entra por **stdin** (por eso el `-` final). Eso no es un detalle:
 este repo ya sufrió el límite de largo de la línea de comandos en Windows —
@@ -174,21 +174,49 @@ def build_command(
     """
     cmd = [cli_path, "exec"]
     sandbox = _resolve_sandbox()
+
+    # Aprobación de herramientas MCP — lo que costó más de encontrar.
+    #
+    # `codex exec` es no-interactivo, así que fuerza `approval_policy = never`
+    # sin importar lo que diga la config. Con eso, cualquier llamada a una
+    # herramienta MCP vuelve como:
+    #
+    #     "MCP tool call requires approval, but approval policy is never"
+    #
+    # y la memoria de Rugol quedaba inaccesible para este motor. Ni
+    # `approval_policy="on-request"` ni `default_tools_approval_mode="auto"`
+    # lo cambian: `exec` gana.
+    #
+    # `--approve-for-me` sí: enruta las aprobaciones por la revisión automática
+    # de Codex. Su consecuencia hay que decirla: IMPLICA el sandbox
+    # `workspace-write` y no se puede combinar con `--sandbox`. Así que se usa
+    # cuando el sandbox configurado es justamente ése; si el usuario eligió otro
+    # a propósito, respetamos su elección y avisamos que la memoria no va a
+    # estar disponible.
+    approve_for_me = sandbox == DEFAULT_SANDBOX
+    if not approve_for_me:
+        logger.warning(
+            "codex: CODEX_SANDBOX='%s' no es '%s', así que no puedo usar "
+            "--approve-for-me. Las herramientas de memoria de Rugol no van a "
+            "estar disponibles en este motor.",
+            sandbox, DEFAULT_SANDBOX,
+        )
+
     if session_id:
         # `resume <uuid>` continúa el hilo; el prompt sigue entrando por stdin.
-        cmd += ["resume", session_id, "-c", f'sandbox_mode="{sandbox}"']
+        cmd += ["resume", session_id]
+        if not approve_for_me:
+            cmd += ["-c", f'sandbox_mode="{sandbox}"']
     else:
-        cmd += ["-C", str(workspace_dir), "--sandbox", sandbox]
+        cmd += ["-C", str(workspace_dir)]
+        if not approve_for_me:
+            cmd += ["--sandbox", sandbox]
+    if approve_for_me:
+        cmd.append("--approve-for-me")
     cmd += [
         "--json",
         "--skip-git-repo-check",
         "-o", str(output_file),
-        # Sin esto, Codex pide aprobación humana para las herramientas MCP y la
-        # corrida vuelve con "la herramienta requiere aprobación". Rugol corre
-        # desatendido: no hay nadie a quien preguntarle. `never` devuelve los
-        # fallos al modelo, que es lo que queremos. La contención sigue siendo
-        # el sandbox, que no se toca.
-        "-c", 'approval_policy="never"',
     ]
     # Overrides extra (`-c clave=valor`): así entra el servidor de memoria por
     # MCP/HTTP, el mismo que usa Claude.

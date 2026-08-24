@@ -62,7 +62,12 @@ def test_resume_omits_flags_that_resume_rejects():
     assert cmd[1:4] == ["exec", "resume", "uuid-123"]
     assert "-C" not in cmd
     assert "--sandbox" not in cmd
-    assert "--approve-for-me" in cmd
+    # `resume` tampoco acepta --approve-for-me: hay que usar el equivalente por
+    # config. Este test existía y afirmaba lo contrario — se había ajustado para
+    # que coincidiera con el código en vez de verificarlo contra el CLI, y por
+    # eso la segunda respuesta de cada conversación en Codex se cortaba.
+    assert "--approve-for-me" not in cmd
+    assert 'approvals_reviewer="auto_review"' in cmd
 
 
 def test_claude_model_is_not_passed_to_codex():
@@ -560,3 +565,66 @@ def test_every_engine_choice_belongs_to_its_engine():
             assert belongs_to(value, engine), f"{value} no es de {engine}"
             assert label.strip()
         assert belongs_to(ENGINE_DEFAULT_MODEL[engine], engine)
+
+
+# ── El argv se valida contra el propio --help del CLI ─────────────────────────
+# Este es el test que faltaba. Los tres bugs de flags de Codex (`-C` y
+# `--sandbox` en resume, después `--approve-for-me` en resume) se descubrieron
+# en producción, cortando conversaciones. Cada vez el test unitario pasaba,
+# porque afirmaba lo que el código hacía en vez de lo que el CLI acepta.
+
+def _accepted_flags(*subcommand: str) -> set[str]:
+    """Flags que `codex <subcomando> --help` declara aceptar."""
+    import re
+    import subprocess
+
+    from core.runner.codex_runner import find_codex
+
+    cli = find_codex()
+    out = subprocess.run([cli, *subcommand, "--help"], capture_output=True,
+                         text=True, timeout=60)
+    text = out.stdout + out.stderr
+    return set(re.findall(r"(--[a-z][a-z0-9-]+)", text)) | set(
+        re.findall(r"(?<![\w-])(-[a-zA-Z])(?![\w-])", text)
+    )
+
+
+@pytest.mark.skipif(not find_codex(), reason="Codex CLI ausente")
+@pytest.mark.parametrize("session_id", [None, "01a0-uuid-de-prueba"])
+def test_every_flag_we_pass_is_one_the_cli_accepts(session_id, tmp_path):
+    """Lo que construimos tiene que existir en el CLI, no en nuestra cabeza."""
+    from core.runner.codex_runner import build_command, find_codex
+
+    cmd = build_command(
+        cli_path=find_codex(), workspace_dir=tmp_path, model="gpt-5.6-terra",
+        session_id=session_id, output_file=tmp_path / "o.txt",
+        extra_config_args=["-c", 'mcp_servers.x.url="http://127.0.0.1:1/mcp"'],
+    )
+    accepted = _accepted_flags("exec", "resume") if session_id else _accepted_flags("exec")
+
+    usados = [a for a in cmd if a.startswith("-") and a != "-"]
+    for flag in usados:
+        assert flag in accepted, (
+            f"{'resume' if session_id else 'exec'} NO acepta {flag}. "
+            f"Acepta: {sorted(f for f in accepted if f.startswith('--'))}"
+        )
+
+
+@pytest.mark.skipif(not find_codex(), reason="Codex CLI ausente")
+def test_the_approval_config_value_is_one_the_cli_knows(tmp_path):
+    """`approvals_reviewer` tiene un enum cerrado: un valor inventado tumba la
+    corrida con "unknown variant" antes de que el agente diga nada."""
+    import subprocess
+
+    from core.runner.codex_runner import find_codex
+
+    out = subprocess.run(
+        [find_codex(), "exec", "resume", "--last",
+         "-c", 'approvals_reviewer="valor-que-no-existe"', "--json"],
+        capture_output=True, text=True, timeout=60,
+    )
+    texto = out.stdout + out.stderr
+    assert "unknown variant" in texto, "esperaba que el CLI rechazara el valor"
+    assert "auto_review" in texto, (
+        "el valor que usamos tiene que estar entre los que el CLI acepta"
+    )

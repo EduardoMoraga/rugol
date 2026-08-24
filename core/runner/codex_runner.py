@@ -202,17 +202,24 @@ def build_command(
             sandbox, DEFAULT_SANDBOX,
         )
 
+    # OJO con `resume`: acepta MENOS flags que `exec`. No toma `-C`, ni
+    # `--sandbox`, ni `--approve-for-me` (verificado contra codex-cli 0.149.0;
+    # pasarlos da "unexpected argument" y la conversación se corta). El
+    # equivalente por config sí lo acepta:
+    #     --approve-for-me  ==  -c approvals_reviewer="auto_review"
+    # El directorio, en resume, va por el `cwd` del subproceso.
     if session_id:
-        # `resume <uuid>` continúa el hilo; el prompt sigue entrando por stdin.
         cmd += ["resume", session_id]
-        if not approve_for_me:
+        if approve_for_me:
+            cmd += ["-c", 'approvals_reviewer="auto_review"']
+        else:
             cmd += ["-c", f'sandbox_mode="{sandbox}"']
     else:
         cmd += ["-C", str(workspace_dir)]
-        if not approve_for_me:
+        if approve_for_me:
+            cmd.append("--approve-for-me")
+        else:
             cmd += ["--sandbox", sandbox]
-    if approve_for_me:
-        cmd.append("--approve-for-me")
     cmd += [
         "--json",
         "--skip-git-repo-check",

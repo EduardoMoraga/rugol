@@ -628,3 +628,129 @@ def test_the_approval_config_value_is_one_the_cli_knows(tmp_path):
     assert "auto_review" in texto, (
         "el valor que usamos tiene que estar entre los que el CLI acepta"
     )
+
+
+# ── Cambiar de motor no puede envenenar la conversación ──────────────────────
+# Bug en producción: el chat corrió en Claude (sesión 947463b2…), el usuario hizo
+# `/motor codex`, y Codex intentó `resume 947463b2…` → "no rollout found for
+# thread id". Un session_id es propio del CLI que lo creó. Y como el fallo no
+# genera sesión nueva, el id muerto se reusaba en CADA mensaje siguiente.
+
+def test_session_keys_are_namespaced_by_engine():
+    from core.adapters.telegram import _session_key
+
+    claude = _session_key("bot1:42", "claude")
+    codex = _session_key("bot1:42", "codex")
+    assert claude != codex, (
+        "compartir la clave hace que al cambiar de motor se intente retomar "
+        "una conversación que el otro nunca vio"
+    )
+    # Y volver al motor anterior recupera SU conversación.
+    assert _session_key("bot1:42", "claude") == claude
+    # Sin motor declarado, el default.
+    assert _session_key("bot1:42", "") == claude
+
+
+def test_effective_engine_prefers_the_chat_override():
+    from core.adapters.telegram import _effective_engine
+
+    assert _effective_engine({"engine": "codex", "agent_engine": "claude"}) == "codex"
+    assert _effective_engine({"engine": None, "agent_engine": "codex"}) == "codex"
+    assert _effective_engine({}) == "claude"
+    assert _effective_engine(None) == "claude"
+
+
+@pytest.mark.parametrize(
+    ("stderr", "esperado"),
+    [
+        ("Error: thread/resume: thread/resume failed: no rollout found for thread id 947463b2", True),
+        ("thread/resume failed", True),
+        ("no conversation found with session id x", True),
+        # Un fallo real NO debe disfrazarse de sesión perdida.
+        ("error: unexpected argument '--foo' found", False),
+        ("401 unauthorized", False),
+        ("rate limit exceeded", False),
+        ("", False),
+    ],
+)
+def test_detects_a_lost_codex_thread(stderr, esperado):
+    from core.runner.codex_runner import _looks_like_a_lost_thread
+    assert _looks_like_a_lost_thread(stderr) is esperado
+
+
+@pytest.mark.asyncio
+async def test_codex_retries_once_with_a_fresh_thread(tmp_path, monkeypatch):
+    """Y devuelve el id NUEVO: si devolvemos el muerto, el próximo mensaje
+    vuelve a fallar y el chat sigue roto."""
+    intentos: list[list[str]] = []
+
+    fallo = tmp_path / "falla"
+    fallo.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "sys.stdin.read()\n"
+        "argv = sys.argv[1:]\n"
+        "if 'resume' in argv:\n"
+        "    sys.stderr.write('Error: thread/resume failed: no rollout found for thread id X')\n"
+        "    sys.exit(1)\n"
+        "sys.stdout.write('{\"type\":\"thread.started\",\"thread_id\":\"thread-nuevo\"}\\n')\n"
+        "sys.stdout.write('{\"type\":\"item.completed\",\"item\":"
+        "{\"type\":\"agent_message\",\"text\":\"listo\"}}\\n')\n"
+        "if '-o' in argv:\n"
+        "    open(argv[argv.index('-o') + 1], 'w').write('listo')\n",
+        encoding="utf-8",
+    )
+    fallo.chmod(0o755)
+    monkeypatch.setenv("RUGOL_CODEX_PATH", str(fallo))
+
+    real_build = __import__(
+        "core.runner.codex_runner", fromlist=["build_command"]
+    ).build_command
+
+    def spy(**kw):
+        cmd = real_build(**kw)
+        intentos.append(cmd)
+        return cmd
+
+    monkeypatch.setattr("core.runner.codex_runner.build_command", spy)
+
+    result = await codex_run(
+        agent_name="t", prompt="hola", workspace_dir=tmp_path / "ws",
+        session_id="thread-muerto",
+    )
+    assert len(intentos) == 2, "primero resume, después sesión nueva"
+    assert "resume" in intentos[0]
+    assert "resume" not in intentos[1]
+    assert result.final_text == "listo"
+    assert result.session_id == "thread-nuevo"
+
+
+@pytest.mark.asyncio
+async def test_codex_does_not_retry_a_real_failure(tmp_path, monkeypatch):
+    intentos = []
+    script = tmp_path / "otro-fallo"
+    script.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        "sys.stdin.read()\n"
+        "sys.stderr.write('401 unauthorized')\n"
+        "sys.exit(1)\n",
+        encoding="utf-8",
+    )
+    script.chmod(0o755)
+    monkeypatch.setenv("RUGOL_CODEX_PATH", str(script))
+
+    real_build = __import__(
+        "core.runner.codex_runner", fromlist=["build_command"]
+    ).build_command
+
+    def spy(**kw):
+        intentos.append(1)
+        return real_build(**kw)
+
+    monkeypatch.setattr("core.runner.codex_runner.build_command", spy)
+
+    with pytest.raises(RuntimeError, match="401"):
+        await codex_run(agent_name="t", prompt="x", workspace_dir=tmp_path / "ws",
+                        session_id="s-1")
+    assert len(intentos) == 1, "no debe reintentar lo que reintentar no arregla"

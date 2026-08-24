@@ -519,6 +519,11 @@ class RuntimeOrchestrator:
             "final_text": result.final_text[:4000],
             "session_id": result.session_id,  # v0.6: needed by adapters that
             # want to thread conversational context across turns.
+            # 2.0: el motor viaja con la sesión. Un session_id es propio del CLI
+            # que lo creó, así que el adaptador tiene que guardarlo bajo la
+            # clave de ESE motor — si no, cambiar de motor intenta retomar una
+            # conversación que el otro nunca vio.
+            "engine": getattr(result, "engine", "claude"),
         })
 
     async def _mark_status(self, run_id: int, status: str, error: str = "") -> None:

@@ -60,6 +60,23 @@ class CodexNotAvailableError(RuntimeError):
     """El CLI de Codex no está instalado."""
 
 
+# Señales de que el thread guardado no existe para este CLI. Pasa cuando la
+# conversación venía de otro motor, o cuando Codex ya rotó sus sesiones. No es
+# un fallo del pedido: hay que empezar una sesión nueva, no devolver un error.
+THREAD_LOST_SIGNS = (
+    "no rollout found",
+    "thread/resume failed",
+    "session not found",
+    "no conversation found",
+    "unknown thread",
+)
+
+
+def _looks_like_a_lost_thread(text: str) -> bool:
+    lowered = (text or "").lower()
+    return any(sign in lowered for sign in THREAD_LOST_SIGNS)
+
+
 def find_codex() -> str | None:
     """Ruta al CLI de Codex, o None."""
     if explicit := os.environ.get("RUGOL_CODEX_PATH"):
@@ -263,6 +280,7 @@ async def run(
     system_context: str | None = None,
     timeout_seconds: float | None = None,
     extra_config_args: list[str] | None = None,
+    _retry_on_lost_thread: bool = True,
     **ignored,
 ) -> RunResult:
     """Corre un agente con Codex y devuelve el mismo `RunResult` que Claude."""
@@ -410,6 +428,32 @@ async def run(
     if not final_text:
         stderr = stderr_raw.decode("utf-8", errors="replace").strip()
         if proc.returncode not in (0, None):
+            # El thread guardado no existe para este CLI — típicamente porque la
+            # conversación venía del otro motor. No es un fallo del pedido:
+            # empezamos sesión nueva UNA vez y devolvemos ese id, así el chat se
+            # cura solo. Sin esto el id muerto se reusa en cada mensaje y la
+            # conversación queda inservible para siempre.
+            if session_id and _retry_on_lost_thread and _looks_like_a_lost_thread(stderr):
+                logger.warning(
+                    "codex: no pude retomar el thread %s (%s) — reintento con "
+                    "sesión nueva y descarto el viejo",
+                    session_id, stderr[:160],
+                )
+                await bus.publish("run:session-reset", {
+                    "run_id": run_id, "agent": agent_name, "old_session": session_id,
+                })
+                return await run(
+                    agent_name=agent_name,
+                    prompt=prompt,
+                    workspace_dir=workspace_dir,
+                    model=model,
+                    session_id=None,
+                    run_id=run_id,
+                    system_context=system_context,
+                    timeout_seconds=timeout_seconds,
+                    extra_config_args=extra_config_args,
+                    _retry_on_lost_thread=False,
+                )
             raise RuntimeError(
                 f"codex salió con código {proc.returncode} sin producir respuesta"
                 + (f": {stderr[:500]}" if stderr else "")

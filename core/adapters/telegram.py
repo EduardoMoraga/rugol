@@ -408,7 +408,12 @@ class _TelegramBot:
         if not self._is_authorized(update):
             return
         chat_id = self._chat_key(update.effective_chat.id)
-        had_mem = _CHAT_SESSIONS.pop(chat_id, None)
+        # Limpiamos la sesión de todos los motores de este chat: "reset" para
+        # el usuario significa empezar de cero, no "de cero en el motor actual".
+        prefix = f"{self._chat_key(chat_id)}::"
+        had_mem = None
+        for key in [k for k in _CHAT_SESSIONS if k == chat_id or k.startswith(prefix)]:
+            had_mem = _CHAT_SESSIONS.pop(key, None) or had_mem
         had_db = False
         try:
             had_db = await session_store.delete_one("telegram", chat_id)
@@ -540,7 +545,9 @@ class _TelegramBot:
         placeholder = await update.message.reply_text(f"⏳ {bound['agent_name']} pensando…")
         # v0.6 — thread conversational context: pass the previous turn's
         # session_id so claude-agent-sdk continues the same session.
-        session_id = _CHAT_SESSIONS.get(self._chat_key(chat_id))
+        session_id = _CHAT_SESSIONS.get(
+            _session_key(self._chat_key(chat_id), _effective_engine(bound))
+        )
         try:
             run_id = await get_orchestrator().enqueue(RunRequest(
                 agent_name=bound["agent_name"],
@@ -599,7 +606,9 @@ class _TelegramBot:
         placeholder = await update.message.reply_text(
             f"⏳ {bound['agent_name']} procesando…"
         )
-        session_id = _CHAT_SESSIONS.get(self._chat_key(chat_id))
+        session_id = _CHAT_SESSIONS.get(
+            _session_key(self._chat_key(chat_id), _effective_engine(bound))
+        )
         try:
             run_id = await get_orchestrator().enqueue(RunRequest(
                 agent_name=bound["agent_name"],
@@ -844,10 +853,14 @@ class _TelegramBot:
             suffix = f"\n\n_run #{run_id} · ${cost:.4f}_"
             new_session = data.get("session_id")
             if new_session:
-                chat_key = self._chat_key(chat_id)
-                _CHAT_SESSIONS[chat_key] = new_session
+                # El motor viene en el evento: guardamos la sesión bajo la clave
+                # de ESE motor, no de "el chat" en general.
+                key = _session_key(
+                    self._chat_key(chat_id), str(data.get("engine") or "claude")
+                )
+                _CHAT_SESSIONS[key] = new_session
                 try:
-                    await session_store.save("telegram", chat_key, new_session)
+                    await session_store.save("telegram", key, new_session)
                 except Exception:
                     logger.exception("session_store.save failed")
             final_text = body + suffix
@@ -970,6 +983,28 @@ class TelegramAdapter(Adapter):
 
 
 # Helpers --------------------------------------------------------------------
+
+def _session_key(chat_key: str, engine: str) -> str:
+    """Clave de sesión por chat Y por motor.
+
+    Un `session_id` es propio del CLI que lo creó: Claude guarda sus sesiones en
+    `~/.claude`, Codex sus threads en `~/.codex`. Compartir una sola clave hacía
+    que al cambiar de motor Rugol intentara retomar una conversación que el
+    nuevo motor nunca vio — `no rollout found for thread id` — y como el fallo
+    no genera sesión nueva, el id muerto se reusaba en cada mensaje siguiente.
+
+    Separarlas además mejora el uso: si volvés al motor anterior, retomás la
+    conversación que tenías ahí.
+    """
+    return f"{chat_key}::{engine or 'claude'}"
+
+
+def _effective_engine(bound: dict | None) -> str:
+    """El motor que va a correr: el override del chat, o el del agente."""
+    if not bound:
+        return "claude"
+    return bound.get("engine") or bound.get("agent_engine") or "claude"
+
 
 async def _lookup_binding(chat_id_str: str) -> dict | None:
     async with async_session_factory() as session:

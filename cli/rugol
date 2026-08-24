@@ -79,6 +79,40 @@ wait_for_health() {
   echo ""; return 1
 }
 
+# ── Puertos: adoptar en vez de duplicar ──────────────────────────────────────
+# El bug que esto arregla: `rugol down` mata por archivo de pid. Si ese archivo
+# quedó desactualizado (un reinicio a medias, un kill -9), el proceso viejo
+# sobrevive y se queda con el puerto. Entonces `up` lanza uno nuevo que no puede
+# bindear y muere, el archivo de pid apunta a un muerto, y el usuario sigue
+# viendo el dashboard VIEJO —código viejo— sin que nada avise.
+_pid_on_port() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | head -1
+}
+
+# ¿Ese proceso es uno nuestro? Comparamos contra una marca de la línea de
+# comandos. Matar un proceso ajeno que casualmente usa el puerto sería peor que
+# no arrancar.
+_is_ours() {
+  local pid="$1" marca="$2"
+  [ -n "$pid" ] || return 1
+  ps -o command= -p "$pid" 2>/dev/null | grep -q "$marca"
+}
+
+# Libera el puerto si lo tiene un proceso NUESTRO que quedó suelto.
+_free_port_if_ours() {
+  local port="$1" marca="$2" pid
+  pid="$(_pid_on_port "$port")"
+  [ -n "$pid" ] || return 0
+  if _is_ours "$pid" "$marca"; then
+    warn "el puerto $port lo tenía un proceso nuestro suelto (pid $pid) — lo cierro"
+    kill -9 "$pid" 2>/dev/null
+    sleep 1
+  else
+    warn "el puerto $port está ocupado por otro proceso (pid $pid) — no lo toco"
+    return 1
+  fi
+}
+
 # ── Process management (native, no Docker) ───────────────────────────────────
 _pid_running() { local p; p="$(cat "$1" 2>/dev/null)"; [ -n "$p" ] && kill -0 "$p" 2>/dev/null; }
 
@@ -98,6 +132,16 @@ start_backend() {
   local py; py="$(resolve_python)"
   mkdir -p "$RUN_DIR" "$LOGS_DIR"
   rotate_log "$LOGS_DIR/core.log"
+  # Si el puerto ya lo tiene un core nuestro sano, lo ADOPTAMOS en vez de
+  # lanzar un duplicado que no va a poder bindear.
+  local held; held="$(_pid_on_port "$CORE_PORT")"
+  if [ -n "$held" ] && _is_ours "$held" "core.main:app"; then
+    if curl -fs -m 3 "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then
+      echo "$held" > "$RUN_DIR/core.pid"
+      return 0
+    fi
+  fi
+  _free_port_if_ours "$CORE_PORT" "core.main:app" || return 1
   # Cargar .env del usuario y apuntar el estado al home global.
   set -a; . "$ENV_FILE"; set +a
   export AGENTS_DIR="$AGENTS_DIR_H" SKILLS_DIR="$SKILLS_DIR_H"
@@ -117,6 +161,14 @@ start_dashboard() {
   rotate_log "$LOGS_DIR/dashboard.log"
   [ -f "$server" ] || { warn "Dashboard no compilado — corré 'rugol build' (o 'rugol up' lo hace)."; return 1; }
   [ -n "$node" ] || { err "Node no disponible."; return 1; }
+  local held; held="$(_pid_on_port "$DASHBOARD_PORT")"
+  if [ -n "$held" ] && _is_ours "$held" "next-server"; then
+    if curl -fs -m 3 -o /dev/null "http://127.0.0.1:${DASHBOARD_PORT}/" 2>/dev/null; then
+      echo "$held" > "$RUN_DIR/dashboard.pid"
+      return 0
+    fi
+  fi
+  _free_port_if_ours "$DASHBOARD_PORT" "next-server" || return 1
   ( cd "$DASH_DIR"; export PORT="$DASHBOARD_PORT" HOSTNAME=127.0.0.1
     exec "$node" "$server" >"$LOGS_DIR/dashboard.log" 2>&1 </dev/null ) &
   local pid=$!; echo "$pid" > "$RUN_DIR/dashboard.pid"; disown "$pid" 2>/dev/null || true
@@ -338,6 +390,11 @@ _stop_pid() {
 cmd_down() {
   _stop_pid "$RUN_DIR/dashboard.pid" "dashboard"
   _stop_pid "$RUN_DIR/core.pid" "core"
+  # Y si quedó algo NUESTRO agarrado al puerto (archivo de pid desactualizado),
+  # lo soltamos: si no, el próximo `up` lanza un duplicado que no puede bindear
+  # y el usuario sigue viendo el proceso viejo.
+  _free_port_if_ours "$DASHBOARD_PORT" "next-server" >/dev/null 2>&1
+  _free_port_if_ours "$CORE_PORT" "core.main:app" >/dev/null 2>&1
 }
 cmd_restart() { cmd_down; sleep 1; cmd_up; }
 
@@ -574,15 +631,62 @@ cmd_sessions() {
 # launchd MATA los hijos cuando el job termina; por eso 'up' no sirve para
 # autostart. Este supervisor se queda corriendo (es el job de launchd), levanta
 # backend+dashboard y los reinicia si se caen. launchd lo reinicia a él si muere.
+# Supervisor: lo que hace que Rugol vuelva solo. Lo lanza launchd al arrancar
+# la máquina (RunAtLoad + KeepAlive), así que apagar y prender no requiere que
+# nadie haga nada.
+#
+# Chequea SALUD, no sólo que el proceso exista. Un core colgado —vivo pero sin
+# responder— es el caso que un chequeo por pid no ve, y es justamente el que
+# deja el asistente muerto sin que se note. Exigimos 3 fallos seguidos antes de
+# reiniciar para no reaccionar a un pico de carga.
 cmd_supervise() {
   require_app; require_env
   mkdir -p "$RUN_DIR" "$LOGS_DIR"
   trap 'cmd_down 2>/dev/null; exit 0' TERM INT
+  local core_fails=0 dash_fails=0 tolerancia=3
+
+  _log_sup() { echo "$(date '+%Y-%m-%d %H:%M:%S') supervisor: $*" >> "$LOGS_DIR/autostart.log"; }
+  _log_sup "arrancado (tolerancia=${tolerancia} chequeos, cada 10s)"
+
   while :; do
-    _pid_running "$RUN_DIR/core.pid" || start_backend
-    if [ -f "$DASH_DIR/.next/standalone/server.js" ]; then
-      _pid_running "$RUN_DIR/dashboard.pid" || start_dashboard
+    # ── core ──
+    if ! _pid_running "$RUN_DIR/core.pid"; then
+      _log_sup "core no está corriendo — lo levanto"
+      start_backend; core_fails=0
+    elif curl -fs -m 5 "http://127.0.0.1:${CORE_PORT}/api/health" >/dev/null 2>&1; then
+      [ "$core_fails" -gt 0 ] && _log_sup "core volvió a responder"
+      core_fails=0
+    else
+      core_fails=$((core_fails + 1))
+      _log_sup "core vivo pero sin responder (${core_fails}/${tolerancia})"
+      if [ "$core_fails" -ge "$tolerancia" ]; then
+        _log_sup "core colgado — lo reinicio"
+        local p; p="$(cat "$RUN_DIR/core.pid" 2>/dev/null)"
+        [ -n "$p" ] && kill -9 "$p" 2>/dev/null
+        rm -f "$RUN_DIR/core.pid"
+        start_backend; core_fails=0
+      fi
     fi
+
+    # ── dashboard ──
+    if [ -f "$DASH_DIR/.next/standalone/server.js" ]; then
+      if ! _pid_running "$RUN_DIR/dashboard.pid"; then
+        _log_sup "dashboard no está corriendo — lo levanto"
+        start_dashboard; dash_fails=0
+      elif curl -fs -m 5 -o /dev/null "http://127.0.0.1:${DASHBOARD_PORT}/" 2>/dev/null; then
+        dash_fails=0
+      else
+        dash_fails=$((dash_fails + 1))
+        if [ "$dash_fails" -ge "$tolerancia" ]; then
+          _log_sup "dashboard colgado — lo reinicio"
+          local d; d="$(cat "$RUN_DIR/dashboard.pid" 2>/dev/null)"
+          [ -n "$d" ] && kill -9 "$d" 2>/dev/null
+          rm -f "$RUN_DIR/dashboard.pid"
+          start_dashboard; dash_fails=0
+        fi
+      fi
+    fi
+
     sleep 10
   done
 }

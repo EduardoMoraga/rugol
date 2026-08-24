@@ -302,3 +302,54 @@ def test_legacy_state_dirs_are_adopted_without_clobbering(tmp_path, monkeypatch)
     finally:
         import shutil
         shutil.rmtree(probe, ignore_errors=True)
+
+
+# ── El launcher no puede dejar procesos agarrados al puerto ───────────────────
+# Bug medido en la instalación real: `rugol down` mata por archivo de pid. Si
+# ese archivo quedó desactualizado (reinicio a medias, kill -9), el proceso viejo
+# sobrevive con el puerto. `up` lanza uno nuevo que no puede bindear y muere, el
+# archivo apunta a un muerto, y el usuario sigue viendo el dashboard VIEJO —
+# código viejo — sin que nada avise. Pasó: puerto 3000 en el pid 80112 mientras
+# dashboard.pid decía 86051.
+
+def _launcher() -> str:
+    from core.config import REPO_ROOT
+    return (REPO_ROOT / "cli" / "rugol").read_text(encoding="utf-8")
+
+
+def test_the_launcher_adopts_a_healthy_process_on_its_port():
+    src = _launcher()
+    assert "_pid_on_port" in src and "_is_ours" in src
+    # Adopción: si el puerto lo tiene un proceso nuestro y responde, se escribe
+    # su pid en vez de lanzar un duplicado.
+    assert 'echo "$held" > "$RUN_DIR/core.pid"' in src
+    assert 'echo "$held" > "$RUN_DIR/dashboard.pid"' in src
+
+
+def test_down_frees_the_port_even_with_a_stale_pid_file():
+    src = _launcher()
+    down = src[src.index("cmd_down() {"):src.index("cmd_restart()")]
+    assert "_free_port_if_ours" in down, (
+        "sin esto, el próximo `up` lanza un duplicado que no puede bindear"
+    )
+
+
+def test_it_never_kills_a_foreign_process():
+    """Matar algo ajeno que casualmente usa el puerto sería peor que no
+    arrancar."""
+    src = _launcher()
+    fn = src[src.index("_free_port_if_ours() {"):]
+    fn = fn[:fn.index("\n}\n") + 3]
+    assert "_is_ours" in fn
+    assert "no lo toco" in fn, "hay que avisar y abstenerse, no matar a ciegas"
+
+
+def test_the_supervisor_checks_health_not_just_the_pid():
+    """Un core colgado —vivo pero sin responder— es el caso que un chequeo por
+    pid no ve, y justo el que deja el asistente muerto sin que se note."""
+    src = _launcher()
+    sup = src[src.index("cmd_supervise() {"):]
+    sup = sup[:sup.index("\n}\n") + 3]
+    assert "/api/health" in sup, "el supervisor tiene que mirar salud"
+    assert "tolerancia" in sup, "no debe reaccionar a un pico transitorio"
+    assert "core_fails" in sup

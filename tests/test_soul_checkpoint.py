@@ -164,3 +164,25 @@ def test_orchestrator_fires_checkpoint_for_dashboard_source(
             advocate_for_run_id=None,
         )
     assert mock_create.call_count == 1
+
+
+# ── El checkpoint no puede duplicar lo que el agente ya guardó ────────────────
+# Medido en vivo: el agente guardó "reportes BI jueves 10h · Versuni en miles"
+# durante el run (tiene las mismas herramientas), y el checkpoint guardó lo
+# mismo 23 segundos después con otro nombre. Dos memorias del mismo hecho
+# degradan el recall: la lista crece y las descripciones compiten.
+
+def test_the_checkpoint_prompt_requires_listing_first():
+    from core.soul.checkpoint import _CHECKPOINT_PROMPT
+
+    assert "list_my_memories" in _CHECKPOINT_PROMPT
+    bajo = _CHECKPOINT_PROMPT.lower()
+    # La instrucción de listar tiene que venir ANTES de la de guardar.
+    assert bajo.index("list_my_memories") < bajo.index("save_memory"), (
+        "si la orden de listar aparece después de la de guardar, el modelo "
+        "guarda primero y pregunta después"
+    )
+    assert "duplicado" in bajo or "de nuevo" in bajo
+    assert "forget_memory" in _CHECKPOINT_PROMPT, (
+        "si lo guardado es peor, hay que poder reemplazarlo en vez de sumar"
+    )

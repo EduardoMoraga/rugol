@@ -43,8 +43,22 @@ Revisá la interacción y guardá UNA o MÁS memorias **solo si aplica de verdad
 3. **project** — estado de iniciativa, decisión, plazo, stakeholder mencionado.
 4. **reference** — puntero a sistema externo: URL, dashboard, ID, canal.
 
+## Primero: mirá qué ya sabés
+
+Llamá `list_my_memories` **antes de guardar nada**. El agente pudo haber guardado
+esto él mismo durante el run —tiene las mismas herramientas que vos— y entonces
+tu memoria sería un duplicado.
+
+- Si el hecho **ya está** guardado: no lo guardes de nuevo. Si lo que ya está es
+  peor o está incompleto, usá `forget_memory` y guardá la versión buena. Nunca
+  dejes dos memorias del mismo hecho.
+- Si no está: seguí con la evaluación de abajo.
+
 **REGLAS DURAS**:
 - NO inventes memorias para parecer útil.
+- NO guardes algo que ya está en la lista (medido: el agente guardó "reportes BI
+  jueves 10h" durante el run y el checkpoint guardó lo mismo 23 segundos
+  después, con otro nombre).
 - NO guardes nada que el agente ya sabe de su propio entrenamiento.
 - NO guardes estado pasajero del turno.
 - Si el run fue una pregunta operativa trivial ("qué día es", "cómo estás") y no hubo aprendizaje real, responde exactamente la frase `NO_MEMORY_NEEDED` y terminá ahí, sin llamar herramientas.
@@ -61,7 +75,7 @@ Si SÍ vale guardar algo, llama la tool `save_memory` UNA VEZ por cada hallazgo 
   ```
 - `kind`: uno de `user|feedback|project|reference`.
 
-Para conectar esta memoria con otras, incluye wikilinks `[[nombre_de_otra_memoria]]` dentro del `content`. Si no estás seguro de los nombres exactos, llama `list_my_memories` primero. Enlazar memorias relacionadas teje tu memoria como una red navegable (grafo Obsidian), no una lista plana.
+Para conectar esta memoria con otras, incluye wikilinks `[[nombre_de_otra_memoria]]` dentro del `content`. Los nombres exactos los tenés de la lista que ya pediste al principio. Enlazar memorias relacionadas teje tu memoria como una red navegable (grafo Obsidian), no una lista plana.
 
 Después de llamar la tool (o de decir NO_MEMORY_NEEDED), terminá. No expliques al usuario lo que guardaste — esto es housekeeping interno.
 """

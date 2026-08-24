@@ -342,3 +342,58 @@ async def test_catalogue_reaches_both_engines(tmp_path, monkeypatch):
                                    workspace_dir=tmp_path, model="m", skills_catalogue=cat,
                                    agent_body="soy X")
     assert cat in seen["codex"]["system_context"]
+
+
+# ── El motor visible y elegible desde la interfaz ─────────────────────────────
+# Antes vivía sólo en el frontmatter de un .md: no se veía ni se podía cambiar.
+
+def test_agentspec_writes_engine_only_when_it_is_not_the_default():
+    from core.api.agents import AgentSpec
+
+    plain = AgentSpec(name="ag", model="claude-sonnet-5", description="d", body="b")
+    assert "engine:" not in plain.to_markdown(), (
+        "no ensuciamos el frontmatter de los agentes de siempre"
+    )
+
+    codex = AgentSpec(name="ag", model="claude-sonnet-5", description="d", body="b", engine="codex")
+    assert "engine: codex" in codex.to_markdown()
+
+    explicit = AgentSpec(name="ag", model="claude-sonnet-5", description="d", body="b",
+                         engine="claude")
+    assert "engine:" not in explicit.to_markdown()
+
+
+def test_agentspec_round_trips_through_the_loader(tmp_path):
+    """Lo que escribe el formulario tiene que volver a leerse igual."""
+    from core.api.agents import AgentSpec
+    from core.registry.loader import load_agent_file
+
+    md = tmp_path / "ida-y-vuelta.md"
+    spec = AgentSpec(name="ida-y-vuelta", model="claude-sonnet-5", description="d",
+                     body="cuerpo", engine="codex")
+    md.write_text(spec.to_markdown(), encoding="utf-8")
+    assert load_agent_file(md).engine == "codex"
+
+
+def test_engines_endpoint_carries_what_the_ui_needs():
+    """Cada motor tiene que traer su estado y el comando que lo arregla."""
+    import asyncio
+
+    from core.api.health import health_engines
+
+    payload = asyncio.run(health_engines())
+    engines = {e["name"]: e for e in payload["engines"]}
+    assert set(engines) == {"claude", "codex"}
+
+    for name, e in engines.items():
+        for field in ("label", "installed", "connected", "connect_command",
+                      "install_command", "supports_memory", "default"):
+            assert field in e, f"{name} le falta {field}"
+        assert e["connect_command"], f"{name} sin comando para conectar"
+
+    assert engines["claude"]["default"] is True
+    assert engines["claude"]["supports_memory"] is True
+    # Las tools de memoria son MCP in-process de la SDK de Claude: decirlo en la
+    # UI es mejor que que el usuario lo descubra cuando el agente no recuerda.
+    assert engines["codex"]["supports_memory"] is False
+    assert engines["codex"]["connect_command"] == "rugol login --codex"

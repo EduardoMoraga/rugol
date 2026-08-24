@@ -14,6 +14,8 @@ import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { type AgentSpec, type Agent } from "@/lib/api";
 import { DEFAULT_MODEL, withCurrent } from "@/lib/models";
+import { fetchEngines } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 
 const STARTER_BODY = `You are a focused agent. Describe in 1-2 sentences who you are.
@@ -54,6 +56,16 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
   const [model, setModel] = useState(initial?.model ?? DEFAULT_MODEL);
+  const [engine, setEngine] = useState(initial?.engine ?? "claude");
+  // El estado real de cada motor: si el CLI no está instalado o la cuenta no
+  // está conectada, hay que decirlo ACÁ — no al fallar la primera corrida.
+  const engines = useQuery({
+    queryKey: ["engines"],
+    queryFn: () => fetchEngines(),
+    staleTime: 60_000,
+    retry: false,
+  });
+  const engineInfo = engines.data?.engines.find((e) => e.name === engine);
   // El modelo del agente puede ser de una generación anterior: lo mantenemos
   // en la lista para no cambiárselo por debajo al editar otro campo.
   const modelOptions = withCurrent(initial?.model);
@@ -66,7 +78,13 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
     if (submitting) return;
     setSubmitting(true);
     try {
-      const a = await onSubmit({ name: name.trim(), model, description: desc.trim(), body });
+      const a = await onSubmit({
+        name: name.trim(),
+        model,
+        engine,
+        description: desc.trim(),
+        body,
+      });
       toast({
         tone: "success",
         title: mode === "create" ? `Created ${a.name}` : `Updated ${a.name}`,
@@ -148,6 +166,56 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
                 ))}
               </Select>
             </div>
+          </div>
+
+          {/* Motor: con qué CLI corre este agente. Vivía sólo en el frontmatter
+              del .md, así que desde la interfaz era invisible. */}
+          <div className="space-y-1.5 mt-4">
+            <FieldLabel hint="qué CLI ejecuta este agente">Motor</FieldLabel>
+            <Select value={engine} onChange={(e) => setEngine(e.target.value)}>
+              {(engines.data?.engines ?? [{ name: "claude", label: "Claude (Anthropic)" }]).map(
+                (e) => (
+                  <option key={e.name} value={e.name}>
+                    {e.label}
+                  </option>
+                ),
+              )}
+            </Select>
+
+            {engineInfo && !engineInfo.installed && (
+              <p className="text-[12.5px] text-[--color-error]">
+                El CLI no está instalado. En la terminal:{" "}
+                <code className="px-1 py-0.5 rounded bg-[--color-bg-elev-2] font-mono">
+                  {engineInfo.install_command}
+                </code>
+              </p>
+            )}
+            {engineInfo?.installed && !engineInfo.connected && (
+              <p className="text-[12.5px] text-[--color-error]">
+                La cuenta no está conectada. En la terminal:{" "}
+                <code className="px-1 py-0.5 rounded bg-[--color-bg-elev-2] font-mono">
+                  {engineInfo.connect_command}
+                </code>
+              </p>
+            )}
+            {engineInfo?.connected && (
+              <p className="text-[12.5px] text-[--color-fg-muted]">
+                Conectado{engineInfo.account ? ` · ${engineInfo.account}` : ""}
+                {engineInfo.cli_version ? ` · ${engineInfo.cli_version}` : ""}
+              </p>
+            )}
+            {engineInfo && !engineInfo.supports_memory && (
+              <p className="text-[12.5px] text-[--color-warn]">
+                Ojo: los agentes en este motor <strong>no usan la memoria</strong> de Rugol.
+                Las herramientas de memoria viven dentro del proceso de Claude y este
+                motor no las puede ver.
+              </p>
+            )}
+            {engine !== "claude" && (
+              <p className="text-[12.5px] text-[--color-fg-subtle]">
+                El modelo de arriba se ignora si es de Claude: este motor usa el suyo.
+              </p>
+            )}
           </div>
           <div className="space-y-1.5 mt-4">
             <FieldLabel hint="one sentence shown on the card">Description</FieldLabel>

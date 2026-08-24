@@ -15,6 +15,7 @@ from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.mcp import test_mcp_server
 from core.registry.service import upsert_agent_file
+from core.runner.base import DEFAULT_ENGINE, ENGINES, normalize_engine
 from core.runner.orchestrator import RunRequest, get_orchestrator
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -29,6 +30,8 @@ class AgentDTO(BaseModel):
     id: int
     name: str
     model: str
+    # Con qué CLI corre este agente. El dashboard lo muestra y lo deja cambiar.
+    engine: str = DEFAULT_ENGINE
     description: str
     status: str
     last_run_at: str | None = None
@@ -65,6 +68,8 @@ class AgentSpec(BaseModel):
     project_slug: str | None = None        # ADR-005
     tools: list[str] | None = None         # Capa 5
     mcp_servers: dict | None = None        # Capa 8
+    # Sprint 8: motor de ejecución. "claude" (default) o "codex".
+    engine: str | None = None
 
     def to_markdown(self) -> str:
         # Build deterministic, valid YAML frontmatter.
@@ -72,6 +77,11 @@ class AgentSpec(BaseModel):
         def esc(s):
             return s.replace("\\", "\\\\").replace('"', '\\"')
         lines = ["---", f"name: {self.name}", f"model: {self.model}"]
+        # Sólo escribimos `engine` cuando NO es el default, para no ensuciar el
+        # frontmatter de los agentes de siempre.
+        chosen_engine = normalize_engine(self.engine)
+        if chosen_engine != DEFAULT_ENGINE:
+            lines.append(f"engine: {chosen_engine}")
         if self.project_slug:
             lines.append(f"project: {self.project_slug.strip().lower()}")
         if self.tools:
@@ -100,6 +110,13 @@ def _validate_spec(spec: AgentSpec) -> None:
             status_code=400,
             detail=f"Model must be one of: {', '.join(sorted(ALLOWED_MODELS))}",
         )
+    if spec.engine and normalize_engine(spec.engine) != (spec.engine or "").strip().lower():
+        # normalize_engine es permisivo a propósito para el frontmatter escrito
+        # a mano, pero por API preferimos decir que el valor no existe.
+        raise HTTPException(
+            status_code=400,
+            detail=f"Engine must be one of: {', '.join(ENGINES)}",
+        )
     if not spec.body.strip():
         raise HTTPException(status_code=400, detail="Body cannot be empty.")
 
@@ -109,6 +126,7 @@ def _to_dto(a: Agent, project: Project | None) -> AgentDTO:
         id=a.id,
         name=a.name,
         model=a.model,
+        engine=a.engine or DEFAULT_ENGINE,
         description=a.description,
         status=a.status,
         last_run_at=a.last_run_at.isoformat() if a.last_run_at else None,

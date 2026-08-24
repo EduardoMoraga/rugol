@@ -91,6 +91,8 @@ export interface McpHttpServer {
 export type McpServer = McpStdioServer | McpHttpServer;
 
 export interface Agent {
+  /** Motor de ejecución: "claude" | "codex". */
+  engine?: string;
   id: number;
   name: string;
   model: string;
@@ -489,6 +491,32 @@ export interface ClaudeAuthStatus {
 /** `verify` hace una llamada real al API (única forma de saber si la credencial
  *  sirve; `auth status` reporta un token revocado como conectado). Cuesta una
  *  fracción de centavo, así que va sólo bajo pedido — nunca en el polling. */
+// Los motores disponibles y su estado. El motor Codex existía sólo en el
+// frontmatter de un archivo .md — invisible desde la interfaz.
+export interface EngineStatus {
+  name: "claude" | "codex" | string;
+  label: string;
+  installed: boolean;
+  cli_version: string;
+  connected: boolean;
+  account: string;
+  plan: string;
+  method: string;
+  credential_source: string;
+  verified: boolean | null;
+  error: string;
+  /** Comando de terminal que conecta la cuenta. */
+  connect_command: string;
+  /** Comando que instala el CLI, vacío si ya está. */
+  install_command: string;
+  default: boolean;
+  /** Si los agentes en este motor pueden usar la memoria de Rugol. */
+  supports_memory: boolean;
+}
+
+export const fetchEngines = (verify = false) =>
+  get<{ engines: EngineStatus[] }>(`/api/health/engines${verify ? "?verify=true" : ""}`);
+
 export const fetchClaudeAuth = (opts: { refresh?: boolean; verify?: boolean } = {}) => {
   const q = new URLSearchParams();
   if (opts.refresh) q.set("refresh", "true");
@@ -605,6 +633,8 @@ export const deletePipelineItem = async (id: number): Promise<void> => {
 export interface AgentSpec {
   name: string;
   model: string;
+  /** Motor de ejecución. Omitir = "claude". */
+  engine?: string;
   description: string;
   body: string;
   project_slug?: string;

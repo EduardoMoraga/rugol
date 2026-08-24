@@ -693,6 +693,17 @@ const ES: Dict = {
   "operations.running": "corriendo",
 
   // ---- Settings ----
+  "settings.engines.title": "Motores",
+  "settings.engines.body":
+    "Con qué CLI corren tus agentes. Se elige por agente; el que no diga nada usa Claude. Conectar cada cuenta se hace desde la terminal: el flujo abre una ventana del proveedor.",
+  "settings.engines.connected": "conectados",
+  "settings.engines.default": "por defecto",
+  "settings.engines.ready": "conectado",
+  "settings.engines.notConnected": "sin conectar",
+  "settings.engines.notInstalled": "sin instalar",
+  "settings.engines.runThis": "En la terminal:",
+  "settings.engines.noMemory":
+    "Los agentes en este motor no usan la memoria de Rugol: las herramientas de memoria viven dentro del proceso de Claude.",
   "settings.claude.title": "Cuenta de Claude",
   "settings.claude.body":
     "Rugol corre tus agentes con el CLI de Claude Code que trae el backend — no con el que tengas en el PATH. Esto muestra si ESE es el que está conectado, y con qué credencial.",
@@ -1496,6 +1507,17 @@ const EN: Dict = {
   "operations.running": "running",
 
   // ---- Settings ----
+  "settings.engines.title": "Engines",
+  "settings.engines.body":
+    "Which CLI runs your agents. Chosen per agent; anything unset uses Claude. Connecting each account happens in the terminal — the login flow opens a provider window.",
+  "settings.engines.connected": "connected",
+  "settings.engines.default": "default",
+  "settings.engines.ready": "connected",
+  "settings.engines.notConnected": "not connected",
+  "settings.engines.notInstalled": "not installed",
+  "settings.engines.runThis": "In the terminal:",
+  "settings.engines.noMemory":
+    "Agents on this engine do not use Rugol's memory: the memory tools live inside the Claude process.",
   "settings.claude.title": "Claude account",
   "settings.claude.body":
     "Rugol runs your agents through the Claude Code CLI bundled with the backend — not the one on your PATH. This shows whether THAT one is signed in, and with which credential.",

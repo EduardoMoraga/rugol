@@ -1,14 +1,14 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle, Mic, KeyRound } from "lucide-react";
+import { Save, Send, MessageSquare, FolderOpen, Cpu, RefreshCw, Plug, Trash2, AlertTriangle, Mic } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createChannelBinding,
   deleteChannelBinding,
   fetchAgents,
   fetchChannelBindings,
-  fetchClaudeAuth,
+  fetchEngines,
   fetchHealth,
   fetchSettings,
   fetchSettingsStatus,
@@ -16,7 +16,6 @@ import {
   resetInstall,
   saveSettings,
   updateSettings,
-  type ClaudeAuthStatus,
   type SettingsUpdate,
 } from "@/lib/api";
 import { ProjectBadge } from "@/components/projects/project-badge";
@@ -58,7 +57,7 @@ export default function SettingsPage() {
 
       {settings.isLoading && <p className="text-sm text-[--color-fg-muted]">{t("common.loading")}</p>}
 
-      <ClaudeAccountSection />
+      <EnginesSection />
 
       {settings.data && status.data && (
         <>
@@ -84,118 +83,126 @@ export default function SettingsPage() {
 
 
 
-function ClaudeAccountSection() {
+function EnginesSection() {
   const { t } = useI18n();
   const qc = useQueryClient();
-  // El chequeo spawnea el CLI (~1s) y el backend lo cachea 60s; un refetch de
-  // 60s mantiene la tarjeta viva sin castigar al servidor.
-  const auth = useQuery({
-    queryKey: ["claude-auth"],
-    queryFn: () => fetchClaudeAuth(),
+  // Los dos motores en una sola tarjeta. Antes sólo se veía Claude, y Codex
+  // existía únicamente en el frontmatter de un archivo .md — invisible.
+  const engines = useQuery({
+    queryKey: ["engines"],
+    queryFn: () => fetchEngines(),
     refetchInterval: 60_000,
     retry: false,
   });
 
-  // El botón hace la comprobación REAL: una llamada mínima al API. El polling
-  // de arriba sólo dice qué credencial está configurada — un token revocado
-  // aparece como conectado hasta que alguien pregunta de verdad.
+  // La comprobación REAL: una llamada mínima al API. El chequeo de arriba sólo
+  // dice qué está configurado — un token revocado aparece como conectado.
   const verify = useMutation({
-    mutationFn: () => fetchClaudeAuth({ refresh: true, verify: true }),
+    mutationFn: () => fetchEngines(true),
     onSuccess: (data) => {
-      qc.setQueryData(["claude-auth"], data);
+      qc.setQueryData(["engines"], data);
+      const claude = data.engines.find((e) => e.name === "claude");
       toast({
-        tone: data.ok ? "success" : "error",
-        title: data.ok ? t("settings.claude.verified") : t("settings.claude.rejected"),
-        body: data.ok ? data.account : data.hint || data.verify_error || data.error,
+        tone: claude?.verified ? "success" : "error",
+        title: claude?.verified
+          ? t("settings.claude.verified")
+          : t("settings.claude.rejected"),
+        body: claude?.verified ? claude.account : claude?.error || "",
       });
     },
     onError: (e: Error) => toast({ tone: "error", title: t("common.error"), body: e.message }),
   });
 
-  const d = auth.data;
-  const credentialLabel = (source: ClaudeAuthStatus["credential_source"]) => {
-    if (source === "env-token") return t("settings.claude.credentialEnvToken");
-    if (source === "api-key") return t("settings.claude.credentialApiKey");
-    if (source === "machine-login") return t("settings.claude.credentialMachine");
-    return source;
-  };
+  const list = engines.data?.engines ?? [];
+  const anyBroken = list.some((e) => !e.connected);
 
   return (
-    <Card className={d && !d.ok ? "border-[--color-error]/40" : undefined}>
+    <Card className={anyBroken ? "border-[--color-warn]/40" : undefined}>
       <SectionHeader
-        icon={<KeyRound size={14} />}
-        title={t("settings.claude.title")}
-        body={t("settings.claude.body")}
+        icon={<Cpu size={14} />}
+        title={t("settings.engines.title")}
+        body={t("settings.engines.body")}
         status={
-          auth.isLoading || verify.isPending ? (
+          engines.isLoading || verify.isPending ? (
             <Badge tone="idle">{t("settings.claude.checking")}</Badge>
-          ) : !d ? null : !d.logged_in ? (
-            <Badge tone="error">{t("settings.claude.notConnected")}</Badge>
-          ) : d.verified === false ? (
-            <Badge tone="error">{t("settings.claude.rejected")}</Badge>
-          ) : d.verified ? (
-            <Badge tone="running">{t("settings.claude.verified")}</Badge>
-          ) : (
-            <Badge tone="warn">{t("settings.claude.configured")}</Badge>
+          ) : list.length === 0 ? null : (
+            <Badge tone={anyBroken ? "warn" : "running"}>
+              {list.filter((e) => e.connected).length}/{list.length}{" "}
+              {t("settings.engines.connected")}
+            </Badge>
           )
         }
       />
 
-      {d && (
-        <div className="space-y-3 mt-1">
-          {!d.ok && (
-            <div className="rounded-md border border-[--color-error]/40 bg-[--color-error]/5 p-3 space-y-2">
-              {(d.verify_error || d.error) && (
-                <p className="text-sm text-[--color-fg]">{d.verify_error || d.error}</p>
+      <div className="space-y-3 mt-1">
+        {list.map((e) => (
+          <div
+            key={e.name}
+            className="rounded-md border border-[--color-border] p-3 space-y-2"
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="font-medium inline-flex items-center gap-2">
+                {e.label}
+                {e.default && (
+                  <span className="text-[10px] uppercase tracking-wider text-[--color-fg-subtle]">
+                    {t("settings.engines.default")}
+                  </span>
+                )}
+              </p>
+              {!e.installed ? (
+                <Badge tone="error">{t("settings.engines.notInstalled")}</Badge>
+              ) : e.verified === false ? (
+                <Badge tone="error">{t("settings.claude.rejected")}</Badge>
+              ) : e.connected ? (
+                <Badge tone="running">
+                  {e.verified ? t("settings.claude.verified") : t("settings.engines.ready")}
+                </Badge>
+              ) : (
+                <Badge tone="warn">{t("settings.engines.notConnected")}</Badge>
               )}
-              {d.hint && (
-                <p className="text-sm text-[--color-fg-muted]">
-                  {d.hint.split("`").map((chunk, i) =>
-                    i % 2 === 1 ? (
-                      <code
-                        key={i}
-                        className="px-1 py-0.5 rounded bg-[--color-bg-elev-2] font-mono text-[12px]"
-                      >
-                        {chunk}
-                      </code>
-                    ) : (
-                      <span key={i}>{chunk}</span>
-                    ),
-                  )}
-                </p>
-              )}
-              <p className="text-xs text-[--color-fg-subtle]">{t("settings.claude.howTo")}</p>
             </div>
-          )}
 
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            {d.account && <Row label={t("settings.claude.account")} value={d.account} />}
-            {d.organization && <Row label={t("settings.claude.organization")} value={d.organization} />}
-            {d.plan && <Row label={t("settings.claude.plan")} value={d.plan} />}
-            {d.method && <Row label={t("settings.claude.method")} value={d.method} />}
-            <Row label={t("settings.claude.credential")} value={credentialLabel(d.credential_source)} />
-            <Row
-              label={t("settings.claude.cli")}
-              value={d.cli_version ? `${d.cli_version} (${d.cli_source})` : "—"}
-            />
-          </dl>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-[13px]">
+              {e.account && <Row label={t("settings.claude.account")} value={e.account} />}
+              {e.plan && <Row label={t("settings.claude.plan")} value={e.plan} />}
+              {e.method && <Row label={t("settings.claude.method")} value={e.method} />}
+              {e.cli_version && <Row label={t("settings.claude.cli")} value={e.cli_version} />}
+            </dl>
 
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-xs text-[--color-fg-subtle]">
-              {d.verified === null ? t("settings.claude.notVerifiedYet") : t("settings.claude.verifyCost")}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => verify.mutate()}
-              disabled={verify.isPending}
-            >
-              <RefreshCw size={13} />
-              {verify.isPending ? t("settings.claude.checking") : t("settings.claude.verifyButton")}
-            </Button>
+            {/* Lo único que el usuario necesita accionar: el comando exacto. */}
+            {(!e.installed || !e.connected || e.verified === false) && (
+              <div className="rounded bg-[--color-bg-elev-2] p-2.5 space-y-1.5">
+                {e.error && <p className="text-[12.5px] text-[--color-fg]">{e.error}</p>}
+                <p className="text-[12.5px] text-[--color-fg-muted]">
+                  {t("settings.engines.runThis")}{" "}
+                  <code className="px-1 py-0.5 rounded bg-[--color-bg] font-mono">
+                    {e.install_command || e.connect_command}
+                  </code>
+                </p>
+              </div>
+            )}
+
+            {!e.supports_memory && (
+              <p className="text-[12px] text-[--color-warn]">
+                {t("settings.engines.noMemory")}
+              </p>
+            )}
           </div>
+        ))}
+
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-xs text-[--color-fg-subtle]">{t("settings.claude.verifyCost")}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => verify.mutate()}
+            disabled={verify.isPending}
+          >
+            <RefreshCw size={13} />
+            {verify.isPending ? t("settings.claude.checking") : t("settings.claude.verifyButton")}
+          </Button>
         </div>
-      )}
+      </div>
     </Card>
   );
 }

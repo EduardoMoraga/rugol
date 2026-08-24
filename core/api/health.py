@@ -131,3 +131,64 @@ def _auth_hint(status: dict) -> str:
         # Configurada, sin comprobar. No prometemos que funcione.
         return ""
     return ""
+
+
+@router.get("/health/engines")
+async def health_engines(verify: bool = False) -> dict:
+    """Estado de los dos motores, para la pantalla de configuración.
+
+    Lo que el dashboard necesita saber de cada uno: si el CLI está instalado, si
+    la cuenta está conectada, y qué comando lo arregla si no. Sin esto el motor
+    Codex existía sólo en el frontmatter de un archivo — invisible.
+    """
+    from core.runner.claude_cli import auth_status_cached, verify_credentials
+    from core.runner.codex_runner import auth_status as codex_auth
+    from core.runner.codex_runner import find_codex
+
+    claude = await asyncio.to_thread(auth_status_cached, refresh=verify)
+    claude_entry = {
+        "name": "claude",
+        "label": "Claude (Anthropic)",
+        "installed": bool(claude["cli_path"]),
+        "cli_version": claude["cli_version"],
+        "connected": bool(claude["logged_in"]),
+        "account": claude["account"],
+        "plan": claude["plan"],
+        "method": claude["method"],
+        "credential_source": claude["credential_source"],
+        "verified": None,
+        "error": claude["error"],
+        "connect_command": "rugol login",
+        "install_command": "",
+        "default": True,
+        "supports_memory": True,
+    }
+    if verify and claude["logged_in"]:
+        probe = await asyncio.to_thread(verify_credentials)
+        claude_entry["verified"] = probe["verified"]
+        if not probe["verified"]:
+            claude_entry["error"] = probe["verify_error"]
+
+    codex = await asyncio.to_thread(codex_auth)
+    codex_entry = {
+        "name": "codex",
+        "label": "Codex (OpenAI)",
+        "installed": bool(codex["cli_path"]),
+        "cli_version": codex["cli_version"],
+        "connected": bool(codex["logged_in"]),
+        "account": "",
+        "plan": "",
+        "method": codex["method"],
+        "credential_source": codex["method"],
+        "verified": None,
+        "error": codex["error"],
+        "connect_command": "rugol login --codex",
+        "install_command": "" if find_codex() else "npm install -g @openai/codex",
+        "default": False,
+        # Las tools de memoria de Rugol son MCP in-process de la SDK de Claude.
+        # Codex no tiene equivalente, así que un agente en Codex no recuerda.
+        # Decirlo en la UI es mejor que que el usuario lo descubra solo.
+        "supports_memory": False,
+    }
+
+    return {"engines": [claude_entry, codex_entry]}

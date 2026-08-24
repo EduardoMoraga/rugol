@@ -646,10 +646,14 @@ class _TelegramBot:
             await update.message.reply_text(f"No pude descargar la imagen: {e}")
             return
         caption = (update.message.caption or "").strip()
+        # Los prompts NO nombran herramientas de un motor concreto: Codex no
+        # tiene `Read`, tiene shell. Decir "abrila" funciona en los dos y deja
+        # que cada modelo use lo que tenga. Nombrar la herramienta de Claude
+        # mandaba a un agente en Codex a buscar algo que no existe.
         prompt = (
             (f"{caption}\n\n" if caption else "")
             + "El usuario te envió una imagen por Telegram. "
-            + "Usa tu herramienta Read para abrirla y describe/responde según corresponda. "
+            + "Abrila con las herramientas que tengas y describe/responde según corresponda. "
             + f"Path absoluto del archivo: {local_path}"
         )
         await self._dispatch_with_prompt(update, chat_id, prompt)
@@ -679,7 +683,7 @@ class _TelegramBot:
                 prompt = (
                     (f"{caption}\n\n" if caption else "")
                     + f"El usuario te envió el archivo {local_path.name}. "
-                    + "No pude extraer texto automáticamente. Usa Read si quieres inspeccionarlo. "
+                    + "No pude extraer texto automáticamente. Abrilo vos si querés inspeccionarlo. "
                     + f"Path: {local_path}"
                 )
             else:
@@ -696,7 +700,7 @@ class _TelegramBot:
             prompt = (
                 (f"{caption}\n\n" if caption else "")
                 + f"El usuario te envió un {local_path.suffix.lstrip('.').upper()} "
-                + f"({local_path.name}). Usa tu herramienta Read para abrirlo "
+                + f"({local_path.name}). Abrilo con las herramientas que tengas "
                 + "(soporta imágenes y PDFs nativos) y responde al usuario.\n\n"
                 + f"Path absoluto: {local_path}"
             )
@@ -704,7 +708,7 @@ class _TelegramBot:
             prompt = (
                 (f"{caption}\n\n" if caption else "")
                 + f"El usuario te envió un archivo de tipo desconocido: {local_path.name}. "
-                + "Prueba con tu herramienta Read; si no puedes leerlo, dile al usuario qué tipo de archivo te sirve.\n\n"
+                + "Intentá abrirlo; si no podés leerlo, decile al usuario qué tipo de archivo te sirve.\n\n"
                 + f"Path absoluto: {local_path}"
             )
 

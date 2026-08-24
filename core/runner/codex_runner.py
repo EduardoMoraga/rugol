@@ -72,6 +72,28 @@ THREAD_LOST_SIGNS = (
 )
 
 
+def _terminate_tree(proc) -> None:
+    """Mata el proceso Y sus hijos.
+
+    `proc.kill()` sólo alcanza al wrapper de node; el binario que realmente
+    genera queda huérfano. Con `start_new_session=True` al lanzarlo, todo el
+    árbol comparte grupo y se puede matar de una.
+    """
+    import os
+    import signal
+
+    if proc.returncode is not None:
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        # Sin grupo (o ya muerto): al menos el hijo directo.
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+
+
 def _looks_like_a_lost_thread(text: str) -> bool:
     lowered = (text or "").lower()
     return any(sign in lowered for sign in THREAD_LOST_SIGNS)
@@ -321,6 +343,11 @@ async def run(
         stderr=asyncio.subprocess.PIPE,
         env=_build_env(),
         cwd=str(workspace_dir),
+        # Grupo de procesos propio. El CLI de Codex es un wrapper de node que
+        # lanza el binario real, así que matar al hijo deja al NIETO vivo: se
+        # midió una corrida cancelada que siguió generando 47s después,
+        # quemando tokens de un ensayo que nadie iba a leer.
+        start_new_session=True,
     )
     assert proc.stdin is not None and proc.stdout is not None
 
@@ -383,10 +410,7 @@ async def run(
                                 "corto la corrida. Comando: %.200s",
                                 verdict.rule, agent_name, command,
                             )
-                            try:
-                                proc.kill()
-                            except ProcessLookupError:
-                                pass
+                            _terminate_tree(proc)
                             return
 
             elif etype == "turn.completed":
@@ -396,12 +420,15 @@ async def run(
 
     try:
         await asyncio.wait_for(_pump(), timeout=timeout_seconds) if timeout_seconds else await _pump()
+    except asyncio.CancelledError:
+        # El usuario canceló. Sin esto el CLI seguía generando: el orquestador
+        # cancela la tarea de asyncio, pero el subproceso no se enteraba.
+        logger.info("codex: corrida %s cancelada — mato el árbol de procesos", run_id)
+        _terminate_tree(proc)
+        raise
     except TimeoutError:
         logger.error("codex: la corrida excedió %ss — corto", timeout_seconds)
-        try:
-            proc.kill()
-        except ProcessLookupError:
-            pass
+        _terminate_tree(proc)
         killed_for = killed_for or f"La corrida excedió el límite de {timeout_seconds}s."
 
     stderr_raw = b""

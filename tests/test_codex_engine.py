@@ -754,3 +754,110 @@ async def test_codex_does_not_retry_a_real_failure(tmp_path, monkeypatch):
         await codex_run(agent_name="t", prompt="x", workspace_dir=tmp_path / "ws",
                         session_id="s-1")
     assert len(intentos) == 1, "no debe reintentar lo que reintentar no arregla"
+
+
+# ── Los prompts no pueden nombrar herramientas de UN motor ────────────────────
+# Bug encontrado auditando: los adjuntos de Telegram decían "Usa tu herramienta
+# Read para abrirla". Codex no tiene `Read` — tiene shell. Un archivo enviado a
+# un chat en Codex recibía una instrucción sobre algo que no existe.
+
+def test_no_prompt_names_a_claude_only_tool():
+    """Barre el código buscando nombres de herramientas de Claude dentro de
+    texto que va al modelo."""
+    import re
+
+    from core.config import REPO_ROOT
+
+    # Herramientas que existen SÓLO en Claude Code. Nombrarlas en un prompt es
+    # asumir el motor.
+    SOLO_CLAUDE = ("Read", "Write", "Edit", "Glob", "Grep", "NotebookEdit", "WebFetch")
+    # Frases que delatan que se le está hablando al modelo sobre una tool.
+    PATRONES = [
+        re.compile(rf"(?:herramienta|tool)\s+`?{t}`?\b", re.IGNORECASE)
+        for t in SOLO_CLAUDE
+    ] + [
+        re.compile(rf"\b(?:usa|use|usá|utiliza)\s+`?{t}`?\b", re.IGNORECASE)
+        for t in SOLO_CLAUDE
+    ]
+
+    # `claude_runner.SYSTEM_PROMPT_APPEND` es la excepción legítima: ese texto
+    # va SÓLO al motor Claude, por definición del archivo.
+    exentos = {"claude_runner.py"}
+
+    ofensas: list[str] = []
+    for path in sorted((REPO_ROOT / "core").rglob("*.py")):
+        if path.name in exentos:
+            continue
+        texto = path.read_text(encoding="utf-8", errors="replace")
+        for i, linea in enumerate(texto.splitlines(), 1):
+            # Sólo miramos líneas que parecen texto para el modelo, no código.
+            if '"' not in linea and "'" not in linea:
+                continue
+            for patron in PATRONES:
+                if patron.search(linea):
+                    ofensas.append(f"{path.relative_to(REPO_ROOT)}:{i}: {linea.strip()[:100]}")
+                    break
+
+    assert not ofensas, (
+        "Prompts que nombran una herramienta que sólo existe en Claude:\n  "
+        + "\n  ".join(ofensas)
+        + "\n\nDecí qué hacer ('abrí el archivo'), no con qué herramienta."
+    )
+
+
+# ── Cancelar tiene que matar el ÁRBOL, no sólo al hijo ────────────────────────
+# Medido antes del arreglo: una corrida cancelada seguía generando 47 segundos
+# después. El CLI de Codex es un wrapper de node que lanza el binario real, así
+# que `proc.kill()` mataba al wrapper y el nieto quedaba quemando tokens.
+
+def test_the_subprocess_gets_its_own_process_group():
+    """Sin grupo propio no hay forma de matar al nieto."""
+    import inspect
+
+    from core.runner import codex_runner
+
+    fuente = inspect.getsource(codex_runner.run)
+    assert "start_new_session=True" in fuente, (
+        "sin grupo de procesos, matar al hijo deja al nieto vivo"
+    )
+
+
+def test_cancellation_kills_the_tree():
+    import inspect
+
+    from core.runner import codex_runner
+
+    fuente = inspect.getsource(codex_runner.run)
+    assert "asyncio.CancelledError" in fuente, (
+        "el orquestador cancela la tarea de asyncio; el subproceso no se enteraba"
+    )
+    # Los tres cortes (freno de seguridad, timeout, cancelación) usan el mismo
+    # camino: si alguno vuelve a `proc.kill()` a secas, el nieto sobrevive.
+    assert fuente.count("_terminate_tree(proc)") >= 3
+    assert "proc.kill()" not in fuente, (
+        "matar sólo al hijo deja al binario real corriendo"
+    )
+
+
+@pytest.mark.asyncio
+async def test_terminate_tree_survives_a_dead_process(tmp_path, monkeypatch):
+    """Cortar dos veces, o cortar algo ya muerto, no puede levantar."""
+    from core.runner.codex_runner import _terminate_tree
+
+    class Muerto:
+        returncode = 0
+        pid = 999999
+
+        def kill(self):
+            raise ProcessLookupError
+
+    _terminate_tree(Muerto())  # no debe levantar
+
+    class Vivo:
+        returncode = None
+        pid = 999999  # no existe → killpg falla
+
+        def kill(self):
+            raise ProcessLookupError
+
+    _terminate_tree(Vivo())

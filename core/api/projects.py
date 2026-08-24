@@ -254,7 +254,7 @@ async def screen_cvs(id_or_slug: str, body: ScreenBody) -> dict:
         f"Perfil del cargo (job description):\n{jd or '(sin descripción; evalúa por idoneidad general)'}\n\n"
         "Pasos:\n"
         "1. Lista los archivos de la carpeta (Bash `ls` o Glob).\n"
-        "2. Por cada CV (PDF/DOCX/imagen/texto), ábrelo con tu herramienta Read y evalúalo contra el perfil.\n"
+        "2. Por cada CV (PDF/DOCX/imagen/texto), ábrelo con las herramientas que tengas y evalúalo contra el perfil.\n"
         "3. Asigna un score de encaje 1-5 con evidencia tomada del CV.\n"
         "4. Registra a CADA candidato evaluado en el pipeline con POST al endpoint /api/pipeline: "
         f'kind=\"candidate\", title=<nombre del candidato>, subtitle=<rol o seniority>, stage=\"Screening\", '

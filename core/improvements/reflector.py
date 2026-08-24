@@ -11,7 +11,7 @@ from sqlalchemy import desc, select
 
 from core.db import async_session_factory
 from core.db.models import Agent, Improvement, Run
-from core.runner.claude_runner import run_agent
+from core.llm_models import resolve_model
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +65,19 @@ async def propose_improvement(agent_id: int, workspace_dir: Path) -> int | None:
             run_summary=run_summary,
         )
 
+    from core.runner.claude_runner import run_agent
+
     try:
         result = await run_agent(
             agent_name="rugol-reflector",
             prompt=prompt,
             workspace_dir=workspace_dir,
-            model=agent.model,
+            # La reflexión es una tarea de la plataforma y corre en Claude, así
+            # que el modelo del agente hay que traducirlo: si el agente está en
+            # Codex, `agent.model` es un id de OpenAI y Claude lo rechaza — la
+            # reflexión fallaba en silencio y el bucle self-improving nunca
+            # proponía nada para agentes en Codex.
+            model=resolve_model("claude", agent.model),
         )
     except Exception:
         logger.exception("reflection job failed for agent %s", agent_id)

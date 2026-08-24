@@ -18,7 +18,6 @@ from pathlib import Path
 
 from core.config import get_settings
 from core.llm_models import HAIKU
-from core.soul.tools import SOUL_TOOL_NAMES, build_soul_mcp_server
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +99,17 @@ async def run_checkpoint(
         agent_response=(agent_response or "").strip()[:4000],
     )
 
-    soul_server = build_soul_mcp_server(agent_name)
+    # El checkpoint usa el MISMO servicio de memoria que todo lo demás (MCP
+    # sobre HTTP). Antes usaba un servidor in-process propio: dos
+    # implementaciones de lo mismo, condenadas a separarse.
+    #
+    # Ojo con la identidad: la CORRIDA se llama "<agente>-checkpoint" (para que
+    # no cuente como corrida del agente ni dispare otro checkpoint), pero la
+    # memoria tiene que escribirse en el almacén del AGENTE. Por eso el token se
+    # emite con el nombre sin sufijo.
+    from core.mcp.memory_service import claude_server_config, issue_token, revoke_token
+
+    memory_token = issue_token(agent_name, run_id=None)
 
     try:
         result = await run_agent(
@@ -108,9 +117,8 @@ async def run_checkpoint(
             prompt=prompt,
             workspace_dir=workspace_dir,
             model=HAIKU,
-            tools=None,  # let the preset surface the soul tools naturally
-            soul_mcp_server=soul_server,
-            soul_tool_names=SOUL_TOOL_NAMES,
+            tools=None,  # let the preset surface the memory tools naturally
+            memory_mcp=claude_server_config(memory_token),
             # We deliberately skip soul_context here — the checkpoint
             # already has identity + rules embedded in its prompt, and
             # we don't want to recurse the world-state / memory blocks
@@ -122,6 +130,9 @@ async def run_checkpoint(
             agent_name,
         )
         return False
+    finally:
+        # El token muere con el checkpoint, igual que con una corrida normal.
+        revoke_token(memory_token)
 
     text = (result.final_text or "").strip()
     if "NO_MEMORY_NEEDED" in text and "save_memory" not in text:

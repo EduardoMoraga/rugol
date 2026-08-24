@@ -26,9 +26,7 @@ from core.runner.telegram_tools import (
     build_telegram_mcp_server,
 )
 from core.soul import (
-    SOUL_TOOL_NAMES,
     build_soul_context,
-    build_soul_mcp_server,
     build_world_state_block,
     classify,
     model_for_track,
@@ -189,7 +187,6 @@ class RuntimeOrchestrator:
             run_count=prior_run_count,
             last_run_at_iso=last_run_at_iso,
         )
-        soul_mcp_server = build_soul_mcp_server(agent_name_snapshot)
 
         # Telegram MCP server — None when no bot token is configured. When
         # present, the agent gains an `mcp__rugol-telegram__send_telegram_message`
@@ -292,7 +289,6 @@ class RuntimeOrchestrator:
                 agent_id=agent.id,
                 mcp_servers=agent.mcp_servers,
                 soul_context=soul_context,
-                soul_mcp_server=soul_mcp_server,
                 telegram_mcp_server=telegram_mcp_server,
                 runner_prompt=runner_prompt,
                 agent_body=effective_agent_body,
@@ -315,7 +311,6 @@ class RuntimeOrchestrator:
         agent_id: int | None = None,
         mcp_servers: dict | None = None,
         soul_context: str | None = None,
-        soul_mcp_server=None,
         telegram_mcp_server=None,
         runner_prompt: str | None = None,
         agent_body: str | None = None,
@@ -338,8 +333,6 @@ class RuntimeOrchestrator:
                     project_context=project_context,
                     mcp_servers=mcp_servers,
                     soul_context=soul_context,
-                    soul_mcp_server=soul_mcp_server,
-                    soul_tool_names=SOUL_TOOL_NAMES,
                     telegram_mcp_server=telegram_mcp_server,
                     telegram_tool_names=TELEGRAM_TOOL_NAMES,
                     agent_body=agent_body,

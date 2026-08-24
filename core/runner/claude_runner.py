@@ -146,8 +146,6 @@ async def run_agent(
     project_context: str | None = None,
     mcp_servers: dict | None = None,
     soul_context: str | None = None,
-    soul_mcp_server=None,
-    soul_tool_names: tuple[str, ...] = (),
     agent_body: str | None = None,
     telegram_mcp_server=None,
     telegram_tool_names: tuple[str, ...] = (),
@@ -171,13 +169,9 @@ async def run_agent(
     to project_context so the agent reads "who am I + how to remember"
     before the project mission.
 
-    `soul_mcp_server`: in-process MCP server exposing save_memory,
-    list_my_memories, forget_memory bound to this agent's name. None
-    disables the Soul tools for the run.
-
-    `soul_tool_names`: MCP-qualified tool names to add to the allowlist
-    when `tools` whitelist is set. Ignored when `tools` is None/empty
-    (preset uses every tool anyway).
+    `memory_mcp`: config del servidor de memoria de Rugol (MCP sobre HTTP).
+    Es el MISMO servicio que usa el motor Codex — la memoria vive en el core,
+    no dentro de un CLI. None deja la corrida sin herramientas de memoria.
 
     `agent_body`: the agent's persona/instructions (the body of its .md
     template, or — when Soul-3 is active — the body of the currently
@@ -279,8 +273,6 @@ async def run_agent(
     merged_mcp: dict = {}
     if mcp_servers:
         merged_mcp.update(mcp_servers)
-    if soul_mcp_server is not None:
-        merged_mcp["rugol-soul"] = soul_mcp_server
     if telegram_mcp_server is not None:
         merged_mcp["rugol-telegram"] = telegram_mcp_server
     # La memoria por HTTP: el MISMO servidor que usa Codex. Antes era un MCP
@@ -299,7 +291,7 @@ async def run_agent(
     # save_memory existing — it just acknowledged like a polite assistant.
     platform_tool_names: list[str] = []
     memory_names = list(MEMORY_TOOL_NAMES) if memory_mcp else []
-    for extra in memory_names + list(soul_tool_names) + list(telegram_tool_names):
+    for extra in memory_names + list(telegram_tool_names):
         if extra not in platform_tool_names:
             platform_tool_names.append(extra)
 

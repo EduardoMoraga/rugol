@@ -12,14 +12,14 @@ Covers:
 from __future__ import annotations
 
 import shutil
+from pathlib import Path
 
 import pytest
 
 from core.memory import memory_dir
-from core.soul import SOUL_TOOL_NAMES, build_soul_context, build_soul_mcp_server
+from core.soul import build_soul_context
 from core.soul.auto_memory import AUTO_MEMORY_RULES
 from core.soul.identity import build_identity_block
-
 
 AGENT = "test-soul-agent"
 
@@ -71,128 +71,51 @@ def test_soul_context_composes_identity_and_rules():
     assert "Tu identidad" in ctx
     assert "Cómo usar tu memoria persistente" in ctx
 
+# ── Memoria: un solo camino ───────────────────────────────────────────────────
+# El servidor MCP in-process (core/soul/tools.py) se eliminó en 2.0. Había DOS
+# implementaciones de memoria —una para el runtime, otra para el checkpoint
+# automático— y dos implementaciones de lo mismo se separan con el tiempo. Ahora
+# todo pasa por core/mcp/memory_service, que es lo que usan los dos motores.
 
-def test_soul_tool_names_match_mcp_convention():
-    assert len(SOUL_TOOL_NAMES) == 3
-    for name in SOUL_TOOL_NAMES:
-        assert name.startswith("mcp__rugol-soul__")
+def test_the_in_process_memory_server_is_gone():
+    """Si alguien lo reintroduce, esto lo cuenta."""
+    import core.soul as soul
 
-
-def test_soul_mcp_server_structure():
-    server = build_soul_mcp_server(AGENT)
-    assert server["type"] == "sdk"
-    assert server["name"] == "rugol-soul"
-    assert server["instance"] is not None
-
-
-@pytest.mark.asyncio
-async def test_save_then_list_then_forget_via_tools():
-    """End-to-end: build the server, fish out the three handlers, exercise them."""
-    server = build_soul_mcp_server(AGENT)
-    instance = server["instance"]
-
-    # The MCP Server stores handlers in request_handlers keyed by request type.
-    # Easiest path: ask the registered list_tools handler then invoke call_tool.
-    from mcp.types import CallToolRequest, ListToolsRequest
-
-    # We don't go through the request_handlers plumbing — too coupled to MCP
-    # internals. Instead we re-build a quick way to invoke each by name
-    # through the public attribute set up by create_sdk_mcp_server.
-    #
-    # The cleanest path that works across MCP versions: call the handlers
-    # registered on the instance via _request_handlers (private but stable).
-    handlers = getattr(instance, "request_handlers", None)
-    assert handlers is not None, "MCP server should expose request_handlers"
-
-    list_handler = handlers[ListToolsRequest]
-    call_handler = handlers[CallToolRequest]
-
-    list_req = ListToolsRequest(method="tools/list")
-    list_result = await list_handler(list_req)
-    tool_names = {t.name for t in list_result.root.tools}
-    assert tool_names == {"save_memory", "list_my_memories", "forget_memory"}
-
-    async def call(name: str, args: dict) -> str:
-        req = CallToolRequest(
-            method="tools/call",
-            params={"name": name, "arguments": args},
-        )
-        res = await call_handler(req)
-        # ServerResult wraps a CallToolResult; flatten text content for asserts
-        inner = res.root
-        return "\n".join(getattr(c, "text", "") for c in inner.content)
-
-    # SAVE
-    out = await call("save_memory", {
-        "name": "test pref",
-        "description": "Likes succinct answers",
-        "content": "User prefers short, direct responses.",
-        "kind": "feedback",
-    })
-    assert "Saved memory" in out
-
-    # LIST
-    out = await call("list_my_memories", {})
-    assert "test pref" in out
-    assert "feedback" in out
-
-    # FORGET (by name)
-    out = await call("forget_memory", {"file_or_name": "test pref"})
-    assert "Forgot memory" in out
-
-    # LIST again → empty
-    out = await call("list_my_memories", {})
-    assert "no memories yet" in out
+    assert not hasattr(soul, "build_soul_mcp_server")
+    assert not hasattr(soul, "SOUL_TOOL_NAMES")
+    assert not (Path(soul.__file__).parent / "tools.py").exists()
 
 
-@pytest.mark.asyncio
-async def test_save_memory_rejects_invalid_kind():
-    server = build_soul_mcp_server(AGENT)
-    instance = server["instance"]
-    from mcp.types import CallToolRequest
+def test_memory_tool_names_target_the_shared_service():
+    from core.mcp.memory_service import MCP_SERVER_NAME, MEMORY_TOOL_NAMES
 
-    handlers = instance.request_handlers
-    call_handler = handlers[CallToolRequest]
+    assert MCP_SERVER_NAME == "rugol-memory"
+    assert len(MEMORY_TOOL_NAMES) == 4
+    for name in MEMORY_TOOL_NAMES:
+        assert name.startswith(f"mcp__{MCP_SERVER_NAME}__")
 
-    req = CallToolRequest(
-        method="tools/call",
-        params={
-            "name": "save_memory",
-            "arguments": {
-                "name": "x",
-                "description": "y",
-                "content": "z",
-                "kind": "garbage",
-            },
-        },
+
+def test_the_checkpoint_writes_to_the_agents_store_not_the_checkpoints(tmp_path, monkeypatch):
+    """La CORRIDA del checkpoint se llama "<agente>-checkpoint" para no contar
+    como corrida del agente. Pero la memoria tiene que caer en el almacén del
+    AGENTE — si el token se emitiera con el nombre sufijado, cada auto-memoria
+    terminaría en una carpeta fantasma."""
+    import inspect
+
+    from core.mcp.memory_service import issue_token, resolve_token
+    from core.soul import checkpoint
+
+    monkeypatch.setenv("RUGOL_DATA_DIR", str(tmp_path))
+    fuente = inspect.getsource(checkpoint)
+
+    assert "issue_token(agent_name" in fuente, (
+        "el token debe emitirse con el nombre SIN sufijo"
     )
-    res = await call_handler(req)
-    inner = res.root
-    assert inner.isError is True
-    text = "\n".join(getattr(c, "text", "") for c in inner.content)
-    assert "kind must be one of" in text
+    assert 'issue_token(f"{agent_name}-checkpoint"' not in fuente
+    assert "revoke_token(memory_token)" in fuente, "el token debe revocarse al terminar"
+
+    # Y la garantía misma: el token resuelve al agente, no al checkpoint.
+    token = issue_token("mi-agente")
+    assert resolve_token(token) == "mi-agente"
 
 
-@pytest.mark.asyncio
-async def test_save_memory_rejects_empty_fields():
-    server = build_soul_mcp_server(AGENT)
-    instance = server["instance"]
-    from mcp.types import CallToolRequest
-
-    call_handler = instance.request_handlers[CallToolRequest]
-
-    req = CallToolRequest(
-        method="tools/call",
-        params={
-            "name": "save_memory",
-            "arguments": {
-                "name": "",
-                "description": "y",
-                "content": "z",
-                "kind": "user",
-            },
-        },
-    )
-    res = await call_handler(req)
-    inner = res.root
-    assert inner.isError is True

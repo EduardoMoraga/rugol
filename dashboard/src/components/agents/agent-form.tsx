@@ -13,6 +13,12 @@ import { Card, PageHeader } from "@/components/ui/card";
 import { FieldLabel, Input, Select, Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { type AgentSpec, type Agent } from "@/lib/api";
+import {
+  AGENT_NAME_MAX,
+  AGENT_NAME_MIN,
+  AGENT_NAME_PATTERN,
+  slugifyAgentName,
+} from "@/lib/agent-name";
 import { DEFAULT_MODEL, withCurrent } from "@/lib/models";
 import { fetchEngines } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
@@ -55,6 +61,12 @@ interface Props {
 export function AgentForm({ mode, initial, onSubmit, title, description, redirectTo }: Props) {
   const router = useRouter();
   const [name, setName] = useState(initial?.name ?? "");
+  // Lo que se guarda es el slug, no lo que la persona tipeó. Nadie debería
+  // aprender las reglas de un slug para crear un agente: mostramos el
+  // resultado mientras escribe y mandamos eso.
+  const slug = slugifyAgentName(name);
+  const slugDiffers = mode === "create" && slug !== name.trim() && name.trim() !== "";
+  const slugTooShort = mode === "create" && name.trim() !== "" && slug.length < AGENT_NAME_MIN;
   const [model, setModel] = useState(initial?.model ?? DEFAULT_MODEL);
   const [engine, setEngine] = useState(initial?.engine ?? "claude");
   // El estado real de cada motor: si el CLI no está instalado o la cuenta no
@@ -88,7 +100,7 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
     setSubmitting(true);
     try {
       const a = await onSubmit({
-        name: name.trim(),
+        name: mode === "create" ? slug : name.trim(),
         model,
         engine,
         description: desc.trim(),
@@ -153,19 +165,42 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
         <Card>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <FieldLabel hint={mode === "edit" ? "renames not supported here" : "lowercase, dashes ok"}>
+              <FieldLabel
+                hint={mode === "edit" ? "renames not supported here" : "spaces and accents are fine"}
+              >
                 Name
               </FieldLabel>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="brand-architect"
+                placeholder="Brand architect"
                 required
                 disabled={mode === "edit"}
-                pattern="[a-z0-9][a-z0-9-]+[a-z0-9]"
-                minLength={3}
-                maxLength={64}
+                // El guion va ESCAPADO: los navegadores compilan el `pattern`
+                // con el flag `v`, y un guion literal suelto en una clase de
+                // caracteres no compila bajo `v`. Cuando no compila, el
+                // navegador ignora el pattern en silencio — que es como
+                // "Analista BI" llegaba al servidor y volvía como 400.
+                pattern={mode === "create" ? undefined : AGENT_NAME_PATTERN}
+                maxLength={AGENT_NAME_MAX * 2}
               />
+              {mode === "create" && (slugDiffers || slugTooShort) && (
+                <p
+                  className={
+                    slugTooShort
+                      ? "text-xs text-[--color-danger]"
+                      : "text-xs text-[--color-fg-muted]"
+                  }
+                >
+                  {slugTooShort ? (
+                    <>Needs at least {AGENT_NAME_MIN} letters or digits.</>
+                  ) : (
+                    <>
+                      Saved as <code className="font-mono text-[--color-accent-strong]">{slug}</code>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <FieldLabel>Model</FieldLabel>
@@ -275,7 +310,11 @@ export function AgentForm({ mode, initial, onSubmit, title, description, redirec
           >
             Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={submitting}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={submitting || (mode === "create" && slug.length < AGENT_NAME_MIN)}
+          >
             <Save size={13} /> {submitting ? "Saving…" : mode === "create" ? "Create agent" : "Save changes"}
           </Button>
         </div>

@@ -1,7 +1,6 @@
 """Agents CRUD + run-now."""
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -9,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import desc, select
 from sqlalchemy.orm import selectinload
 
-from core import llm_models, runtime_state
+from core import llm_models, naming, runtime_state
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
@@ -20,7 +19,9 @@ from core.runner.orchestrator import RunRequest, get_orchestrator
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$")
+# Definido en core/naming: el mismo criterio lo usan skills, el Architect y
+# `lib/agent-name.ts` en el dashboard.
+NAME_RE = naming.NAME_RE
 # Una sola fuente de verdad (core/llm_models). El wizard de Windows llegó a
 # ofrecer un modelo que esta whitelist rechazaba: duplicar la lista fue el bug.
 ALLOWED_MODELS = set(llm_models.ALLOWED_MODELS)
@@ -108,12 +109,19 @@ class AgentSpec(BaseModel):
         return frontmatter + body
 
 
-def _validate_spec(spec: AgentSpec) -> None:
-    if not NAME_RE.fullmatch(spec.name):
-        raise HTTPException(
-            status_code=400,
-            detail="Name must be lowercase, 3-64 chars, only letters/digits/dashes, no leading or trailing dash.",
-        )
+def _validate_name(name: str) -> None:
+    if not NAME_RE.fullmatch(name):
+        raise HTTPException(status_code=400, detail=naming.NAME_RULE_EN)
+
+
+def _validate_spec(spec: AgentSpec, *, check_name: bool = True) -> None:
+    # `check_name=False` en el PUT: ese endpoint PROHÍBE renombrar, así que el
+    # nombre que llega es siempre el que el agente ya tiene. Validarlo ahí no
+    # protegía nada y era una trampa: un agente cargado de un `.md` escrito a
+    # mano (el watcher acepta cualquier nombre) no se podía guardar nunca más
+    # desde el dashboard, con el campo Nombre deshabilitado para colmo.
+    if check_name:
+        _validate_name(spec.name)
     # El modelo se valida contra EL MOTOR del agente. La whitelist era sólo de
     # Claude, así que guardar un agente en Codex con un modelo de Codex daba 400
     # y cambiar de motor desde la terminal o el dashboard fallaba.
@@ -299,7 +307,7 @@ async def get_agent_source(agent_id: int) -> dict:
 @router.put("/{agent_id}")
 async def update_agent(agent_id: int, body: AgentSpec) -> AgentDTO:
     """Rewrite the agent's `.md` file. Renames are not allowed in this endpoint."""
-    _validate_spec(body)
+    _validate_spec(body, check_name=False)
     async with async_session_factory() as session:
         a = await session.get(Agent, agent_id)
         if a is None:

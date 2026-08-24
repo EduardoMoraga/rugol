@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 
 from sqlalchemy import select
@@ -11,6 +10,7 @@ from core import runtime_state
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Schedule
+from core.naming import NAME_RE, slugify
 from core.ontology import get_ontology
 from core.registry.service import upsert_agent_file, upsert_skill_file
 from core.scheduler import get_scheduler
@@ -37,9 +37,18 @@ class DeployResult:
         return self.__dict__
 
 
-def _slugify(name: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
-    return s[:80] or "project"
+def _nombre_de_agente(raw: str) -> str | None:
+    """El nombre que va al archivo, o None si no queda nada usable.
+
+    Acepta tal cual lo que ya cumple; si no, lo slugifica. Un nombre que no
+    sobrevive al slug (por ejemplo "…") es preferible saltarlo que escribir un
+    archivo que nadie va a poder editar después.
+    """
+    limpio = (raw or "").strip()
+    if NAME_RE.fullmatch(limpio):
+        return limpio
+    candidato = slugify(limpio, max_len=64)
+    return candidato if NAME_RE.fullmatch(candidato) else None
 
 
 def _agent_md(name: str, model: str, description: str, body: str, project_slug: str | None) -> str:
@@ -64,7 +73,7 @@ async def _ensure_project(spec: ProposalProject | None) -> tuple[Project, bool]:
                 select(Project).where(Project.slug == "workspace")
             )).scalar_one()
             return ws, False
-        slug = (spec.slug or _slugify(spec.name)).strip().lower()
+        slug = (spec.slug or slugify(spec.name, fallback="project")).strip().lower()
         existing = (await session.execute(
             select(Project).where(Project.slug == slug)
         )).scalar_one_or_none()
@@ -123,26 +132,38 @@ async def deploy(
 
     # 1. Agents
     for a in proposal.agents:
-        target = agents_dir / f"{a.name}.md"
+        # El nombre pasa por el slug SIEMPRE. El prompt le pide al modelo
+        # minúsculas y guiones, pero un prompt no es una garantía: un
+        # "Analista BI" creaba `Analista BI.md`, el watcher lo cargaba, y ese
+        # agente ya no se podía editar desde el dashboard nunca más.
+        nombre = _nombre_de_agente(a.name)
+        if nombre is None:
+            res.agents_skipped.append({"name": a.name, "reason": "invalid name"})
+            continue
+        target = agents_dir / f"{nombre}.md"
         if target.exists():
-            res.agents_skipped.append({"name": a.name, "reason": "file already exists"})
+            res.agents_skipped.append({"name": nombre, "reason": "file already exists"})
             continue
         target.write_text(
-            _agent_md(a.name, a.model, a.description, a.body, project.slug),
+            _agent_md(nombre, a.model, a.description, a.body, project.slug),
             encoding="utf-8",
         )
         await upsert_agent_file(target)
-        res.agents_created.append(a.name)
+        res.agents_created.append(nombre)
 
     # 2. Skills
     for s in proposal.skills:
-        target = skills_dir / f"{s.name}.md"
-        if target.exists():
-            res.skills_skipped.append({"name": s.name, "reason": "file already exists"})
+        nombre_skill = _nombre_de_agente(s.name)
+        if nombre_skill is None:
+            res.skills_skipped.append({"name": s.name, "reason": "invalid name"})
             continue
-        target.write_text(_skill_md(s.name, s.description, s.body), encoding="utf-8")
+        target = skills_dir / f"{nombre_skill}.md"
+        if target.exists():
+            res.skills_skipped.append({"name": nombre_skill, "reason": "file already exists"})
+            continue
+        target.write_text(_skill_md(nombre_skill, s.description, s.body), encoding="utf-8")
         await upsert_skill_file(target)
-        res.skills_created.append(s.name)
+        res.skills_created.append(nombre_skill)
 
     # 3. Schedules — need agent IDs from the DB.
     if proposal.schedules:

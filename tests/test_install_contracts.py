@@ -49,11 +49,10 @@ def test_health_carries_an_identity_marker():
 
 
 def test_the_health_payload_actually_ships_the_marker():
+    from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
     from core.api.health import SERVICE_ID, router
-
-    from fastapi import FastAPI
 
     app = FastAPI()
     app.include_router(router, prefix="/api")

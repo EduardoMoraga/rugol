@@ -8,20 +8,20 @@ hides them from the project-first navigation.
 from __future__ import annotations
 
 import datetime as dt
-import re
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, select
 
+from core import naming
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
-SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,78}[a-z0-9]$")
+SLUG_RE = naming.SLUG_RE  # una sola fuente (core/naming)
 
 
 class ProjectDTO(BaseModel):
@@ -74,8 +74,7 @@ class ProjectUpdate(BaseModel):
 
 
 def _slugify(name: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", name.strip().lower()).strip("-")
-    return s[:80] or "project"
+    return naming.slugify(name, fallback="project")
 
 
 def _validate_slug(slug: str) -> None:

@@ -1,21 +1,20 @@
 """Skills CRUD via UI."""
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from core import runtime_state
+from core import naming, runtime_state
 from core.db import async_session_factory
 from core.db.models import Skill
 from core.registry.service import upsert_skill_file
 
 router = APIRouter(prefix="/skills", tags=["skills"])
 
-NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$")
+NAME_RE = naming.NAME_RE  # una sola fuente (core/naming)
 
 
 class SkillDTO(BaseModel):

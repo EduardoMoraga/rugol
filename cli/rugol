@@ -55,6 +55,27 @@ require_app() {
     exit 1
   fi
 }
+# El repositorio de Rugol. Uno solo: el personal de Eduardo. `rugol update`
+# comprueba que el clon instalado apunte acá y lo corrige si no — si no, una
+# máquina clonada de otro remoto se queda actualizando desde el lugar
+# equivocado sin que nada lo diga.
+CANONICAL_REPO="${RUGOL_REPO:-https://github.com/EduardoMoraga/rugol.git}"
+
+_norm_repo() { echo "$1" | sed 's/\.git$//; s#/$##' | tr 'A-Z' 'a-z'; }
+
+ensure_origin() {
+  local dir="$1" actual
+  actual="$(git -C "$dir" remote get-url origin 2>/dev/null)"
+  [ "$(_norm_repo "$actual")" = "$(_norm_repo "$CANONICAL_REPO")" ] && return 0
+  if [ -n "$actual" ]; then
+    warn "el clon apuntaba a $actual"
+    git -C "$dir" remote set-url origin "$CANONICAL_REPO" 2>/dev/null
+  else
+    warn "el clon no tenía 'origin'"
+    git -C "$dir" remote add origin "$CANONICAL_REPO" 2>/dev/null
+  fi && ok "origin ahora es $CANONICAL_REPO" || err "no pude repuntar origin"
+}
+
 require_env() {
   [ -f "$ENV_FILE" ] || { err "Falta configuración. Corré primero:  ${B}rugol setup${X}"; exit 1; }
 }
@@ -692,17 +713,25 @@ cmd_update() {
   echo ""
   if [ -d "$APP_DIR/.git" ]; then
     say "Actualizando código..."
+    ensure_origin "$APP_DIR"
     # reset --hard al remoto (no 'pull'): un deploy no debe trabarse por
     # archivos que el runtime escribe. Tus datos viven en $RUGOL_HOME, no acá.
-    if git -C "$APP_DIR" fetch --depth 1 origin main >/dev/null 2>&1 \
-       && git -C "$APP_DIR" reset --hard origin/main >/dev/null 2>&1; then
-      ok "código actualizado"
+    local salida
+    if salida="$(git -C "$APP_DIR" fetch --depth 1 origin main 2>&1)" \
+       && salida="$(git -C "$APP_DIR" reset --hard origin/main 2>&1)"; then
+      ok "código actualizado ($(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null))"
     else
-      warn "no pude bajar la última versión (¿conexión?); sigo con lo instalado"
+      # Decimos QUÉ falló. Culpar a la conexión por cualquier cosa —un repo sin
+      # permisos, una rama que no existe— manda a mirar el lugar equivocado.
+      err "no pude bajar la última versión desde $CANONICAL_REPO"
+      say "$salida"
+      warn "sigo con lo instalado."
     fi
   fi
-  # Refrescar el launcher en el PATH (sin reinstalar a mano).
-  install -m 0755 "$APP_DIR/cli/rugol" "$HOME/.local/bin/rugol" 2>/dev/null && ok "launcher actualizado"
+  # Refrescar el launcher donde efectivamente está instalado.
+  local bin_dir="$HOME/.local/bin"
+  [ "$RUGOL_HOME" = "$HOME/.rugol" ] || bin_dir="$RUGOL_HOME/bin"
+  [ -d "$bin_dir" ] && install -m 0755 "$APP_DIR/cli/rugol" "$bin_dir/rugol" 2>/dev/null && ok "launcher actualizado"
   # Deps: el venv lo crea uv (SIN pip) — usar uv para instalar.
   local py; py="$(resolve_python)"
   if have uv && [ -x "$py" ]; then

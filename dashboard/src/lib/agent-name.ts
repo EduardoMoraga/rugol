@@ -19,7 +19,7 @@ export const AGENT_NAME_MAX = 64;
 /**
  * Convierte lo que una persona escribe en el nombre que el backend acepta.
  *
- * "Analista BI" → "analista-bi" · "Reporte Philips W14" → "reporte-philips-w14"
+ * "Analista BI" → "analista-bi" · "Reporte Semanal BI" → "reporte-semanal-bi"
  *
  * Nadie debería tener que aprender las reglas de un slug para crear un agente:
  * el formulario muestra el resultado mientras escribís.

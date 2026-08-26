@@ -5,11 +5,11 @@
 ## 1. Download
 
 ```powershell
-git clone https://github.com/eduardomoraga/rugol.git
+git clone https://github.com/EduardoMoraga/rugol.git
 cd rugol
 ```
 
-If you don't have Git, download a ZIP from the [latest release](https://github.com/eduardomoraga/rugol/releases).
+If you don't have Git, download a ZIP from the [latest release](https://github.com/EduardoMoraga/rugol/releases).
 
 ## 2. Run the wizard
 

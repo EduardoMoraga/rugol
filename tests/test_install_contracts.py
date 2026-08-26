@@ -8,6 +8,7 @@ hablándole al puerto de otra aplicación, y re-correr `rugol setup` borró del
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -256,3 +257,73 @@ def test_a_parallel_install_does_not_overwrite_the_real_launcher():
     src = INSTALL_SH.read_text(encoding="utf-8")
     assert 'elif [ "$RUGOL_HOME" = "$HOME/.rugol" ]; then BIN_DIR="$HOME/.local/bin"' in src
     assert 'else BIN_DIR="$RUGOL_HOME/bin"' in src
+
+
+# ── Un solo repositorio, y `update` que no se cae al bajarlo ──────────────────
+# `rugol update` en el NUC murió con NativeCommandError sobre esta línea:
+#     git -C $AppDir fetch --depth 1 origin main 2>$null
+# Con $ErrorActionPreference='Stop', Windows PowerShell convierte lo que un
+# comando nativo escribe por STDERR en un error terminante — y git escribe por
+# stderr aunque le vaya bien ("From https://github.com/…" es progreso). El
+# update se caía justo cuando SÍ había algo que bajar.
+
+CANONICAL = "https://github.com/EduardoMoraga/rugol.git"
+INSTALL_PS1 = REPO / "installer/install.ps1"
+
+
+def test_every_script_points_at_the_same_repo():
+    """Un solo repositorio: el personal. Si aparece otro, que falle acá."""
+    otros = set()
+    for path in (BASH, PS1, INSTALL_SH, INSTALL_PS1, REPO / "README.md", REPO / "README.es.md"):
+        for m in re.finditer(r"https://github\.com/([\w-]+)/rugol", path.read_text(encoding="utf-8")):
+            otros.add(m.group(1))
+    assert otros == {"EduardoMoraga"}, f"aparecen repos de más de una cuenta: {otros}"
+
+
+def test_the_powershell_launcher_never_redirects_native_stderr_to_null():
+    """`2>$null` sobre un comando nativo es la forma exacta que se cayó."""
+    malas = [
+        line.strip()
+        for line in _ps1().splitlines()
+        if "2>$null" in line
+    ]
+    assert malas == [], (
+        "en Windows PowerShell esto convierte el stderr de git en un error "
+        f"terminante: {malas}"
+    )
+
+
+def test_native_commands_go_through_the_guarded_helper():
+    src = _ps1()
+    assert "function Invoke-Native" in src
+    assert "$ErrorActionPreference = 'Continue'" in src, (
+        "el helper existe para bajar la preferencia mientras corre el nativo"
+    )
+    assert "2>&1 | Out-String" in src, (
+        "merge de stderr al pipeline: la forma que ya funciona en el instalador"
+    )
+
+
+@pytest.mark.parametrize("launcher", ["bash", "ps1"])
+def test_update_repoints_a_clone_that_came_from_elsewhere(launcher: str):
+    """Una máquina clonada de otro remoto seguía actualizando desde ahí."""
+    if launcher == "bash":
+        src = _bash()
+        assert "ensure_origin" in _fn(src, "cmd_update() {")
+        assert "CANONICAL_REPO=" in src
+    else:
+        src = _ps1()
+        assert "Ensure-Origin $AppDir" in src
+        assert "$CanonicalRepo" in src
+
+
+@pytest.mark.parametrize("launcher", ["bash", "ps1"])
+def test_a_failed_update_says_what_git_said(launcher: str):
+    """Culpar a la conexión por cualquier fallo manda a mirar el lugar
+    equivocado: un repo sin permisos y una red caída no se arreglan igual."""
+    src = _bash() if launcher == "bash" else _ps1()
+    fn = _fn(src, "cmd_update() {") if launcher == "bash" else src[src.index("function Cmd-Update"):]
+    assert "no pude bajar la última versión desde" in fn or "no pude bajar la ultima version desde" in fn
+    assert ("say \"$salida\"" in fn) or ("Write-Host $f.Output" in fn), (
+        "hay que imprimir lo que dijo git"
+    )

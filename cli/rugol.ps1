@@ -55,6 +55,43 @@ function Require-App {
 }
 function Require-Env { if (-not (Test-Path $EnvFile)) { Err "Falta config. Corre primero:  rugol setup"; exit 1 } }
 
+# El repositorio de Rugol. Uno solo: el personal de Eduardo. `rugol update`
+# comprueba que el clon instalado apunte aca y lo corrige si no.
+$CanonicalRepo = if ($env:RUGOL_REPO) { $env:RUGOL_REPO } else { "https://github.com/EduardoMoraga/rugol.git" }
+
+# Corre un comando nativo sin que su STDERR se convierta en error terminante.
+#
+# Con $ErrorActionPreference = 'Stop', PowerShell toma CUALQUIER linea que un
+# comando nativo escriba por stderr y la convierte en un error que corta el
+# script. Y git escribe por stderr aunque todo haya salido bien: la linea
+# "From https://github.com/EduardoMoraga/rugol" es progreso, no un fallo.
+# Resultado: 'rugol update' se caia con NativeCommandError justo cuando SI
+# habia algo que bajar - el unico caso en que el comando importa.
+#
+# Devuelve el codigo de salida y la salida combinada, para poder DECIR que
+# paso en vez de adivinar "red caida".
+function Invoke-Native([string]$Exe, [string[]]$NativeArgs) {
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $salida = & $Exe @NativeArgs 2>&1 | Out-String
+        return [pscustomobject]@{ Code = $LASTEXITCODE; Output = $salida.Trim() }
+    } finally { $ErrorActionPreference = $prev }
+}
+function Invoke-Git([string[]]$GitArgs) { return (Invoke-Native "git" $GitArgs) }
+
+# .Apunta el clon instalado al repositorio canonico? Si no, lo repunta.
+function Ensure-Origin([string]$Dir) {
+    $actual = (Invoke-Git @("-C", $Dir, "remote", "get-url", "origin")).Output
+    $norm = { param($u) ($u -replace "\.git$", "" -replace "/$", "").ToLower() }
+    if ((& $norm $actual) -eq (& $norm $CanonicalRepo)) { return }
+    if ($actual) { Warn "el clon apuntaba a $actual" } else { Warn "el clon no tenia 'origin'" }
+    $r = if ($actual) { Invoke-Git @("-C", $Dir, "remote", "set-url", "origin", $CanonicalRepo) }
+         else         { Invoke-Git @("-C", $Dir, "remote", "add", "origin", $CanonicalRepo) }
+    if ($r.Code -eq 0) { Ok "origin ahora es $CanonicalRepo" }
+    else { Err "no pude repuntar origin: $($r.Output)" }
+}
+
 # .Es NUESTRO core el que contesta en el puerto?
 #
 # "algo respondio" no es "el core arranco". Si el puerto lo tiene otra
@@ -444,13 +481,24 @@ function Cmd-Update {
     if (Test-Path (Join-Path $AppDir ".git")) {
         # reset --hard al remoto (no 'pull'): el deploy no debe trabarse por
         # archivos que el runtime escribe. Tus datos viven en $HomeDir.
-        git -C $AppDir fetch --depth 1 origin main 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            git -C $AppDir reset --hard origin/main 2>$null | Out-Null
-            $fetched = $true
-            Ok "codigo actualizado"
+        Ensure-Origin $AppDir
+        $f = Invoke-Git @("-C", $AppDir, "fetch", "--depth", "1", "origin", "main")
+        if ($f.Code -eq 0) {
+            $r = Invoke-Git @("-C", $AppDir, "reset", "--hard", "origin/main")
+            if ($r.Code -eq 0) {
+                $fetched = $true
+                $rev = (Invoke-Git @("-C", $AppDir, "rev-parse", "--short", "HEAD")).Output
+                Ok "codigo actualizado ($rev)"
+            } else {
+                Err "baje el codigo pero no pude aplicarlo:"
+                Write-Host $r.Output
+            }
         } else {
-            Warn "no pude bajar la ultima version (red caida o GitHub inaccesible) - reintenta 'rugol update' en un rato. Sigo con lo instalado."
+            # Decimos QUE fallo. Antes se culpaba a la red por cualquier cosa
+            # -incluido un repo sin permisos o una rama que no existe-.
+            Err "no pude bajar la ultima version desde $CanonicalRepo"
+            Write-Host $f.Output
+            Warn "sigo con lo instalado. Reintenta 'rugol update' cuando se resuelva."
         }
     }
     # Refrescar el launcher en el bin (sin reinstalar a mano).
@@ -466,7 +514,7 @@ function Cmd-Update {
         uv pip install --python $py -q -r (Join-Path $AppDir "core\requirements.txt")
         if ($LASTEXITCODE -eq 0) { Ok "deps backend OK" } else { Warn "deps no actualizadas (seguis con las actuales)" }
     } elseif ($py) {
-        & $py -m pip --version 2>$null | Out-Null
+        (Invoke-Native $py @("-m", "pip", "--version")) | Out-Null
         if ($LASTEXITCODE -eq 0) {
             & $py -m pip install -q -r (Join-Path $AppDir "core\requirements.txt")
             if ($LASTEXITCODE -eq 0) { Ok "deps backend OK" } else { Warn "deps no actualizadas" }

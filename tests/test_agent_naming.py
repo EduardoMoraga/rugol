@@ -100,7 +100,7 @@ def test_the_form_sends_the_slug_not_what_was_typed():
     [
         ("Analista BI", "analista-bi"),
         ("Análisis de Ventas", "analisis-de-ventas"),   # antes: an-lisis-de-ventas
-        ("Reporte Philips W14", "reporte-philips-w14"),
+        ("Reporte Semanal BI", "reporte-semanal-bi"),
         ("  mi agente  ", "mi-agente"),
         ("MI-AGENTE", "mi-agente"),
         ("Ñoño", "nono"),

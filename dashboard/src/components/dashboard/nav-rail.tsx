@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Sparkles,
   Wrench,
+  Gauge,
   Briefcase,
   Languages,
   Wand2,
@@ -54,6 +55,7 @@ const items: NavItem[] = [
   { href: "/memory-graph", labelKey: "nav.memoryGraph", icon: Brain },
   { href: "/ant-farm", labelKey: "nav.antFarm", icon: Hexagon },
   { href: "/ontology", labelKey: "nav.ontology", icon: Network },
+  { href: "/procedures", labelKey: "nav.procedures", icon: Gauge },
   { href: "/improvements", labelKey: "nav.improvements", icon: GitBranch },
   { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
@@ -62,6 +64,7 @@ const items: NavItem[] = [
 // ninguna). Compartidas por HRO y CRM.
 const AGENT_BRAIN_ITEMS: NavItem[] = [
   { href: "/agents", labelKey: "nav.agents", icon: Users },
+  { href: "/procedures", labelKey: "nav.procedures", icon: Gauge },
   { href: "/memory-graph", labelKey: "nav.memoryGraph", icon: Brain },
   { href: "/ontology", labelKey: "nav.ontology", icon: Network },
   { href: "/improvements", labelKey: "nav.improvements", icon: GitBranch },

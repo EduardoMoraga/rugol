@@ -430,3 +430,48 @@ async def test_below_the_ceiling_there_is_no_pressure_to_replace(agente, monkeyp
     )
     assert "REEMPLAZAR" not in capturado["prompt"]
     assert "Ya tenés 1" in capturado["prompt"]
+
+
+# ── La medición: la aritmética que sostiene la afirmación ────────────────────
+
+def _run_falso(tokens: int, segundos: int, estado: str = "completed"):
+    import datetime as dt
+
+    class R:
+        input_tokens = int(tokens * 0.8)
+        output_tokens = tokens - int(tokens * 0.8)
+        cost_usd = tokens / 1e6 * 3
+        status = estado
+        started_at = dt.datetime(2026, 8, 1, 9, 0)
+        ended_at = started_at + dt.timedelta(seconds=segundos)
+    return R()
+
+
+def test_the_trend_compares_thirds_not_first_versus_last():
+    """Primera contra última haría que una corrida con suerte parezca curva."""
+    from core.api.procedures import _tramo
+
+    runs = [_run_falso(t, 60) for t in (18000, 17500, 17800, 12000, 11000, 6500, 6000, 5800, 5900)]
+    antes, ahora = _tramo(runs, True), _tramo(runs, False)
+    assert antes["runs"] == 3 and ahora["runs"] == 3
+    assert antes["tokens"] > ahora["tokens"]
+
+
+def test_the_thirds_never_collapse_to_zero():
+    """Con pocas corridas, len//3 puede dar 0 y el promedio explota."""
+    from core.api.procedures import _tramo
+
+    for n in (1, 2, 4, 5):
+        runs = [_run_falso(1000, 10) for _ in range(n)]
+        assert _tramo(runs, True)["runs"] >= 1
+        assert _tramo(runs, False)["runs"] >= 1
+
+
+def test_runs_without_an_end_do_not_poison_the_average():
+    """Una corrida sin `ended_at` —cortada, interrumpida— no puede volver el
+    promedio de segundos un disparate."""
+    from core.api.procedures import _tramo
+
+    runs = [_run_falso(1000, 10) for _ in range(3)]
+    runs[1].ended_at = None
+    assert _tramo(runs, True)["seconds"] == 10.0

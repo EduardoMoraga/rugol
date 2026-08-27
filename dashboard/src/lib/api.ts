@@ -685,6 +685,28 @@ export const AVAILABLE_TOOLS: { name: string; description: string }[] = [
   { name: "NotebookEdit", description: "Edit Jupyter notebook cells." },
 ];
 
+/** Un método compilado (Soul-4) y la evidencia de si está sirviendo. */
+export interface ProcedureTrendSide {
+  runs: number;
+  tokens: number;
+  cost_usd: number;
+  seconds: number;
+}
+export interface Procedure {
+  agent: string;
+  name: string;
+  description: string;
+  created_at: string;
+  applied_runs: number;
+  /** null hasta que hay muestra: una corrida rápida por suerte no es una curva. */
+  trend: {
+    first: ProcedureTrendSide;
+    recent: ProcedureTrendSide;
+    tokens_delta_pct: number | null;
+  } | null;
+}
+export const fetchProcedures = () => get<Procedure[]>("/api/procedures");
+
 export const createAgent = (spec: AgentSpec) => post<Agent>("/api/agents", spec);
 export const fetchAgentSource = (id: number) => get<AgentSource>(`/api/agents/${id}/source`);
 export const updateAgent = async (id: number, spec: AgentSpec): Promise<Agent> => {

@@ -203,6 +203,23 @@ When in doubt, ask `rugol-architect` first.
 - [x] Probado con instalación limpia en macOS: `kill -9` en medio de una
       corrida y el arranque siguiente la cerró solo
 
+**Sprint 9 — La versión con fundamento en la conducta (DONE, 2026-08-26)**
+- [x] `core/soul/compiler`: el puente System 2 → System 1. Tras una corrida
+      deliberada, extrae el MÉTODO (no la respuesta) y lo guarda como memoria
+      `kind: procedure`. El dispatcher lo ve y puede decir "esto ya es rápido"
+- [x] Antes, `classify()` recibía prompt y nombre: un pedido resuelto cincuenta
+      veces se clasificaba S2 la vez cincuenta y uno. Podía volverse más sabio,
+      nunca más rápido
+- [x] Extinción: un método cuyas aplicaciones fallan deja de ofrecerse (no se
+      borra). Umbral de muestra, tope de catálogo, orden por uso
+- [x] `Run.procedure` + `/api/procedures` + pantalla Métodos: la tesis es
+      falsable. Verificado con curva real: 17.767 → 6.100 tokens, −65,7%
+- [x] `Project.workspace_dir`: los agentes trabajan en una carpeta REAL. Codex
+      deja de estar encerrado, y levantan el CLAUDE.md de esa carpeta
+- [x] `rugol chat` / `rugol run`: terminal, y **la carpeta elige el agente**
+- [x] `ask_agent`: delegación entre agentes con tres frenos (profundidad,
+      ciclos, cantidad)
+
 **Next: Sprint 3 — Windows installer verified on a clean PC, release v0.1.0
 with screenshots and a < 90-second video. Sprint 4 — teams in Slack +
 self-improving loop hardening. Sprint 5 — public launch.**

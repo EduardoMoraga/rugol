@@ -239,6 +239,50 @@ def _rebuild_index(agent_name: str) -> None:
     (d / "MEMORY.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+PROCEDURE_KIND = "procedure"
+
+
+def list_procedures(agent_name: str) -> list[Memory]:
+    """Los MÉTODOS que este agente ya compiló, no los hechos que sabe.
+
+    Un procedimiento es lo que queda de haber resuelto algo con deliberación:
+    no la respuesta, sino cómo se llega. Es lo que el dispatcher mira para
+    decidir si un pedido que la primera vez costó System 2 ya puede resolverse
+    aplicando un método conocido.
+    """
+    return [m for m in list_memories(agent_name) if (m.kind or "") == PROCEDURE_KIND]
+
+
+def get_memory(agent_name: str, name: str) -> Memory | None:
+    """Un procedimiento por nombre exacto, para inyectarlo entero al prompt.
+
+    El bloque de memoria tiene presupuesto de caracteres y corta por
+    antigüedad; un procedimiento que el dispatcher eligió NO puede quedar
+    afuera por ese corte —enrutar a un modelo barato sin darle el método es
+    peor que no haber enrutado nada—. Por eso se busca aparte.
+    """
+    objetivo = (name or "").strip().lower()
+    if not objetivo:
+        return None
+    for m in list_memories(agent_name):
+        if (m.name or "").strip().lower() == objetivo:
+            return m
+    return None
+
+
+def procedures_catalogue(agent_name: str, max_items: int = 25) -> str:
+    """La lista compacta que ve el dispatcher: nombre y para qué sirve.
+
+    Deliberadamente NO incluye los pasos. El clasificador sólo necesita saber
+    si existe un método que cubra el pedido; los pasos los lee después el
+    agente que ejecuta.
+    """
+    procs = list_procedures(agent_name)[:max_items]
+    if not procs:
+        return ""
+    return "\n".join(f"- {m.name}: {m.description}" for m in procs)
+
+
 def build_memory_block(agent_name: str, max_chars: int = 4000) -> str | None:
     """Render the memories of an agent as a system-prompt block.
 

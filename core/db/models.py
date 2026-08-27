@@ -160,6 +160,13 @@ class Run(Base):
     # Soul-2 (ADR-007): dual-track dispatcher metadata. NULL on runs that
     # bypassed the dispatcher (forced model_override, devil's advocate, etc.).
     track: Mapped[str | None] = mapped_column(String(8), default=None)  # s1|s2|None
+    # Soul-4: qué método compilado se aplicó en esta corrida, si hubo uno.
+    # Es la columna que hace medible la tesis del producto: agrupando corridas
+    # por procedimiento se ve si la misma familia de tarea baja de tokens y de
+    # tiempo con el uso. Sin esto, "el agente se vuelve más rápido" es una
+    # afirmación que nadie puede contradecir — que es otra forma de decir que
+    # no significa nada.
+    procedure: Mapped[str | None] = mapped_column(String(128), default=None)
     classifier_confidence: Mapped[float | None] = mapped_column(Float, default=None)
     classifier_rationale: Mapped[str | None] = mapped_column(Text, default=None)
     # Soul-3 (ADR-008): the system-prompt version this run executed against.

@@ -29,6 +29,7 @@ from core.api import (
     memory_graph,
     ontology,
     pipeline,
+    procedures,
     projects,
     runs,
     schedules,
@@ -170,6 +171,7 @@ def create_app() -> FastAPI:
     app.include_router(memories.router, prefix="/api")
     app.include_router(memory_graph.router, prefix="/api")
     app.include_router(pipeline.router, prefix="/api")
+    app.include_router(procedures.router, prefix="/api")
     app.include_router(evolution.router, prefix="/api")
     app.include_router(voice.router, prefix="/api")
     app.include_router(cv_sources.router, prefix="/api")

@@ -19,6 +19,7 @@ from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.memory import build_memory_block
+from core.memory.store import get_memory, procedures_catalogue
 from core.registry.skills_catalog import load_catalogue
 from core.runner.dispatch import run_with_engine
 from core.runner.telegram_tools import (
@@ -33,6 +34,7 @@ from core.soul import (
     run_checkpoint,
     wrap_prompt_for_s2,
 )
+from core.soul.compiler import run_compiler
 from core.soul.evolution import (
     current_body as evolution_current_body,
 )
@@ -42,6 +44,27 @@ from core.soul.evolution import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def build_procedure_block(mem) -> str:
+    """El bloque que le entrega al agente el método que ya compiló.
+
+    Dos cosas que tiene que decir, y las dos importan:
+
+    · Aplicá esto, no lo vuelvas a derivar. Es el punto entero del mecanismo:
+      si el agente re-deriva el método, gastó lo mismo que la primera vez y el
+      dispatcher lo mandó a un modelo más chico para nada.
+    · Si no calza, decilo. Un método aplicado a la fuerza sobre un pedido que
+      no le corresponde es peor que no tenerlo — y el clasificador se equivoca
+      a veces, así que el agente tiene que poder desobedecer.
+    """
+    return (
+        "## Método ya compilado para este tipo de pedido\n\n"
+        "Resolviste esto antes y guardaste cómo. Aplicá el método en vez de "
+        "derivarlo de nuevo desde cero. Si al mirarlo ves que este pedido NO "
+        "es de esa familia, decilo y resolvé como corresponda.\n\n"
+        f"### {mem.name}\n{mem.body}"
+    )
 
 
 def _build_project_context(project: Project) -> str | None:
@@ -104,17 +127,57 @@ class RuntimeOrchestrator:
         self._workspace = workspace_dir
         self._active: dict[int, asyncio.Task] = {}
 
+    def _resolve_procedure(self, agent_name: str, decision) -> object | None:
+        """El método compilado que se va a aplicar, o None.
+
+        Tres filtros, y los tres existen por la misma razón: enrutar a un
+        modelo barato SIN darle el método es peor que no haber enrutado nada.
+
+        1. El clasificador tiene que haber nombrado uno.
+        2. Ese nombre tiene que existir de verdad en la memoria del agente —
+           un modelo pequeño inventa nombres plausibles.
+        3. La confianza tiene que llegar al piso configurado. Un procedimiento
+           aplicado con dudas manda a Haiku un trabajo que había que pensar.
+        """
+        nombre = getattr(decision, "procedure", None)
+        if not nombre or decision.bypassed or decision.track != "s1":
+            return None
+        settings = get_settings()
+        if decision.confidence < settings.SOUL_PROCEDURE_MIN_CONFIDENCE:
+            logger.info(
+                "soul-4: descarto método %r para %s (confianza %.2f < %.2f)",
+                nombre, agent_name, decision.confidence,
+                settings.SOUL_PROCEDURE_MIN_CONFIDENCE,
+            )
+            return None
+        mem = get_memory(agent_name, nombre)
+        if mem is None:
+            logger.warning(
+                "soul-4: el clasificador nombró un método que no existe (%r en %s)",
+                nombre, agent_name,
+            )
+            return None
+        logger.info("soul-4: %s aplica método %r (s1)", agent_name, mem.name)
+        return mem
+
     async def enqueue(self, req: RunRequest) -> int:
         """Persist a Run row and spawn the runner task. Returns run_id."""
         # Soul-2 (ADR-007): classify the request BEFORE we touch the DB so a
         # slow Haiku call does not hold a SQLAlchemy connection open. Bypasses
         # gracefully when dual-track is disabled or the caller forced a model.
+        # Soul-4: el clasificador ve los métodos que este agente ya compiló.
+        # Sin esto, un pedido resuelto cincuenta veces se clasificaba S2 la vez
+        # cincuenta y uno: el sistema podía volverse más sabio, nunca más
+        # rápido. Es el eslabón que convierte la tesis en mecanismo.
+        catalogo_procs = procedures_catalogue(req.agent_name)
         dispatch_decision = await classify(
             req.prompt,
             agent_name=req.agent_name,
             model_override=req.model_override,
             workspace_dir=self._workspace,
+            procedures=catalogo_procs or None,
         )
+        procedimiento = self._resolve_procedure(req.agent_name, dispatch_decision)
 
         async with async_session_factory() as session:
             agent = (await session.execute(
@@ -156,6 +219,7 @@ class RuntimeOrchestrator:
                 classifier_confidence=(
                     None if dispatch_decision.bypassed else dispatch_decision.confidence
                 ),
+                procedure=procedimiento.name if procedimiento else None,
                 classifier_rationale=(
                     None if dispatch_decision.bypassed else dispatch_decision.rationale
                 ),
@@ -180,6 +244,20 @@ class RuntimeOrchestrator:
                     f"{project_context}\n\n{memory_block}"
                     if project_context
                     else memory_block
+                )
+            # Soul-4: el método elegido va APARTE y por delante. El bloque de
+            # memoria tiene presupuesto de caracteres y corta por antigüedad;
+            # si el procedimiento por el que el dispatcher degradó a s1 se cae
+            # por ese corte, mandamos a un modelo barato un trabajo sin el
+            # método que justificaba mandárselo. Ese es el peor resultado
+            # posible de todo este mecanismo, así que no puede depender de un
+            # presupuesto.
+            if procedimiento is not None:
+                bloque_metodo = build_procedure_block(procedimiento)
+                project_context = (
+                    f"{bloque_metodo}\n\n{project_context}"
+                    if project_context
+                    else bloque_metodo
                 )
             await session.commit()
 
@@ -301,6 +379,7 @@ class RuntimeOrchestrator:
                 version_id_for_metrics=chosen_version_id,
                 engine=agent_engine,
                 skills_catalogue=await load_catalogue(),
+                track=None if dispatch_decision.bypassed else dispatch_decision.track,
             )
         )
         self._active[run_id] = task
@@ -323,6 +402,7 @@ class RuntimeOrchestrator:
         version_id_for_metrics: str | None = None,
         engine: str | None = None,
         skills_catalogue: str | None = None,
+        track: str | None = None,
     ) -> None:
         async with self._sem:
             # Cupo conseguido: recién ahora está corriendo de verdad.
@@ -370,6 +450,17 @@ class RuntimeOrchestrator:
                 self._maybe_spawn_checkpoint(
                     agent_name=req.agent_name,
                     source=req.source,
+                    user_prompt=req.prompt,
+                    agent_response=result.final_text,
+                    advocate_for_run_id=req.advocate_for_run_id,
+                )
+                # Soul-4 — compilación de método. Sólo después de una corrida
+                # DELIBERADA: si no hubo deliberación no hay método que
+                # extraer, y preguntarlo igual es gastar por nada.
+                self._maybe_spawn_compiler(
+                    agent_name=req.agent_name,
+                    source=req.source,
+                    track=track,
                     user_prompt=req.prompt,
                     agent_response=result.final_text,
                     advocate_for_run_id=req.advocate_for_run_id,
@@ -434,6 +525,48 @@ class RuntimeOrchestrator:
             return
         asyncio.create_task(
             run_checkpoint(
+                agent_name=agent_name,
+                user_prompt=user_prompt,
+                agent_response=agent_response,
+                workspace_dir=self._workspace,
+            )
+        )
+
+    def _maybe_spawn_compiler(
+        self,
+        *,
+        agent_name: str,
+        source: str,
+        track: str | None,
+        user_prompt: str,
+        agent_response: str,
+        advocate_for_run_id: int | None,
+    ) -> None:
+        """Extrae el método de una corrida deliberada (Soul-4), sin bloquear.
+
+        Se salta en los mismos casos que el checkpoint, más uno propio: si la
+        corrida no fue s2, no hubo deliberación de la cual sacar un método.
+        Preguntarlo igual sería pagar un Haiku por corrida para que conteste
+        que no hay nada.
+        """
+        settings = get_settings()
+        if not settings.SOUL_COMPILE_PROCEDURES_ENABLED:
+            return
+        if track != "s2":
+            return
+        if advocate_for_run_id is not None:
+            return
+        # Un compilador no se compila a sí mismo, y un checkpoint tampoco.
+        if agent_name.endswith(("-compiler", "-checkpoint")):
+            return
+        skip = {
+            s.strip() for s in (settings.SOUL_AUTO_CHECKPOINT_SKIP_SOURCES or "").split(",")
+            if s.strip()
+        }
+        if source in skip:
+            return
+        asyncio.create_task(
+            run_compiler(
                 agent_name=agent_name,
                 user_prompt=user_prompt,
                 agent_response=agent_response,

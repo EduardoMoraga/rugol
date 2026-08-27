@@ -48,7 +48,12 @@ MEMORY_TOOL_NAMES: tuple[str, ...] = (
     f"mcp__{MCP_SERVER_NAME}__recall_facts",
 )
 
-_VALID_KINDS = {"user", "feedback", "project", "reference", "note"}
+# `procedure` es el tipo que cierra el bucle System 2 → System 1: no es un
+# hecho ("esta columna miente") sino un MÉTODO ("para cruzar MX: 1) restar
+# devoluciones, 2) convertir la fecha, 3) unir por…"). Lo escribe el compilador
+# (core/soul/compiler) después de una corrida deliberada, y el dispatcher lo
+# mira para decidir si la próxima vez esto ya es rápido.
+_VALID_KINDS = {"user", "feedback", "project", "reference", "note", "procedure"}
 
 # Un token vive lo que dure la corrida. El tope existe para que una corrida que
 # muere sin avisar no deje el token abierto para siempre.
@@ -125,7 +130,7 @@ TOOLS: list[dict[str, Any]] = [
                 "kind": {
                     "type": "string",
                     "enum": sorted(_VALID_KINDS),
-                    "description": "user | feedback | project | reference | note",
+                    "description": "user | feedback | project | reference | note | procedure",
                 },
             },
             "required": ["name", "description", "content"],

@@ -219,6 +219,18 @@ class Settings(BaseSettings):
     # conversation (e.g. schedule-fired, devil's advocate, reflection,
     # checkpoint of a checkpoint). The list below matches Run.source.
     SOUL_AUTO_CHECKPOINT_SKIP_SOURCES: str = "devils-advocate,schedule"
+    # Soul-4 — compilación de método (System 2 → System 1). Después de una
+    # corrida DELIBERADA que salió bien, extrae el método usado y lo guarda
+    # como memoria `kind: procedure`. El dispatcher lo mira después para
+    # decidir que ese pedido ya no necesita deliberarse.
+    #
+    # Sólo se dispara en corridas s2, que son las caras: el compilador corre en
+    # Haiku y su costo es marginal contra la corrida que acaba de terminar.
+    SOUL_COMPILE_PROCEDURES_ENABLED: bool = True
+    # El dispatcher sólo puede degradar a s1 por un método compilado si su
+    # confianza llega a este piso. Un procedimiento vago que enruta a un modelo
+    # barato un trabajo que había que pensar es peor que no tener ninguno.
+    SOUL_PROCEDURE_MIN_CONFIDENCE: float = 0.75
     # When true (and the agent has multiple active versions in its archive),
     # the runner routes runs across active versions per A/B (Soul-3). Off
     # by default — opt in once you have a proposer-driven branch.

@@ -40,12 +40,28 @@ S2 (System 2 — slow, deliberate, expensive):
 
 When uncertain, return S2. confidence above 0.85 only if it's clearly one.
 
+COMPILED PROCEDURES (Soul-4 — this is what makes the agent get FASTER, not just wiser):
+The agent may already have compiled a method for this family of request. A
+procedure is not a fact the agent knows — it is a step-by-step way of getting
+there, learned by doing this kind of work before.
+- If a listed procedure CLEARLY covers this request, return "s1" and put its
+  exact name in "procedure". The agent will apply a known method instead of
+  deriving one: that is precisely the S2→S1 transition, and it is the point.
+- "Clearly" means the request belongs to the family the procedure names, not
+  that it sounds related. A procedure about closing monthly sales does not cover
+  "why did sales drop".
+- If no procedure covers it, omit "procedure" entirely and classify on the
+  request alone.
+- Never invent a name. Only names from the list below are valid.
+
 Respond with EXACTLY one JSON object on a single line, nothing else:
-{"track":"s1","confidence":0.91,"rationale":"single sentence"}
+{"track":"s1","confidence":0.91,"rationale":"single sentence","procedure":"name_or_omitted"}
 
 Allowed track values: "s1" or "s2".
 confidence is a float 0..1.
 rationale is one short sentence (<140 chars).
+procedure is optional: the exact name of a compiled procedure that covers this
+request, or omitted when none does.
 """
 
 
@@ -58,6 +74,11 @@ class TrackDecision:
     confidence: float        # 0.0 .. 1.0
     rationale: str           # one short sentence
     bypassed: bool = False   # True when we skipped the classifier (returns default S2)
+    # Soul-4: el método compilado que cubre este pedido, si el clasificador
+    # encontró uno. Cuando viene, el orquestador tiene que inyectarlo ENTERO al
+    # prompt: mandar a un modelo barato sin darle el método es peor que no
+    # haber enrutado nada.
+    procedure: str | None = None
 
 
 def _build_env() -> dict[str, str]:
@@ -94,7 +115,10 @@ def _parse_decision(raw: str) -> TrackDecision | None:
     rat = str(data.get("rationale", "") or "").strip()
     if len(rat) > 280:
         rat = rat[:277].rstrip() + "…"
-    return TrackDecision(track=track, confidence=conf, rationale=rat or "(no rationale)")
+    proc = str(data.get("procedure", "") or "").strip() or None
+    return TrackDecision(
+        track=track, confidence=conf, rationale=rat or "(no rationale)", procedure=proc
+    )
 
 
 _FALLBACK = TrackDecision(
@@ -111,6 +135,7 @@ async def classify(
     *,
     model_override: str | None = None,
     workspace_dir=None,
+    procedures: str | None = None,
 ) -> TrackDecision:
     """Run the classifier and return a TrackDecision.
 
@@ -140,9 +165,19 @@ async def classify(
         logger.warning("claude-agent-sdk not installed, dispatcher returns fallback")
         return _FALLBACK
 
+    # El catálogo de métodos compilados va en el mensaje, no en el system
+    # prompt: el system prompt es fijo y cacheable, y esto cambia por agente.
+    bloque_procs = ""
+    if procedures and procedures.strip():
+        bloque_procs = (
+            "\n\nCompiled procedures this agent already has "
+            "(name: what it is for):\n"
+            f"{procedures.strip()}"
+        )
     user_prompt = (
         f"Classify this incoming request for agent '{agent_name or '?'}':\n\n"
         f"---\n{prompt.strip()}\n---"
+        f"{bloque_procs}"
     )
 
     options = ClaudeAgentOptions(

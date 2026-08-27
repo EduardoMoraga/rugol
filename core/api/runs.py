@@ -30,6 +30,7 @@ async def list_recent(limit: int = 100) -> list[dict]:
                 "output_tokens": r.output_tokens or 0,
                 "prompt": (r.prompt or "")[:200],
                 "track": r.track,
+                "procedure": r.procedure,
                 "agent_version_id": r.agent_version_id,
                 "engine": r.engine or "claude",
             }
@@ -58,6 +59,7 @@ async def get_run(run_id: int) -> dict:
             "error_message": r.error_message,
             "final_text": r.final_text,
             "track": r.track,
+            "procedure": r.procedure,
             "classifier_confidence": r.classifier_confidence,
             "classifier_rationale": r.classifier_rationale,
             "agent_version_id": r.agent_version_id,

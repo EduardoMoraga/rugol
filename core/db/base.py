@@ -64,6 +64,10 @@ async def init_db() -> None:
             ("runs", "classifier_rationale", "TEXT"),
             # Soul-3 (ADR-008): which system-prompt version ran.
             ("runs", "agent_version_id", "TEXT"),
+            # Soul-4: qué método compilado se aplicó. Es la columna que permite
+            # medir si la tesis funciona — agrupando por método se ve si la
+            # misma familia de tarea baja de tokens con el uso.
+            ("runs", "procedure", "VARCHAR(128)"),
             # HRO: una búsqueda es una posición a cubrir (descripción de cargo +
             # carpeta de CVs).
             ("projects", "job_description", "TEXT"),

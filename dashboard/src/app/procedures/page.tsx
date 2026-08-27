@@ -25,10 +25,13 @@ export default function ProceduresPage() {
   });
 
   const total = data?.length ?? 0;
-  const conCurva = (data ?? []).filter((p) => p.trend?.tokens_delta_pct != null);
+  // El titular es el SALTO, no la pendiente. La pendiente responde "¿se
+  // abarató con el uso?"; el salto responde la pregunta del producto:
+  // "¿esto costaba deliberar y ahora no?".
+  const conSalto = (data ?? []).filter((p) => p.leap?.tokens_delta_pct != null);
   const mejoraMedia =
-    conCurva.length > 0
-      ? conCurva.reduce((a, p) => a + (p.trend!.tokens_delta_pct ?? 0), 0) / conCurva.length
+    conSalto.length > 0
+      ? conSalto.reduce((a, p) => a + (p.leap!.tokens_delta_pct ?? 0), 0) / conSalto.length
       : null;
 
   return (
@@ -69,8 +72,8 @@ export default function ProceduresPage() {
             </p>
             <p className="text-xs text-[--color-fg-muted]">
               {t(
-                conCurva.length === 1 ? "procedures.headlineOne" : "procedures.headline",
-              ).replace("{n}", String(conCurva.length))}
+                conSalto.length === 1 ? "procedures.headlineOne" : "procedures.headline",
+              ).replace("{n}", String(conSalto.length))}
             </p>
           </div>
         </Card>
@@ -89,7 +92,8 @@ export default function ProceduresPage() {
 
 function ProcedureCard({ p }: { p: Procedure }) {
   const { t } = useI18n();
-  const delta = p.trend?.tokens_delta_pct ?? null;
+  // El salto manda; la pendiente es el complemento.
+  const delta = p.leap?.tokens_delta_pct ?? null;
   const mejora = delta != null && delta < 0;
 
   return (
@@ -109,17 +113,17 @@ function ProcedureCard({ p }: { p: Procedure }) {
 
       <p className="text-[11px] text-[--color-fg-subtle] font-mono">{p.agent}</p>
 
-      {p.trend ? (
+      {p.leap ? (
         <div className="grid grid-cols-3 gap-3 pt-1 border-t border-[--color-border]">
           <Metric
             label={t("procedures.tokens")}
-            before={p.trend.first.tokens}
-            after={p.trend.recent.tokens}
+            before={p.leap.discovering.tokens}
+            after={p.leap.applying.tokens}
           />
           <Metric
             label={t("procedures.seconds")}
-            before={p.trend.first.seconds}
-            after={p.trend.recent.seconds}
+            before={p.leap.discovering.seconds}
+            after={p.leap.applying.seconds}
           />
           <div className="pt-2">
             <p className="text-[10px] uppercase tracking-wider text-[--color-fg-subtle]">
@@ -135,10 +139,21 @@ function ProcedureCard({ p }: { p: Procedure }) {
           </div>
         </div>
       ) : (
-        // Sin muestra no se afirma nada. Un método recién compilado no tiene
-        // curva, tiene un punto — y un punto no es una tendencia.
+        // Sin la corrida que lo descubrió no hay "antes", y estimarlo sería
+        // inventarlo. Antes esta pantalla comparaba el primer tercio contra el
+        // último de las aplicaciones y lo presentaba como si fuera el salto:
+        // medía la pendiente DESPUÉS del salto.
         <p className="text-xs text-[--color-fg-subtle] pt-1 border-t border-[--color-border]">
           {t("procedures.noSample")}
+        </p>
+      )}
+
+      {p.trend?.tokens_delta_pct != null && (
+        <p className="text-[11px] text-[--color-fg-subtle]">
+          {t("procedures.slope").replace(
+            "{pct}",
+            `${p.trend.tokens_delta_pct > 0 ? "+" : ""}${p.trend.tokens_delta_pct.toFixed(1)}%`,
+          )}
         </p>
       )}
     </Card>

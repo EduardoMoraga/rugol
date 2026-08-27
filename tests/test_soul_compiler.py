@@ -218,8 +218,59 @@ def test_the_trend_needs_a_real_sample():
     import core.api.procedures as api
 
     src = inspect.getsource(api.list_procedures_with_evidence)
-    assert "len(runs) >= 6" in src
+    assert "len(aplicadas) >= _MIN_MUESTRA" in src
     assert '"trend": None' in src, "sin muestra, se devuelve None, no un número inventado"
+
+
+def test_the_leap_and_the_slope_are_not_the_same_number():
+    """El error que tenía esta pantalla y que una auditoría externa encontró.
+
+    Comparar el primer tercio contra el último de las corridas que YA aplicaban
+    el método responde "¿se abarató con el uso?". La pregunta del producto es
+    otra: "¿esto costaba System 2 y ahora cuesta System 1?". Y la corrida que
+    contesta el ANTES —la deliberada, la que descubrió el método— quedaba fuera
+    porque tiene `procedure` en NULL. Se medía la pendiente después del salto y
+    se presentaba como el salto.
+    """
+    import core.api.procedures as api
+
+    src = inspect.getsource(api.list_procedures_with_evidence)
+    assert '"leap"' in src and '"trend"' in src, "son dos preguntas distintas"
+    assert "Run.compiled_procedure == mem.name" in src, (
+        "sin la corrida original no hay línea base y el 'antes' queda inventado"
+    )
+
+
+def test_the_leap_is_only_claimed_when_the_original_run_is_known():
+    import core.api.procedures as api
+
+    src = inspect.getsource(api.list_procedures_with_evidence)
+    assert "if origen and aplicadas:" in src, (
+        "sin corrida original, `leap` tiene que quedar en None — no estimado"
+    )
+
+
+def test_a_run_records_the_method_it_gave_birth_to():
+    from core.db.models import Run
+
+    assert hasattr(Run, "compiled_procedure")
+
+
+def test_the_birth_column_is_in_the_migrator():
+    src = (Path(__file__).resolve().parent.parent / "core/db/base.py").read_text(encoding="utf-8")
+    assert '("runs", "compiled_procedure"' in src
+
+
+def test_the_compiler_detects_the_new_method_by_diff_not_by_parsing():
+    """El nombre lo elige el modelo y se escribe por MCP. Parsear el texto de
+    salida sería adivinar; comparar antes/después es determinista."""
+    import inspect as _i
+
+    from core.soul import compiler
+
+    src = _i.getsource(compiler.run_compiler)
+    assert "antes = {m.name for m in list_procedures(agent_name)}" in src
+    assert "nacidos" in src
 
 
 def test_the_new_column_is_registered_in_the_migrator():

@@ -698,7 +698,21 @@ export interface Procedure {
   description: string;
   created_at: string;
   applied_runs: number;
-  /** null hasta que hay muestra: una corrida rápida por suerte no es una curva. */
+  /**
+   * El SALTO: lo que costó descubrir el método contra lo que cuesta aplicarlo.
+   * Es la afirmación del producto. null cuando no se conoce la corrida que lo
+   * descubrió — sin ella no hay "antes" y estimarlo sería inventarlo.
+   */
+  leap: {
+    discovering: ProcedureTrendSide;
+    applying: ProcedureTrendSide;
+    tokens_delta_pct: number | null;
+    seconds_delta_pct: number | null;
+  } | null;
+  /**
+   * La PENDIENTE entre aplicaciones: ¿sigue abaratándose con el uso? Es otra
+   * pregunta y va aparte para no volver a confundirlas.
+   */
   trend: {
     first: ProcedureTrendSide;
     recent: ProcedureTrendSide;

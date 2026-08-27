@@ -68,6 +68,11 @@ async def init_db() -> None:
             # medir si la tesis funciona — agrupando por método se ve si la
             # misma familia de tarea baja de tokens con el uso.
             ("runs", "procedure", "VARCHAR(128)"),
+            # La corrida deliberada que PARIÓ un método: es el "antes" real.
+            ("runs", "compiled_procedure", "VARCHAR(128)"),
+            # ¿La tarea salió bien? Distinto de que el proceso terminara.
+            ("runs", "outcome", "VARCHAR(16)"),
+            ("runs", "outcome_source", "VARCHAR(16)"),
             # La carpeta real sobre la que trabaja el equipo de un proyecto.
             ("projects", "workspace_dir", "TEXT"),
             # HRO: una búsqueda es una posición a cubrir (descripción de cargo +

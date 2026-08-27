@@ -189,7 +189,13 @@ When in doubt, ask `rugol-architect` first.
 
 **Sprint 8 — Multi-motor, resiliente y con frenos (DONE, 2026-08-23)**
 - [x] `core/safety`: hooks `PreToolUse` con denies duros + `freeze`. Deny y no
-      warn: gstack tiene un humano al que avisarle, Rugol no
+      warn: gstack tiene un humano al que avisarle, Rugol no.
+      **La garantía NO es igual en los dos motores** y decir lo contrario era
+      prometer de más: en Claude el hook corre ANTES de ejecutar la herramienta;
+      en Codex se observan los eventos del proceso y se corta al detectar un
+      comando prohibido, lo que ocurre en `item.started` — o sea, cuando el
+      comando ya arrancó. Ahí la defensa principal es el sandbox de Codex y
+      esto es la red secundaria
 - [x] `core/resilience`: SQLite en WAL, corridas huérfanas cerradas como
       `interrupted`, respaldo rotativo, quick_check, y reporte en
       `/api/health/full`

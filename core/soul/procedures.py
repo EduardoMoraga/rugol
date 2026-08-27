@@ -48,7 +48,18 @@ _TOPE = 20
 
 
 async def _track_record(agent_name: str) -> dict[str, tuple[int, int]]:
-    """Por método: (aplicaciones, fallos). Una sola consulta."""
+    """Por método: (aplicaciones, malas). Una sola consulta.
+
+    "Mala" no es lo mismo que "falló". Contar sólo `status == "failed"` medía
+    si el PROCESO reventó, no si la tarea salió bien — y un método incorrecto
+    que siempre produce texto pasaba por bueno para siempre. Es la diferencia
+    entre acumular memoria y madurar, y una auditoría externa la señaló con
+    razón.
+
+    Ahora cuenta las dos cosas: la corrida que reventó, y la que terminó
+    entera con un resultado que alguien marcó como malo. El silencio sigue sin
+    contar: una corrida sin veredicto no es una corrida buena.
+    """
     async with async_session_factory() as session:
         agente = (await session.execute(
             select(Agent).where(Agent.name == agent_name)
@@ -59,7 +70,11 @@ async def _track_record(agent_name: str) -> dict[str, tuple[int, int]]:
             select(
                 Run.procedure,
                 func.count(Run.id),
-                func.sum(case((Run.status == "failed", 1), else_=0)),
+                func.sum(case(
+                    (Run.status == "failed", 1),
+                    (Run.outcome == "bad", 1),
+                    else_=0,
+                )),
             )
             .where(Run.agent_id == agente.id)
             .where(Run.procedure.is_not(None))

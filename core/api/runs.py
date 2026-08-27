@@ -31,6 +31,7 @@ async def list_recent(limit: int = 100) -> list[dict]:
                 "prompt": (r.prompt or "")[:200],
                 "track": r.track,
                 "procedure": r.procedure,
+                "outcome": r.outcome,
                 "agent_version_id": r.agent_version_id,
                 "engine": r.engine or "claude",
             }
@@ -60,6 +61,9 @@ async def get_run(run_id: int) -> dict:
             "final_text": r.final_text,
             "track": r.track,
             "procedure": r.procedure,
+            "compiled_procedure": r.compiled_procedure,
+            "outcome": r.outcome,
+            "outcome_source": r.outcome_source,
             "classifier_confidence": r.classifier_confidence,
             "classifier_rationale": r.classifier_rationale,
             "agent_version_id": r.agent_version_id,
@@ -74,3 +78,26 @@ async def get_run(run_id: int) -> dict:
 async def cancel(run_id: int) -> dict:
     ok = get_orchestrator().cancel(run_id)
     return {"cancelled": ok}
+
+
+@router.post("/{run_id}/outcome")
+async def set_outcome(run_id: int, body: dict) -> dict:
+    """El veredicto explícito de una persona sobre una corrida.
+
+    Es la señal más valiosa y la más escasa: nadie califica sus
+    conversaciones. Por eso también se infiere de lo que el usuario escribe
+    después (core/soul/outcome) — pero cuando alguien se toma el trabajo de
+    decirlo, eso manda y no se pisa.
+    """
+    from core.soul.outcome import BAD, GOOD, note
+
+    verdict = str(body.get("outcome") or "").strip().lower()
+    if verdict not in (GOOD, BAD):
+        raise HTTPException(status_code=400, detail=f"outcome debe ser '{GOOD}' o '{BAD}'")
+    ok = await note(run_id, verdict, "user")
+    if not ok:
+        raise HTTPException(
+            status_code=409,
+            detail="la corrida no existe o ya tenía veredicto (el primero vale)",
+        )
+    return {"run_id": run_id, "outcome": verdict}

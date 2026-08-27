@@ -178,6 +178,30 @@ class Run(Base):
     # afirmación que nadie puede contradecir — que es otra forma de decir que
     # no significa nada.
     procedure: Mapped[str | None] = mapped_column(String(128), default=None)
+    # El método que ESTA corrida produjo (no el que aplicó). Sin esto, la
+    # comparación "antes vs después" excluía justamente el antes: la corrida
+    # deliberada que descubrió el método tiene `procedure` en NULL, porque
+    # cuando corrió el método todavía no existía. Comparar el primer tercio
+    # contra el último de las corridas que YA lo aplicaban mide otra cosa —
+    # cómo se abarató el método con el uso— y la pantalla lo presentaba como
+    # si midiera el salto de System 2 a System 1.
+    compiled_procedure: Mapped[str | None] = mapped_column(String(128), default=None)
+    # ¿La tarea salió BIEN? Distinto de `status`, y la distinción es la que
+    # separa "memoria acumulativa" de "maduración".
+    #
+    # `status == "completed"` sólo dice que el proceso terminó sin reventar.
+    # Una corrida puede completar con una respuesta equivocada, un análisis
+    # mediocre o una conclusión correcta por casualidad. Mientras la extinción
+    # de métodos mirara sólo `status`, un método malo que siempre produce texto
+    # sobrevivía para siempre — que es exactamente el agujero que separa medir
+    # costo de medir valor.
+    #
+    # NULL = nadie se pronunció, que es el caso normal y no cuenta como nada.
+    outcome: Mapped[str | None] = mapped_column(String(16), default=None)  # good|bad|None
+    # De dónde salió el veredicto: `user` (dijo que estaba mal / bien),
+    # `redo` (volvió a pedir lo mismo enseguida), `check` (una verificación
+    # objetiva: tests, un archivo que tenía que existir).
+    outcome_source: Mapped[str | None] = mapped_column(String(16), default=None)
     classifier_confidence: Mapped[float | None] = mapped_column(Float, default=None)
     classifier_rationale: Mapped[str | None] = mapped_column(Text, default=None)
     # Soul-3 (ADR-008): the system-prompt version this run executed against.

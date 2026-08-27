@@ -134,6 +134,7 @@ async def run_compiler(
     user_prompt: str,
     agent_response: str,
     workspace_dir: Path,
+    run_id: int | None = None,
 ) -> bool:
     """Extrae el método de una corrida deliberada y lo guarda como procedimiento.
 
@@ -180,6 +181,13 @@ async def run_compiler(
     # "<agente>-compiler" para no contar como corrida del agente ni disparar
     # otro compilador, pero el token se emite con el nombre limpio para que el
     # procedimiento se escriba en el almacén del AGENTE.
+    # Foto de los métodos ANTES. El compilador escribe por MCP y el nombre lo
+    # elige el modelo, así que la única forma determinista de saber cuál nació
+    # es comparar. Parsear el texto de salida sería adivinar.
+    from core.memory.store import list_procedures
+
+    antes = {m.name for m in list_procedures(agent_name)}
+
     memory_token = issue_token(agent_name, run_id=None)
     try:
         result = await run_agent(
@@ -198,6 +206,13 @@ async def run_compiler(
     finally:
         revoke_token(memory_token)
 
+    # Qué método nació de esta corrida. Es el dato que hace honesta la
+    # comparación después: esta corrida —la deliberada, la cara— es el ANTES
+    # real de ese método, y sin anotarlo quedaba fuera de la medición.
+    nacidos = {m.name for m in list_procedures(agent_name)} - antes
+    if nacidos and run_id is not None:
+        await _stamp_run(run_id, sorted(nacidos)[0])
+
     text = (result.final_text or "").strip()
     if NO_PROCEDURE in text and "save_memory" not in text:
         logger.info("compilador %s: sin método reutilizable", agent_name)
@@ -209,3 +224,26 @@ async def run_compiler(
             (result.input_tokens or 0) + (result.output_tokens or 0),
         )
     return True
+
+
+async def _stamp_run(run_id: int, procedure_name: str) -> None:
+    """Deja anotado en la corrida qué método produjo.
+
+    Best-effort: si esto falla, el método igual quedó guardado y el agente
+    igual lo va a usar. Lo único que se pierde es la línea base de la
+    medición, y perder una medición nunca puede costar una capacidad.
+    """
+    try:
+        from core.db import async_session_factory
+        from core.db.models import Run
+
+        async with async_session_factory() as session:
+            fila = await session.get(Run, run_id)
+            if fila is not None:
+                fila.compiled_procedure = procedure_name
+                await session.commit()
+                logger.info(
+                    "soul-4: la corrida %s parió el método %r", run_id, procedure_name
+                )
+    except Exception:
+        logger.exception("no pude anotar el método en la corrida %s", run_id)

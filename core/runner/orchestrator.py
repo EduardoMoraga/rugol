@@ -43,6 +43,7 @@ from core.soul.evolution import (
     pick_version_for_run,
     record_metrics,
 )
+from core.soul.outcome import judge_previous
 from core.soul.procedures import catalogue_for
 
 logger = logging.getLogger(__name__)
@@ -173,6 +174,12 @@ class RuntimeOrchestrator:
         # rápido. Es el eslabón que convierte la tesis en mecanismo.
         # El catálogo pasa por el filtro de historial: un método cuyas
         # aplicaciones vienen fallando deja de ofrecerse (core/soul/procedures).
+        # Antes de nada: el mensaje que llega es, muchas veces, el veredicto
+        # sobre la corrida anterior ("está mal, eran las de julio"). Es el
+        # único momento en que esa señal existe — después se pierde.
+        if req.source in ("telegram", "slack", "dashboard", "api"):
+            await judge_previous(req.agent_name, req.prompt)
+
         catalogo_procs = await catalogue_for(req.agent_name)
         dispatch_decision = await classify(
             req.prompt,
@@ -477,6 +484,7 @@ class RuntimeOrchestrator:
                     agent_name=req.agent_name,
                     source=req.source,
                     track=track,
+                    run_id=run_id,
                     user_prompt=req.prompt,
                     agent_response=result.final_text,
                     advocate_for_run_id=req.advocate_for_run_id,
@@ -559,6 +567,7 @@ class RuntimeOrchestrator:
         agent_response: str,
         advocate_for_run_id: int | None,
         workspace_dir: Path | None = None,
+        run_id: int | None = None,
     ) -> None:
         """Extrae el método de una corrida deliberada (Soul-4), sin bloquear.
 
@@ -589,6 +598,7 @@ class RuntimeOrchestrator:
                 user_prompt=user_prompt,
                 agent_response=agent_response,
                 workspace_dir=workspace_dir or self._workspace,
+                run_id=run_id,
             )
         )
 

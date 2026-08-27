@@ -825,6 +825,8 @@ const ES: Dict = {
   "searchDetail.updated": "Búsqueda actualizada",
   "projectDetail.updateFailed": "No se pudo actualizar",
   "projectDetail.mission": "Misión",
+  "projectDetail.workspace": "Carpeta de trabajo",
+  "projectDetail.workspaceHint": "ruta absoluta — los agentes corren acá",
   "projectDetail.saving": "Guardando…",
 
   // ---- Lecciones vivas ----
@@ -1642,6 +1644,8 @@ const EN: Dict = {
   "searchDetail.updated": "Search updated",
   "projectDetail.updateFailed": "Couldn't update",
   "projectDetail.mission": "Mission",
+  "projectDetail.workspace": "Working folder",
+  "projectDetail.workspaceHint": "absolute path — agents run here",
   "projectDetail.saving": "Saving…",
 
   // ---- Living lessons ----

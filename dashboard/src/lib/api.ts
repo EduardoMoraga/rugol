@@ -17,6 +17,8 @@ export interface Project {
   job_description?: string;
   // Carpeta del sistema con los CVs a analizar (HRO). String simple (ruta).
   cv_folder?: string;
+  // La carpeta real sobre la que trabajan los agentes de este proyecto.
+  workspace_dir?: string;
   // Perfil de entrevista de Sofía para esta búsqueda (HRO).
   interview_profile?: string;
   color: string;
@@ -37,6 +39,8 @@ export interface ProjectCreate {
   mission?: string;
   job_description?: string;
   cv_folder?: string;
+  // La carpeta real sobre la que trabajan los agentes de este proyecto.
+  workspace_dir?: string;
   interview_profile?: string;
   color?: string;
   icon?: string;
@@ -48,6 +52,8 @@ export interface ProjectUpdate {
   mission?: string;
   job_description?: string;
   cv_folder?: string;
+  // La carpeta real sobre la que trabajan los agentes de este proyecto.
+  workspace_dir?: string;
   interview_profile?: string;
   color?: string;
   icon?: string;

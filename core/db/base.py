@@ -68,6 +68,8 @@ async def init_db() -> None:
             # medir si la tesis funciona — agrupando por método se ve si la
             # misma familia de tarea baja de tokens con el uso.
             ("runs", "procedure", "VARCHAR(128)"),
+            # La carpeta real sobre la que trabaja el equipo de un proyecto.
+            ("projects", "workspace_dir", "TEXT"),
             # HRO: una búsqueda es una posición a cubrir (descripción de cargo +
             # carpeta de CVs).
             ("projects", "job_description", "TEXT"),

@@ -26,6 +26,7 @@ from core.runner.telegram_tools import (
     TELEGRAM_TOOL_NAMES,
     build_telegram_mcp_server,
 )
+from core.runner.workspace import resolve as resolve_workspace
 from core.soul import (
     build_soul_context,
     build_world_state_block,
@@ -200,6 +201,13 @@ class RuntimeOrchestrator:
             )
 
             agent_engine = req.engine_override or agent.engine or "claude"
+            # La carpeta REAL del proyecto. Resuelta acá, con el proyecto ya en
+            # memoria, y una sola vez por corrida: la corrida, su checkpoint y
+            # su compilador tienen que trabajar en el mismo lugar.
+            carpeta_proyecto = resolve_workspace(
+                getattr(agent.project, "workspace_dir", "") if agent.project else "",
+                self._workspace,
+            )
 
             run = Run(
                 agent_id=agent.id,
@@ -380,6 +388,7 @@ class RuntimeOrchestrator:
                 engine=agent_engine,
                 skills_catalogue=await load_catalogue(),
                 track=None if dispatch_decision.bypassed else dispatch_decision.track,
+                workspace_dir=carpeta_proyecto,
             )
         )
         self._active[run_id] = task
@@ -403,16 +412,19 @@ class RuntimeOrchestrator:
         engine: str | None = None,
         skills_catalogue: str | None = None,
         track: str | None = None,
+        workspace_dir: Path | None = None,
     ) -> None:
         async with self._sem:
             # Cupo conseguido: recién ahora está corriendo de verdad.
             await self._mark_running(run_id)
+            # La carpeta del proyecto si la tiene; el directorio de la app si no.
+            carpeta = workspace_dir or self._workspace
             try:
                 result = await run_with_engine(
                     engine=engine,
                     agent_name=req.agent_name,
                     prompt=runner_prompt if runner_prompt is not None else req.prompt,
-                    workspace_dir=self._workspace,
+                    workspace_dir=carpeta,
                     model=model,
                     session_id=req.session_id,
                     run_id=run_id,
@@ -453,6 +465,7 @@ class RuntimeOrchestrator:
                     user_prompt=req.prompt,
                     agent_response=result.final_text,
                     advocate_for_run_id=req.advocate_for_run_id,
+                    workspace_dir=carpeta,
                 )
                 # Soul-4 — compilación de método. Sólo después de una corrida
                 # DELIBERADA: si no hubo deliberación no hay método que
@@ -500,6 +513,7 @@ class RuntimeOrchestrator:
         user_prompt: str,
         agent_response: str,
         advocate_for_run_id: int | None,
+        workspace_dir: Path | None = None,
     ) -> None:
         """Fire-and-forget end-of-run memory evaluation (Soul-1.5).
 
@@ -528,7 +542,7 @@ class RuntimeOrchestrator:
                 agent_name=agent_name,
                 user_prompt=user_prompt,
                 agent_response=agent_response,
-                workspace_dir=self._workspace,
+                workspace_dir=workspace_dir or self._workspace,
             )
         )
 
@@ -541,6 +555,7 @@ class RuntimeOrchestrator:
         user_prompt: str,
         agent_response: str,
         advocate_for_run_id: int | None,
+        workspace_dir: Path | None = None,
     ) -> None:
         """Extrae el método de una corrida deliberada (Soul-4), sin bloquear.
 
@@ -570,7 +585,7 @@ class RuntimeOrchestrator:
                 agent_name=agent_name,
                 user_prompt=user_prompt,
                 agent_response=agent_response,
-                workspace_dir=self._workspace,
+                workspace_dir=workspace_dir or self._workspace,
             )
         )
 

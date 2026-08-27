@@ -46,6 +46,17 @@ class Project(Base):
     job_description: Mapped[str] = mapped_column(Text, default="")
     # Carpeta de CVs conectada a esta búsqueda (fuente local que el screener lee).
     cv_folder: Mapped[str] = mapped_column(Text, default="")
+    # La carpeta REAL sobre la que trabajan los agentes de este proyecto.
+    #
+    # Vacío = el directorio de la app, que era el único comportamiento posible
+    # hasta ahora y es el peor de los dos: los agentes corrían dentro del código
+    # de Rugol, un agente de Codex no podía salir de ahí por su sandbox, y
+    # cualquier archivo que generaran lo borraba el siguiente `rugol update`.
+    #
+    # Con esto apuntado a una carpeta de verdad, el agente además levanta el
+    # CLAUDE.md que ya vive ahí — que suele ser justo donde está el contexto
+    # del proyecto.
+    workspace_dir: Mapped[str] = mapped_column(Text, default="")
     # Perfil de entrevista de Sofía para esta búsqueda (promotor, merchandising,
     # ejecutivo_comercial, telemarketing, general…). Adapta foco y preguntas.
     interview_profile: Mapped[str] = mapped_column(String(40), default="general")

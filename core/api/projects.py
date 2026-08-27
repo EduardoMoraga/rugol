@@ -18,6 +18,7 @@ from core import naming
 from core.bus import bus
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
+from core.runner.workspace import WorkspaceError, validate_workspace
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -32,6 +33,7 @@ class ProjectDTO(BaseModel):
     mission: str
     job_description: str = ""
     cv_folder: str = ""
+    workspace_dir: str = ""
     interview_profile: str = "general"
     color: str
     icon: str
@@ -56,6 +58,7 @@ class ProjectCreate(BaseModel):
     mission: str = ""
     job_description: str = ""
     cv_folder: str = ""
+    workspace_dir: str = ""
     interview_profile: str = "general"
     color: str = "#7280a8"
     icon: str = "briefcase"
@@ -67,6 +70,7 @@ class ProjectUpdate(BaseModel):
     mission: str | None = None
     job_description: str | None = None
     cv_folder: str | None = None
+    workspace_dir: str | None = None
     interview_profile: str | None = None
     color: str | None = None
     icon: str | None = None
@@ -75,6 +79,24 @@ class ProjectUpdate(BaseModel):
 
 def _slugify(name: str) -> str:
     return naming.slugify(name, fallback="project")
+
+
+def _check_workspace(raw: str | None) -> str:
+    """La carpeta de trabajo del proyecto, validada al guardar.
+
+    Se valida ACÁ y no en tiempo de corrida a propósito: éste es el momento en
+    que el usuario está mirando la pantalla y puede corregir el typo. Si la
+    carpeta se rompe después (se movió, se desconectó el disco), la corrida cae
+    al directorio de la app y lo dice en el log — perder una corrida por una
+    carpeta ausente sería cambiar un problema visible por uno invisible.
+    """
+    texto = (raw or "").strip()
+    if not texto:
+        return ""
+    try:
+        return str(validate_workspace(texto))
+    except WorkspaceError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 def _validate_slug(slug: str) -> None:
@@ -94,6 +116,7 @@ def _to_dto(p: Project, agent_count: int, runs_24h: int, cost_24h: float) -> Pro
         mission=p.mission,
         job_description=getattr(p, "job_description", "") or "",
         cv_folder=getattr(p, "cv_folder", "") or "",
+        workspace_dir=getattr(p, "workspace_dir", "") or "",
         interview_profile=getattr(p, "interview_profile", "general") or "general",
         color=p.color,
         icon=p.icon,
@@ -164,6 +187,7 @@ async def create_project(body: ProjectCreate) -> ProjectDTO:
             mission=body.mission.strip(),
             job_description=body.job_description.strip(),
             cv_folder=body.cv_folder.strip(),
+            workspace_dir=_check_workspace(body.workspace_dir),
             interview_profile=(body.interview_profile or "general").strip() or "general",
             color=body.color.strip() or "#7280a8",
             icon=body.icon.strip() or "briefcase",
@@ -201,6 +225,8 @@ async def update_project(id_or_slug: str, body: ProjectUpdate) -> ProjectDTO:
             p.job_description = body.job_description.strip()
         if body.cv_folder is not None:
             p.cv_folder = body.cv_folder.strip()
+        if body.workspace_dir is not None:
+            p.workspace_dir = _check_workspace(body.workspace_dir)
         if body.interview_profile is not None:
             p.interview_profile = body.interview_profile.strip() or "general"
         if body.color is not None:

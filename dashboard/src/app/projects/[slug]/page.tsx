@@ -678,6 +678,7 @@ function EditProjectDialog({
     description: project.description,
     mission: project.mission,
     job_description: project.job_description ?? "",
+    workspace_dir: project.workspace_dir ?? "",
     interview_profile: project.interview_profile ?? "general",
     color: project.color,
     icon: project.icon,
@@ -734,6 +735,20 @@ function EditProjectDialog({
               rows={4}
             />
           </div>
+          {!isHro && (
+            <div className="space-y-1.5">
+              <FieldLabel hint={t("projectDetail.workspaceHint")}>
+                {t("projectDetail.workspace")}
+              </FieldLabel>
+              <Input
+                value={body.workspace_dir ?? ""}
+                onChange={(e) => setBody({ ...body, workspace_dir: e.target.value })}
+                placeholder="/Users/tu-usuario/Analisis"
+                spellCheck={false}
+                className="font-mono text-[12.5px]"
+              />
+            </div>
+          )}
           {isHro && (
             <div className="space-y-1.5">
               <FieldLabel hint={t("project.jobDescriptionHint")}>

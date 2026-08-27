@@ -19,7 +19,7 @@ from core.config import get_settings
 from core.db import async_session_factory
 from core.db.models import Agent, Project, Run
 from core.memory import build_memory_block
-from core.memory.store import get_memory, procedures_catalogue
+from core.memory.store import get_memory
 from core.registry.skills_catalog import load_catalogue
 from core.runner.dispatch import run_with_engine
 from core.runner.telegram_tools import (
@@ -43,6 +43,7 @@ from core.soul.evolution import (
     pick_version_for_run,
     record_metrics,
 )
+from core.soul.procedures import catalogue_for
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +171,9 @@ class RuntimeOrchestrator:
         # Sin esto, un pedido resuelto cincuenta veces se clasificaba S2 la vez
         # cincuenta y uno: el sistema podía volverse más sabio, nunca más
         # rápido. Es el eslabón que convierte la tesis en mecanismo.
-        catalogo_procs = procedures_catalogue(req.agent_name)
+        # El catálogo pasa por el filtro de historial: un método cuyas
+        # aplicaciones vienen fallando deja de ofrecerse (core/soul/procedures).
+        catalogo_procs = await catalogue_for(req.agent_name)
         dispatch_decision = await classify(
             req.prompt,
             agent_name=req.agent_name,

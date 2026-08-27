@@ -11,6 +11,7 @@ idéntico a la primera — el sistema podía volverse más sabio, nunca más rá
 from __future__ import annotations
 
 import inspect
+from pathlib import Path
 
 import pytest
 
@@ -266,3 +267,166 @@ def test_the_method_block_tells_the_agent_to_apply_and_to_object(agente):
     assert "restar devoluciones" in bloque, "el método tiene que ir ENTERO, no su título"
     assert "en vez de" in bloque and "derivarlo" in bloque
     assert "NO" in bloque and "decilo" in bloque
+
+
+# ── Extinción: lo que no funciona deja de ofrecerse ──────────────────────────
+# Soul-4 sin freno acumula métodos mediocres, y un catálogo lleno de métodos
+# vagos es PEOR que uno vacío: el dispatcher los toma por buenos y manda a un
+# modelo barato trabajo que había que pensar.
+
+@pytest.mark.asyncio
+async def test_a_method_that_keeps_failing_stops_being_offered(agente, monkeypatch):
+    from core.soul import procedures as procs
+
+    add_memory(agente, "malo", "Cómo hacer algo mal", "pasos", kind=PROCEDURE_KIND)
+    add_memory(agente, "bueno", "Cómo hacer algo bien", "pasos", kind=PROCEDURE_KIND)
+
+    async def historial(_):
+        return {"malo": (6, 5), "bueno": (6, 1)}
+
+    monkeypatch.setattr(procs, "_track_record", historial)
+    cat = await procs.catalogue_for(agente)
+    assert "bueno" in cat
+    assert "malo" not in cat
+
+
+@pytest.mark.asyncio
+async def test_a_new_method_gets_to_fail_once_without_dying(agente, monkeypatch):
+    """Sin umbral de muestra, lo único que sobrevive es lo que tuvo suerte."""
+    from core.soul import procedures as procs
+
+    add_memory(agente, "nuevo", "Cómo hacer algo", "pasos", kind=PROCEDURE_KIND)
+
+    async def historial(_):
+        return {"nuevo": (1, 1)}  # 100% de fallo, pero UNA sola aplicación
+
+    monkeypatch.setattr(procs, "_track_record", historial)
+    assert "nuevo" in await procs.catalogue_for(agente)
+
+
+@pytest.mark.asyncio
+async def test_the_most_used_method_goes_first(agente, monkeypatch):
+    """Cuando hay que recortar, se cae lo que nadie usa — no lo alfabético."""
+    from core.soul import procedures as procs
+
+    add_memory(agente, "a_poco_usado", "Cómo A", "p", kind=PROCEDURE_KIND)
+    add_memory(agente, "z_muy_usado", "Cómo Z", "p", kind=PROCEDURE_KIND)
+
+    async def historial(_):
+        return {"a_poco_usado": (1, 0), "z_muy_usado": (30, 0)}
+
+    monkeypatch.setattr(procs, "_track_record", historial)
+    cat = await procs.catalogue_for(agente)
+    assert cat.index("z_muy_usado") < cat.index("a_poco_usado")
+
+
+@pytest.mark.asyncio
+async def test_a_broken_query_offers_everything_instead_of_nothing(agente, monkeypatch):
+    """Quedarse sin métodos por un problema de base sería perder la capacidad
+    entera por un rasguño."""
+    from core.soul import procedures as procs
+
+    add_memory(agente, "m", "Cómo hacer algo", "pasos", kind=PROCEDURE_KIND)
+
+    async def explota(_):
+        raise RuntimeError("base caída")
+
+    monkeypatch.setattr(procs, "_track_record", explota)
+    assert "m" in await procs.catalogue_for(agente)
+
+
+@pytest.mark.asyncio
+async def test_retiring_never_deletes_the_memory(agente, monkeypatch):
+    """Borrar memoria de un agente por una estadística es irreversible, y la
+    estadística puede estar midiendo otra cosa."""
+    from core.soul import procedures as procs
+
+    add_memory(agente, "malo", "Cómo hacer algo mal", "pasos", kind=PROCEDURE_KIND)
+
+    async def historial(_):
+        return {"malo": (10, 9)}
+
+    monkeypatch.setattr(procs, "_track_record", historial)
+    await procs.catalogue_for(agente)
+    assert get_memory(agente, "malo") is not None, "retirar es dejar de ofrecer, no borrar"
+
+
+@pytest.mark.asyncio
+async def test_the_catalogue_has_a_ceiling(agente, monkeypatch):
+    """Con cuarenta opciones, 'el que más se parece' deja de significar algo."""
+    from core.soul import procedures as procs
+
+    for i in range(procs._TOPE + 10):
+        add_memory(agente, f"m{i:03d}", f"Cómo {i}", "p", kind=PROCEDURE_KIND)
+
+    async def historial(_):
+        return {}
+
+    monkeypatch.setattr(procs, "_track_record", historial)
+    cat = await procs.catalogue_for(agente)
+    assert len(cat.splitlines()) == procs._TOPE
+
+
+def test_the_orchestrator_uses_the_filtered_catalogue():
+    import inspect
+
+    from core.runner.orchestrator import RuntimeOrchestrator
+
+    src = inspect.getsource(RuntimeOrchestrator.enqueue)
+    assert "catalogue_for" in src, (
+        "sin el filtro, un método que viene fallando se sigue ofreciendo para siempre"
+    )
+
+
+@pytest.mark.asyncio
+async def test_at_the_ceiling_the_compiler_is_told_to_replace(agente, monkeypatch):
+    """Agregar el método número 21 no mejora nada: empeora la decisión del
+    dispatcher, que con demasiadas opciones deja de distinguir."""
+    from core.soul import compiler, procedures
+
+    for i in range(procedures._TOPE):
+        add_memory(agente, f"m{i:03d}", f"Cómo {i}", "p", kind=PROCEDURE_KIND)
+
+    capturado = {}
+
+    async def falso_run(**kw):
+        capturado["prompt"] = kw["prompt"]
+        class R:
+            final_text = compiler.NO_PROCEDURE
+            cost_usd = 0.0
+            input_tokens = output_tokens = 0
+        return R()
+
+    import core.runner.claude_runner as cr
+    monkeypatch.setattr(cr, "run_agent", falso_run)
+    await compiler.run_compiler(
+        agent_name=agente, user_prompt="x", agent_response="y",
+        workspace_dir=Path("."),
+    )
+    assert "REEMPLAZAR" in capturado["prompt"]
+    assert "forget_memory" in capturado["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_below_the_ceiling_there_is_no_pressure_to_replace(agente, monkeypatch):
+    from core.soul import compiler
+
+    add_memory(agente, "uno", "Cómo uno", "p", kind=PROCEDURE_KIND)
+    capturado = {}
+
+    async def falso_run(**kw):
+        capturado["prompt"] = kw["prompt"]
+        class R:
+            final_text = compiler.NO_PROCEDURE
+            cost_usd = 0.0
+            input_tokens = output_tokens = 0
+        return R()
+
+    import core.runner.claude_runner as cr
+    monkeypatch.setattr(cr, "run_agent", falso_run)
+    await compiler.run_compiler(
+        agent_name=agente, user_prompt="x", agent_response="y",
+        workspace_dir=Path("."),
+    )
+    assert "REEMPLAZAR" not in capturado["prompt"]
+    assert "Ya tenés 1" in capturado["prompt"]

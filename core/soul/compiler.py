@@ -74,7 +74,8 @@ respuesta es no, no hay método.
 
 ## Primero: mirá qué ya compilaste
 
-Llamá `list_my_memories` **antes de guardar nada**.
+Llamá `list_my_memories` **antes de guardar nada**. Ya tenés {compilados}
+métodos compilados{aviso_tope}.
 
 - Si ya existe un procedimiento para esta familia de pedidos y el de ahora es
   IGUAL: no guardes nada.
@@ -154,11 +155,25 @@ async def run_compiler(
     from core.mcp.memory_service import claude_server_config, issue_token, revoke_token
     from core.runner.claude_runner import run_agent
 
+    # Cuántos tiene ya. En el tope, agregar uno más no mejora nada: empeora la
+    # decisión del dispatcher, que con demasiadas opciones deja de distinguir.
+    # Se le dice al modelo para que REEMPLACE en vez de acumular.
+    from core.soul.procedures import _TOPE, count_for
+
+    compilados = await count_for(agent_name)
+    aviso_tope = (
+        f", que es el tope. Si este método vale la pena, tenés que REEMPLAZAR "
+        f"uno peor con `forget_memory` — agregar el número {compilados + 1} "
+        f"empeora la decisión en vez de mejorarla"
+        if compilados >= _TOPE else ""
+    )
     prompt = _COMPILER_PROMPT.format(
         agent_name=agent_name,
         user_prompt=(user_prompt or "").strip()[:2000],
         agent_response=(agent_response or "").strip()[:4000],
         no_procedure=NO_PROCEDURE,
+        compilados=compilados,
+        aviso_tope=aviso_tope,
     )
 
     # Misma disciplina de identidad que el checkpoint: la CORRIDA se llama

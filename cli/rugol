@@ -33,6 +33,39 @@ err()  { echo "  ${R}✗${X} $*" >&2; }
 say()  { echo "$*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
+# Carga el .env sin ejecutarlo.
+#
+# `set -a; . "$ENV_FILE"` trata el archivo como SCRIPT: un valor con espacios
+# se parte y bash intenta correr el resto como comando. Con la línea
+# documentada en .env.example —`SAFETY_DENY_EXTRA=terraform destroy`— el
+# arranque escupía `destroy: command not found` Y la variable quedaba con la
+# mitad del valor. Un freno de seguridad cortado por la mitad es peor que
+# ninguno, porque el `doctor` lo reporta como configurado.
+#
+# Medido: con `SAFETY_DENY_EXTRA=rm -rf /` en el .env, cada comando del
+# launcher imprimía `-rf: command not found`.
+load_env_file() {
+  local archivo="${1:-$ENV_FILE}" linea clave valor
+  [ -f "$archivo" ] || return 0
+  while IFS= read -r linea || [ -n "$linea" ]; do
+    case "$linea" in ''|'#'*) continue ;; esac
+    case "$linea" in *=*) : ;; *) continue ;; esac
+    clave="${linea%%=*}"; valor="${linea#*=}"
+    # Sólo identificadores válidos: una línea rara del archivo no puede
+    # convertirse en una variable con nombre arbitrario.
+    case "$clave" in
+      [A-Za-z_][A-Za-z0-9_]*) : ;;
+      *) continue ;;
+    esac
+    # Comillas envolventes opcionales, como en cualquier .env.
+    case "$valor" in
+      \"*\") valor="${valor#\"}"; valor="${valor%\"}" ;;
+      \'*\') valor="${valor#\'}"; valor="${valor%\'}" ;;
+    esac
+    export "$clave=$valor"
+  done < "$archivo"
+}
+
 # ── Runtime resolution ───────────────────────────────────────────────────────
 resolve_python() {
   local c
@@ -177,7 +210,7 @@ start_backend() {
   fi
   _free_port_if_ours "$CORE_PORT" "core.main:app" || return 1
   # Cargar .env del usuario y apuntar el estado al home global.
-  set -a; . "$ENV_FILE"; set +a
+  load_env_file
   export AGENTS_DIR="$AGENTS_DIR_H" SKILLS_DIR="$SKILLS_DIR_H"
   # Todo el estado mutable (DB, jobstore del scheduler, settings.json, adjuntos)
   # vive acá, fuera de $APP_DIR: reinstalar borra el código, nunca tus datos.
@@ -651,6 +684,25 @@ run_auth() {
   RUGOL_HOME="$RUGOL_HOME" RUGOL_DATA_DIR="${RUGOL_DATA_DIR:-$DATA_DIR}" "$py" "$script" "$@"
 }
 
+# ── chat / run: hablarle a un agente desde la terminal ───────────────────────
+# La lógica vive en cli/rugol-chat.py, un cliente sobre la API que ya existía.
+# La carpeta desde donde lo corrés elige el agente, así que el `cd` importa.
+run_chat() {
+  local py script; py="$(resolve_python)"; script="$APP_DIR/cli/rugol-chat.py"
+  require_app
+  [ -n "$py" ] || { err "no encontré Python — reinstalá con el one-liner del README"; return 1; }
+  [ -f "$script" ] || { err "falta cli/rugol-chat.py — corré 'rugol update'"; return 1; }
+  # El .env da el puerto y el agente por defecto; el cwd NO se toca, que es
+  # justo lo que hace que la carpeta pueda elegir el agente.
+  load_env_file
+  CORE_PORT="$CORE_PORT" "$py" "$script" "$@"
+}
+cmd_chat() { run_chat "$@"; }
+cmd_run()  {
+  [ $# -ge 1 ] || { err "Uso: rugol run [agente] \"tu pregunta\""; return 1; }
+  run_chat "$@"
+}
+
 cmd_login()  { run_auth login "$@"; }
 cmd_logout() { run_auth logout; }
 cmd_auth() {
@@ -925,7 +977,7 @@ cmd_bot() {
   local sub="${1:-list}"; shift || true
   case "$sub" in
     list|ls)
-      ( cd "$APP_DIR"; set -a; . "$ENV_FILE"; set +a; "$py" cli/rugol-botctl.py list )
+      ( cd "$APP_DIR"; load_env_file; "$py" cli/rugol-botctl.py list )
       ;;
     add)
       echo ""
@@ -938,7 +990,7 @@ cmd_bot() {
       agent="${agent:-assistant}"
       read -r -p "   Nombre/etiqueta del bot (ej. Ventas): " label
       read -r -p "   User IDs permitidos (coma-separado, Enter = reusar los del bot 1): " users
-      ( cd "$APP_DIR"; set -a; . "$ENV_FILE"; set +a; "$py" cli/rugol-botctl.py add "$token" "$agent" "$label" "$users" ) || return 1
+      ( cd "$APP_DIR"; load_env_file; "$py" cli/rugol-botctl.py add "$token" "$agent" "$label" "$users" ) || return 1
       echo ""
       if _pid_running "$RUN_DIR/core.pid"; then
         say "Reinicio el core para que el bot nuevo arranque..."; cmd_restart
@@ -949,7 +1001,7 @@ cmd_bot() {
     remove|rm)
       local key="${1:-}"
       [ -z "$key" ] && { err "Uso: rugol bot remove <key>  (ver 'rugol bot list')"; return 1; }
-      ( cd "$APP_DIR"; set -a; . "$ENV_FILE"; set +a; "$py" cli/rugol-botctl.py remove "$key" ) || return 1
+      ( cd "$APP_DIR"; load_env_file; "$py" cli/rugol-botctl.py remove "$key" ) || return 1
       _pid_running "$RUN_DIR/core.pid" && { say "Reinicio el core..."; cmd_restart; }
       ;;
     *) err "Subcomando desconocido: $sub"; say "  Uso: rugol bot [list|add|remove <key>]" ;;
@@ -1030,6 +1082,10 @@ ${B}Agentes y memoria:${X}
   ${B}sessions${X} [filtro]      Tus sesiones de Claude Code + cómo retomarlas
   ${B}autostart${X} [on|off]     Levanta Rugol solo al iniciar sesión
 
+${B}Hablarle a un agente:${X}
+  ${B}chat${X} [agente]         Conversación en la terminal (la carpeta elige el agente)
+  ${B}run${X} <agente> "…"     Una sola pregunta, imprime la respuesta y sale
+
 ${B}Primera vez:${X}  rugol setup  →  rugol up
 ${D}Home de datos: $RUGOL_HOME${X}
 EOF
@@ -1049,6 +1105,8 @@ main() {
     open)             cmd_open "$@" ;;
     update|upgrade)   cmd_update "$@" ;;
     uninstall)        cmd_uninstall "$@" ;;
+    chat|ask)         cmd_chat "$@" ;;
+    run)              cmd_run "$@" ;;
     motor|engine)     cmd_motor "$@" ;;
     login)            cmd_login "$@" ;;
     logout)           cmd_logout ;;

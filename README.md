@@ -225,6 +225,8 @@ ready-to-clone project templates. Everything you create lives in
 | `rugol login` | Connect your Claude account (`--token` headless · `--api-key`) |
 | `rugol auth [--verify]` | Which credential is in use — and whether it works |
 | `rugol logout` | Disconnect and clear credentials from `.env` |
+| `rugol chat [agent]` | Talk to an agent from your terminal — **the folder picks the agent** |
+| `rugol run [agent] "…"` | One question, prints the answer, exits |
 | `rugol up` / `down` | Start / stop the whole stack |
 | `rugol status` | Service health at a glance |
 | `rugol logs [core\|dashboard]` | Live logs |

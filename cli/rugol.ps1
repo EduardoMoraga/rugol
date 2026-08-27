@@ -367,6 +367,27 @@ function Invoke-Auth([string[]]$AuthArgs) {
     $script:AuthOk = ($LASTEXITCODE -eq 0)
 }
 
+# __ chat / run: hablarle a un agente desde la terminal ______________________
+# La logica vive en cli/rugol-chat.py, un cliente sobre la API que ya existia.
+# La carpeta desde donde lo corres elige el agente, asi que el 'cd' importa.
+function Invoke-Chat([string[]]$ChatArgs) {
+    $py = Resolve-Python
+    $s  = Join-Path $AppDir "cli\rugol-chat.py"
+    if (-not (Test-Path (Join-Path $AppDir "core\main.py"))) { Err "no encuentro la app en $AppDir"; return }
+    if (-not $py) { Err "no encontre Python - reinstala con el one-liner del README"; return }
+    if (-not (Test-Path $s)) { Err "falta cli\rugol-chat.py - corre 'rugol update'"; return }
+    Load-DotEnv $EnvFile
+    $env:CORE_PORT = "$CorePort"
+    # OJO: sin -WorkingDirectory ni Push-Location. El cwd del usuario es
+    # justamente lo que le permite a la carpeta elegir el agente.
+    & $py $s @ChatArgs
+}
+function Cmd-Chat { Invoke-Chat @($Rest | Where-Object { $_ }) }
+function Cmd-Run {
+    if (-not $Rest -or $Rest.Count -lt 2) { Err 'Uso: rugol run <agente> "tu pregunta"'; return }
+    Invoke-Chat @($Rest | Where-Object { $_ })
+}
+
 function Cmd-Login  { Invoke-Auth (@("login") + @($Rest | Where-Object { $_ })) }
 function Cmd-Logout { Invoke-Auth @("logout") }
 function Cmd-Auth {
@@ -700,6 +721,10 @@ Agentes y memoria:
   sessions [filtro]      Tus sesiones de Claude Code + como retomarlas
   autostart [on|off]     Levanta Rugol solo al iniciar sesion
 
+Hablarle a un agente:
+  chat [agente]         Conversacion en la terminal (la carpeta elige el agente)
+  run <agente> "..."    Una sola pregunta, imprime la respuesta y sale
+
 Primera vez:  rugol setup  ->  rugol up
 Home de datos: $HomeDir
 "@ | Write-Host
@@ -721,6 +746,8 @@ switch ($Command.ToLower()) {
     "logout"  { Cmd-Logout }
     "auth"    { Cmd-Auth }
     { $_ -in @("bot", "bots") }         { Cmd-Bot }
+    { $_ -in @("chat", "ask") }         { Cmd-Chat }
+    "run"                               { Cmd-Run }
     { $_ -in @("vault", "memory", "mem") } { Cmd-Vault }
     { $_ -in @("evolve", "improve") }   { Cmd-Evolve }
     { $_ -in @("sessions", "ses") }     { Cmd-Sessions }

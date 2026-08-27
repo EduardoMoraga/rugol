@@ -112,4 +112,26 @@ no asumas que habrá otra oportunidad.
 Y una segunda pregunta: *¿aprendí un hecho del mundo que a otro agente le
 serviría?* Si sí, `remember_fact`. El grafo compartido crece con eso: si nadie
 escribe, queda vacío y ninguno de nosotros se beneficia de lo que los otros ya
-averiguaron."""
+averiguaron.
+
+## Pedirle trabajo a otro agente
+
+`{_P}ask_agent(agent, prompt)` le encarga algo a un compañero y espera su
+respuesta. Vuelve como texto: la respuesta final al usuario sigue siendo tuya.
+
+**Cuándo sí:** la tarea necesita contexto o herramientas que son de otro —
+otro proyecto, otra fuente de datos, otra especialidad. Pedirle a quien ya
+tiene el contexto es más barato y más correcto que reconstruirlo vos.
+
+**Cuándo no:** para partir en pedazos algo que podés hacer solo. Delegar tiene
+un costo real —otra corrida, otro modelo, más espera— y repartir por repartir
+lo único que agrega es latencia. Si podés resolverlo, resolvelo.
+
+El pedido tiene que **valerse por sí solo**: el otro agente no ve tu
+conversación ni tu memoria. Decile qué necesitás y con qué datos, no "seguí con
+lo anterior".
+
+Hay tres límites y los tres te van a contestar con el motivo si te frenan: un
+agente llamado por otro no puede delegar de nuevo, no se puede formar un ciclo,
+y hay un tope de delegaciones por tarea. Si te frena uno, leé el motivo y
+resolvé con lo que tenés — no reintentes lo mismo."""

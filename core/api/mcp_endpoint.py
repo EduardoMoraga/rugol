@@ -23,7 +23,7 @@ from core.mcp.memory_service import (
     PROTOCOL_VERSION,
     TOOLS,
     call_tool_async,
-    resolve_token,
+    resolve_grant,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,9 @@ def _rpc_error(request_id: Any, code: int, message: str) -> dict[str, Any]:
     return {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
 
 
-async def _handle(message: dict[str, Any], agent_name: str) -> dict[str, Any] | None:
+async def _handle(
+    message: dict[str, Any], agent_name: str, run_id: int | None = None
+) -> dict[str, Any] | None:
     """Un mensaje JSON-RPC → la respuesta, o None si era una notificación."""
     method = message.get("method") or ""
     request_id = message.get("id")
@@ -65,7 +67,7 @@ async def _handle(message: dict[str, Any], agent_name: str) -> dict[str, Any] | 
     if method == "tools/call":
         name = str(params.get("name") or "")
         args = params.get("arguments") or {}
-        outcome = await call_tool_async(agent_name, name, args)
+        outcome = await call_tool_async(agent_name, name, args, run_id)
         # El resultado de una herramienta es un `result` válido incluso cuando
         # `isError` viene en True: es un error de la herramienta, no del RPC.
         return _rpc_result(request_id, outcome)
@@ -85,7 +87,7 @@ async def _handle(message: dict[str, Any], agent_name: str) -> dict[str, Any] | 
 async def mcp_post(request: Request) -> Response:
     """Único endpoint del servidor. El token va en `?t=`."""
     token = request.query_params.get("t") or ""
-    agent_name = resolve_token(token)
+    agent_name, run_id = resolve_grant(token)
     if not agent_name:
         # 401 y no 403: el cliente puede reintentar con un token válido.
         logger.warning("mcp: token inválido o expirado")
@@ -110,7 +112,7 @@ async def mcp_post(request: Request) -> Response:
         # aplicarse en el orden que el modelo pidió.
         responses = []
         for m in payload:
-            r = await _handle(m, agent_name)
+            r = await _handle(m, agent_name, run_id)
             if r is not None:
                 responses.append(r)
         if not responses:
@@ -124,7 +126,7 @@ async def mcp_post(request: Request) -> Response:
             status_code=400,
         )
 
-    response = await _handle(payload, agent_name)
+    response = await _handle(payload, agent_name, run_id)
     if response is None:
         # Notificación: 202 sin cuerpo es lo que espera el transporte HTTP.
         return Response(status_code=202)

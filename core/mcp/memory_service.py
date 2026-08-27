@@ -39,13 +39,15 @@ MCP_SERVER_VERSION = "2.0.0"
 PROTOCOL_VERSION = "2025-06-18"
 
 # Nombres con el prefijo que la SDK de Claude usa para el allowlist.
-MEMORY_TOOL_NAMES: tuple[str, ...] = (
-    f"mcp__{MCP_SERVER_NAME}__save_memory",
-    f"mcp__{MCP_SERVER_NAME}__list_my_memories",
-    f"mcp__{MCP_SERVER_NAME}__forget_memory",
-    f"mcp__{MCP_SERVER_NAME}__search_memories",
-    f"mcp__{MCP_SERVER_NAME}__remember_fact",
-    f"mcp__{MCP_SERVER_NAME}__recall_facts",
+# Se deriva del catálogo en vez de escribirse a mano: una tool nueva en TOOLS
+# que no llegue acá existe en el servidor y el modelo no la puede llamar. Hay
+# test que compara las dos listas.
+MEMORY_TOOL_NAMES: tuple[str, ...] = tuple(
+    f"mcp__{MCP_SERVER_NAME}__{t}"
+    for t in (
+        "save_memory", "list_my_memories", "forget_memory",
+        "search_memories", "remember_fact", "recall_facts", "ask_agent",
+    )
 )
 
 # `procedure` es el tipo que cierra el bucle System 2 → System 1: no es un
@@ -91,6 +93,19 @@ def resolve_token(token: str) -> str | None:
         _prune_locked()
         grant = _grants.get(token)
         return grant.agent_name if grant else None
+
+
+def resolve_grant(token: str) -> tuple[str | None, int | None]:
+    """El agente Y la corrida dueños del token.
+
+    La corrida importa para la delegación: la cadena —quién ya participó,
+    cuántas van— se lleva por corrida raíz. Sin ella, dos tareas simultáneas
+    del mismo agente compartirían tope y se frenarían entre sí.
+    """
+    with _lock:
+        _prune_locked()
+        grant = _grants.get(token)
+        return (grant.agent_name, grant.run_id) if grant else (None, None)
 
 
 def active_grants() -> int:
@@ -195,6 +210,32 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "ask_agent",
+        "description": (
+            "Ask another Rugol agent to do something and wait for its answer. Use "
+            "when the task needs expertise or context that belongs to a teammate, "
+            "not to split work you can do yourself. The answer comes back as text; "
+            "you keep ownership of the final response. Limits: an agent called by "
+            "another cannot delegate again, no cycles, and a few delegations per "
+            "task. If a limit stops you, the reason comes back — read it and "
+            "resolve with what you have."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "agent": {"type": "string", "description": "exact name of the agent"},
+                "prompt": {
+                    "type": "string",
+                    "description": (
+                        "what you need from them, self-contained — they do not see "
+                        "your conversation"
+                    ),
+                },
+            },
+            "required": ["agent", "prompt"],
+        },
+    },
+    {
         "name": "forget_memory",
         "description": (
             "Delete a memory by filename (e.g. '20260510-user-role.md') or by its name "
@@ -215,15 +256,54 @@ def _text(text: str, is_error: bool = False) -> dict[str, Any]:
 
 
 _GRAPH_TOOLS = {"remember_fact", "recall_facts"}
+# `ask_agent` vive en este mismo servicio y no en uno propio a propósito: un
+# token, un endpoint, un camino de autenticación. Sprint 8 ya había unificado
+# dos implementaciones de memoria por la misma razón — dos servicios paralelos
+# están condenados a separarse.
+_DELEGATION_TOOLS = {"ask_agent"}
 
 
-async def call_tool_async(agent_name: str, name: str, args: dict[str, Any]) -> dict[str, Any]:
+async def _call_delegation(
+    agent_name: str, args: dict[str, Any], run_id: int | None = None
+) -> dict[str, Any]:
+    """`ask_agent`: pedirle a otro agente que resuelva algo y esperar su respuesta.
+
+    Un rechazo vuelve como resultado con `isError`, no como excepción: el
+    modelo tiene que poder LEER por qué no se pudo y decidir otra cosa. Una
+    excepción acá sería un error opaco donde hace falta una explicación.
+    """
+    from core.mcp.delegation import DelegationError, delegate
+
+    destino = str(args.get("agent") or "").strip()
+    pedido = str(args.get("prompt") or "").strip()
+    if not destino or not pedido:
+        return _text("ask_agent needs both 'agent' and 'prompt'.", is_error=True)
+    try:
+        respuesta = await delegate(
+            caller=agent_name,
+            target=destino,
+            prompt=pedido,
+            root_run_id=run_id,
+        )
+    except DelegationError as e:
+        return _text(str(e), is_error=True)
+    except Exception as e:
+        logger.exception("delegación de %s a %s falló", agent_name, destino)
+        return _text(f"ask_agent failed: {e}", is_error=True)
+    return _text(f"Respuesta de {destino}:\n\n{respuesta}")
+
+
+async def call_tool_async(
+    agent_name: str, name: str, args: dict[str, Any], run_id: int | None = None
+) -> dict[str, Any]:
     """Igual que `call_tool`, más las herramientas del grafo, que tocan la DB.
 
     El grafo es compartido: lo que un agente escribe lo leen todos. Las memorias
     siguen siendo privadas. Esa asimetría es el diseño, no un descuido — el
     grafo es el terreno común y la memoria es la libreta personal.
     """
+    if name in _DELEGATION_TOOLS:
+        return await _call_delegation(agent_name, args or {}, run_id)
     if name not in _GRAPH_TOOLS:
         return call_tool(agent_name, name, args)
 

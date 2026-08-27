@@ -456,14 +456,39 @@ def test_memory_token_resolves_to_one_agent_only():
     assert resolve_token(tb) == "agente-b", "revocar uno no toca el otro"
 
 
-def test_tools_never_take_an_agent_name_parameter():
-    """Si el modelo pudiera escribir el nombre del agente, podría falsearlo."""
+# Herramientas que se dirigen a OTRO agente. Direccionar no es suplantar: el
+# delegado corre con su propia identidad y su propio token, y el que llama no
+# puede escribir en su libreta. Lo prohibido sigue siendo prohibido: ninguna
+# herramienta puede dejar que el modelo declare QUIÉN ES.
+_TOOLS_QUE_DIRECCIONAN = {"ask_agent"}
+
+
+def test_no_tool_lets_the_model_declare_who_it_is():
+    """La identidad sale del token. Si el modelo pudiera escribirla, la
+    falsearía — y escribiría memorias en la libreta de otro."""
     from core.mcp.memory_service import TOOLS
 
     for tool in TOOLS:
         props = tool["inputSchema"].get("properties", {})
         assert "agent_name" not in props, tool["name"]
+        if tool["name"] in _TOOLS_QUE_DIRECCIONAN:
+            continue
         assert "agent" not in props, tool["name"]
+
+
+def test_the_addressing_exception_stays_short():
+    """La lista de excepciones es la clase de cosa que crece sin que nadie
+    decida que crezca. Que agregar una sea un cambio visible."""
+    from core.mcp.memory_service import TOOLS
+
+    con_agente = {
+        t["name"] for t in TOOLS
+        if "agent" in t["inputSchema"].get("properties", {})
+    }
+    assert con_agente == _TOOLS_QUE_DIRECCIONAN, (
+        f"apareció una herramienta que recibe 'agent' y no está declarada: "
+        f"{con_agente - _TOOLS_QUE_DIRECCIONAN}"
+    )
 
 
 def test_both_engines_get_the_same_endpoint():

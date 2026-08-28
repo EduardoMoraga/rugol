@@ -16,14 +16,33 @@ import pytest
 
 @pytest.fixture
 def logs_limpios():
+    """Pizarra limpia ANTES, y estado restaurado después.
+
+    Antes sólo limpiaba al salir, y eso hacía que estos tests dependieran del
+    orden de importación: `core/main.py` configura el logging como efecto de
+    importarlo, así que bastaba con que otro test importara la app primero
+    para que `setup_logging()` viera el handler ya puesto, devolviera None y
+    todos los asserts de acá se cayeran.
+
+    Pasaban por suerte. Un test que depende de quién corrió antes no está
+    verificando lo que dice verificar.
+    """
     root = logging.getLogger()
     previos = list(root.handlers)
     nivel = root.level
+    # Sacamos los handlers de archivo que otro import haya dejado. Se guardan
+    # para devolverlos: apagarle el log al resto de la suite sería peor.
+    apartados = [h for h in previos if isinstance(h, logging.FileHandler)]
+    for h in apartados:
+        root.removeHandler(h)
     yield
     for h in list(root.handlers):
         if h not in previos:
             h.close()
             root.removeHandler(h)
+    for h in apartados:
+        if h not in root.handlers:
+            root.addHandler(h)
     root.setLevel(nivel)
 
 

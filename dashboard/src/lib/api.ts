@@ -721,6 +721,30 @@ export interface Procedure {
 }
 export const fetchProcedures = () => get<Procedure[]>("/api/procedures");
 
+/** Un turno ya persistido: la conversación sobrevive a recargar la página. */
+export interface ConversationTurn {
+  run_id: number;
+  prompt: string;
+  final_text: string;
+  status: string;
+  track: string | null;
+  procedure: string | null;
+  outcome: string | null;
+  engine: string;
+  started_at: string | null;
+}
+export interface Conversation {
+  session_id: string | null;
+  turns: ConversationTurn[];
+}
+export const fetchConversation = (agentId: number) =>
+  get<Conversation>(`/api/agents/${agentId}/conversation`);
+export const resetConversation = (agentId: number) =>
+  post<{ agent: string; had_session: boolean }>(
+    `/api/agents/${agentId}/conversation/reset`,
+    {},
+  );
+
 export const createAgent = (spec: AgentSpec) => post<Agent>("/api/agents", spec);
 export const fetchAgentSource = (id: number) => get<AgentSource>(`/api/agents/${id}/source`);
 export const updateAgent = async (id: number, spec: AgentSpec): Promise<Agent> => {

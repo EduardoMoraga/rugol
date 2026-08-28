@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, RotateCcw, Square, ExternalLink, User, Bot, Zap, Brain, Scale, BookmarkPlus, AlertTriangle, KeyRound } from "lucide-react";
 import {
   addProjectLesson,
@@ -12,6 +12,7 @@ import {
   runAgentNow,
   type RunDetail,
   type RunNowOptions,
+  fetchConversation,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useStream } from "@/lib/use-stream";
@@ -106,6 +107,16 @@ export function AgentChat({
   const { t } = useI18n();
   const qc = useQueryClient();
   const [turns, setTurns] = useState<Turn[]>([]);
+  // El hilo vive en el backend, no en esta pestaña. Antes los turnos y el
+  // `session_id` sólo existían acá: recargar la página no perdía el scroll,
+  // perdía la CONVERSACIÓN — el agente arrancaba de cero sin que nada lo
+  // dijera. Telegram, mientras tanto, sí la recordaba.
+  const persisted = useQuery({
+    queryKey: ["conversation", agentId],
+    queryFn: () => fetchConversation(agentId),
+    staleTime: 60_000,
+  });
+  const hydratedRef = useRef(false);
   const [draft, setDraft] = useState("");
   const [taskType, setTaskType] = useState<TaskType>("think");
   const [engine, setEngine] = useState<EngineChoice>("default");
@@ -116,12 +127,34 @@ export function AgentChat({
   // critique run we can attach them to the right bubble.
   const advocateRunToTurnRef = useRef<Map<number, string>>(new Map());
 
+  // Rehidratar una sola vez, y sólo si el usuario todavía no escribió nada:
+  // llegar tarde y pisar un turno en vuelo sería peor que no rehidratar.
+  useEffect(() => {
+    if (hydratedRef.current || !persisted.data) return;
+    hydratedRef.current = true;
+    if (turns.length > 0 || persisted.data.turns.length === 0) return;
+    setTurns(
+      persisted.data.turns.map((tr) => ({
+        id: `p-${tr.run_id}`,
+        user: tr.prompt,
+        assistant: tr.final_text,
+        // El estado real de la corrida, no uno inventado: un turno que falló
+        // hace meses tiene que verse como falló.
+        status: (isTerminalRunStatus(tr.status) ? tr.status : "completed") as Turn["status"],
+        startedAt: tr.started_at ? Date.parse(tr.started_at) : Date.now(),
+        runId: tr.run_id,
+        sessionId: persisted.data!.session_id,
+      })),
+    );
+  }, [persisted.data, turns.length]);
+
   const lastSessionId = (() => {
     for (let i = turns.length - 1; i >= 0; i--) {
       const sid = turns[i].sessionId;
       if (sid) return sid;
     }
-    return null;
+    // Sin turnos en pantalla, el hilo sigue siendo el que el backend recuerda.
+    return persisted.data?.session_id ?? null;
   })();
 
   const send = useMutation({

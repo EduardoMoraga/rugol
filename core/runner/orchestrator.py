@@ -659,7 +659,9 @@ class RuntimeOrchestrator:
             run = await session.get(Run, run_id)
             if run is None:
                 return
+            source_for_session = ""
             run.status = "completed"
+            source_for_session = run.source
             run.ended_at = dt.datetime.now(dt.UTC)
             run.input_tokens = result.input_tokens
             run.output_tokens = result.output_tokens
@@ -671,6 +673,17 @@ class RuntimeOrchestrator:
                 agent.status = "idle"
                 agent_name = agent.name
             await session.commit()
+        # El hilo del dashboard se persiste igual que el de Telegram, con el
+        # MISMO store. Antes vivía sólo en el estado de React: recargar la
+        # página no perdía el scroll, perdía la conversación — el agente
+        # empezaba de cero sin que nada lo dijera.
+        if source_for_session == "dashboard" and result.session_id and agent_name:
+            try:
+                from core.adapters import session_store
+
+                await session_store.save("dashboard", agent_name, result.session_id)
+            except Exception:
+                logger.exception("no pude persistir el hilo del dashboard")
         await bus.publish("run:completed", {
             "run_id": run_id,
             "agent": agent_name,

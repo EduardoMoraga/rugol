@@ -20,6 +20,7 @@ from core.api import (
     architect,
     channels,
     config_assistant,
+    conversation,
     cv_sources,
     evolution,
     health,
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(templates.router, prefix="/api")
     app.include_router(channels.router, prefix="/api")
     app.include_router(agents.router, prefix="/api")
+    app.include_router(conversation.router, prefix="/api")
     app.include_router(runs.router, prefix="/api")
     app.include_router(schedules.router, prefix="/api")
     app.include_router(ontology.router, prefix="/api")

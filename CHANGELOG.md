@@ -3,6 +3,80 @@
 All notable changes to Rugol are documented here, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-alpha] — 2026-08-28
+
+**Release de la tesis.** Hasta acá un agente de Rugol podía volverse más sabio
+—acumular memoria— pero nunca más rápido. El dispatcher clasificaba cada pedido
+System 1 o System 2 y el checkpoint guardaba hechos, pero nada unía las dos
+mitades: `classify()` recibía el prompt y el nombre del agente, y nada más. Un
+pedido resuelto cincuenta veces se clasificaba S2 la vez cincuenta y uno.
+
+Esta versión cierra ese circuito, le pone frenos, y —lo que más costó— lo hace
+medible de una forma que se puede refutar.
+
+### Agregado
+
+- **Compilación de método (Soul-4)**. Después de una corrida deliberada que
+  salió bien, un paso barato pregunta qué MÉTODO se usó —no cuál fue la
+  respuesta, la respuesta cambia— y si sirve para toda una familia de pedidos lo
+  guarda como memoria `kind: procedure`. El dispatcher lo ve y puede decidir que
+  ese pedido ya no necesita deliberarse.
+- **Extinción de métodos**. Uno cuyas aplicaciones vienen fallando deja de
+  ofrecerse, sin borrarse. Con umbral de muestra —un método nuevo tiene derecho
+  a fallar una vez— tope de catálogo y orden por uso.
+- **Outcome por corrida**. `status: completed` sólo dice que el proceso no
+  reventó. Ahora se registra si la tarea salió BIEN: la persona lo dice
+  (`POST /api/runs/{id}/outcome`), se lee del mensaje siguiente, o se infiere de
+  que volvió a pedir lo mismo enseguida. El silencio no cuenta como veredicto.
+- **Pantalla Métodos** (`/procedures`) y `GET /api/procedures`. Compara lo que
+  costó DESCUBRIR un método contra lo que cuesta aplicarlo. Con menos de una
+  corrida original y una aplicación no afirma nada.
+- **Carpeta de trabajo por proyecto** (`Project.workspace_dir`). Los agentes
+  dejan de correr dentro del código de Rugol: trabajan en una carpeta real, un
+  agente de Codex deja de estar encerrado por su sandbox, y levantan el
+  `CLAUDE.md` que ya vive ahí.
+- **Terminal**: `rugol chat` y `rugol run`. La carpeta desde donde los corrés
+  elige el agente, y gana la más específica.
+- **Delegación entre agentes**: `ask_agent`, con tres frenos —profundidad,
+  ciclos y cantidad por tarea—. Un coordinador que ahora coordina.
+- **Conversación persistente en el dashboard**. El hilo y su `session_id` viven
+  en el backend, con el mismo store que usa Telegram.
+
+### Corregido
+
+- `rugol up` cantaba "core saludable" con el core caído: `curl -fs` aceptaba
+  como sano el 307 de cualquier otra aplicación en el puerto. `/api/health`
+  ahora trae una marca de identidad y los dos launchers la exigen.
+- `rugol update` moría en Windows al bajar código. PowerShell convierte el
+  stderr de un comando nativo en error terminante, y `git fetch` escribe por
+  stderr aunque le vaya bien: se caía exactamente cuando SÍ había algo nuevo.
+- Crear un agente fallaba desde el navegador. El `pattern` del formulario no
+  compilaba bajo el flag `v`, así que el navegador lo ignoraba en silencio y
+  cualquier nombre humano viajaba al servidor. Ahora se escribe el nombre que
+  uno quiera y se ve con cuál se guarda.
+- El chat del dashboard perdía la conversación al recargar la página — no el
+  scroll: el hilo. Telegram, mientras tanto, sí la recordaba.
+- El `.env` no soportaba valores con espacios: el launcher lo ejecutaba como
+  script. La línea que lo rompía es la que documenta `.env.example`
+  (`SAFETY_DENY_EXTRA=terraform destroy`), o sea que ese freno quedaba cortado
+  por la mitad mientras `doctor` lo reportaba como configurado.
+- La medición de métodos comparaba tercios de corridas que YA aplicaban el
+  método y lo presentaba como el salto de System 2 a System 1. La corrida que
+  descubrió el método quedaba fuera del "antes".
+- Una hormiga cancelada seguía corriendo en pantalla para siempre.
+- El instalador desde una copia local se llevaba 5 GB de artefactos no
+  versionados, y pisaba el launcher de la instalación real al ensayar otra.
+- `rugol update` verifica que el clon apunte al repositorio canónico.
+
+### Cambiado
+
+- La documentación de seguridad decía "hooks PreToolUse con denies duros" como
+  si aplicara a los dos motores. En Claude el hook corre ANTES de ejecutar; en
+  Codex se observan los eventos y se corta cuando el comando ya arrancó. Ahí la
+  defensa principal es el sandbox y esto es la red secundaria.
+- Una sola implementación de slug y de nombre (`core/naming`): había dos copias
+  de `_slugify` y tres del mismo regex, y ninguna sacaba acentos.
+
 ## [0.8.0-alpha] — 2026-06-07
 
 **Memory & Evolution release.** La memoria de los agentes deja de ser una

@@ -3,6 +3,14 @@
 > Each sprint is two weeks. Goal: ship a public beta in 8 weeks.
 > Track issues with the matching label on GitHub.
 
+> **Nota de estado (2026-08-28).** Este documento se escribió al principio y la
+> numeración de sprints se desacopló de la de releases: el producto va en
+> 0.9.0-alpha y los sprints 1, 2, 8 y 9 están hechos, mientras el 3 sigue
+> abierto por una sola cosa —el instalador nunca se probó en una PC Windows
+> **limpia**; en el NUC fue una reparación sobre una instalación existente—.
+> Para el estado real, la fuente es `CHANGELOG.md` y la sección Status de
+> `CLAUDE.md`; esto de acá abajo es el plan original y se conserva como tal.
+
 ## Sprint 0 — Bootstrap (DONE)
 
 - [x] Project scaffold, agents created, docs written, decisions captured

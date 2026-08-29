@@ -1,8 +1,22 @@
 # ADR-007 — Soul-2 Dual-Track Dispatcher (skeleton)
 
-**Status:** Draft · 2026-05-10 · Authors: Eduardo Moraga + Claude (Opus 4.7)
-**Implementation status:** **Not implemented.** Design only. See ADR-006 for
-the full Soul Layer plan and ADR-008 for the third sprint.
+**Status:** Accepted · 2026-05-10 · Authors: Eduardo Moraga + Claude (Opus 4.7)
+**Implementation status:** **Implemented and in production.** `core/soul/dispatcher.py`
+classifies every request S1/S2 on Haiku before model selection, stamps the
+decision on the Run row (`track`, `classifier_confidence`, `classifier_rationale`)
+and falls back to S2 on any parse failure. Covered by `tests/test_soul_dispatcher.py`.
+
+Soul-4 (`core/soul/compiler.py`, 2026-08-26) extends this ADR beyond its original
+scope: the dispatcher now also receives the agent's catalogue of **compiled
+methods**, so a request that once required deliberation can be classified S1
+because a known method covers it. That is the piece this ADR described as future
+work and did not specify. See CHANGELOG 0.9.0-alpha.
+
+One caveat this ADR did not anticipate, worth reading before trusting the token
+savings: under subscription auth `model_for_track()` keeps the agent's own model
+for S1, because Haiku through the bundled CLI crashed (observed 2026-05-10). The
+routing still carries value —telemetry, and the compiled method shortens the
+prompt— but the model swap does not happen on that auth path.
 
 ## Context
 

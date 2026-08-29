@@ -40,6 +40,24 @@ The end goal is a project worth showing publicly — and worth Anthropic noticin
 | Containerization | Docker Compose (4 services) | ADR-001 |
 | Distribution | GitHub Releases + Windows `.bat` installer | ADR-001 |
 
+### `core/soul/` — la capa que hace a Rugol distinto
+
+Es donde vive la tesis de Kahneman, y conviene leerla en orden:
+
+| Módulo | Qué hace |
+|--------|----------|
+| `dispatcher.py` | Clasifica cada pedido S1 o S2 **antes** de elegir modelo (ADR-007) |
+| `checkpoint.py` | Tras cada corrida, extrae los HECHOS que valga guardar |
+| `compiler.py` | Tras una corrida deliberada, extrae el **MÉTODO** — el puente S2 → S1 |
+| `procedures.py` | Qué métodos se le ofrecen al dispatcher, y cuáles se retiran por fallar |
+| `outcome.py` | ¿La tarea salió BIEN? Distinto de que el proceso terminara |
+| `evolution/` | El agente propone mejorar su propio prompt; vos aprobás (ADR-008) |
+| `identity.py`, `world_state.py`, `auto_memory.py` | Quién es, cuándo es, y sus reglas de memoria |
+
+El orden importa: sin `outcome` la extinción mide si el proceso reventó, no si
+la tarea sirvió; y sin `compiler` el sistema acumula memoria pero nunca se
+vuelve más rápido.
+
 ## Agents
 
 | Agent | Model | Owns |
@@ -77,14 +95,23 @@ When in doubt, ask `rugol-architect` first.
 ├── core/                     (Python FastAPI backend)
 │   ├── main.py               (app entrypoint)
 │   ├── config.py             (settings)
+│   ├── naming.py             (slug + nombre: una sola implementación)
 │   ├── resilience.py         (volver a operar solo tras un corte)
-│   ├── safety/               (frenos duros para el agente desatendido)
+│   ├── safety/               (frenos para el agente desatendido — ver nota)
+│   ├── soul/                 (LA CAPA DIFERENCIAL — ver abajo)
+│   ├── memory/               (libreta privada en markdown + grafo Obsidian)
+│   ├── mcp/                  (servicio de herramientas + delegación ask_agent)
 │   ├── db/                   (SQLite models + migrations)
 │   ├── registry/             (agents + skills loader + catálogo al prompt)
 │   ├── scheduler/            (APScheduler wrapper)
-│   ├── adapters/             (telegram, slack, mcp)
-│   ├── ontology/             (memory graph)
-│   ├── improvements/         (self-improving loop)
+│   ├── runner/               (claude_runner, codex_runner, dispatch, workspace)
+│   ├── adapters/             (telegram, slack, honcho, session_store)
+│   ├── architect/            (propone y despliega equipos de agentes)
+│   ├── config_assistant/     (configurar hablando, no editando .env)
+│   ├── attachments/          (documentos y audio que llegan por chat)
+│   ├── voice/                (entrevistas por voz — variante HRO)
+│   ├── ontology/             (grafo compartido de hechos)
+│   ├── improvements/         (self-improving loop, versión original)
 │   ├── api/                  (REST + SSE endpoints)
 │   ├── Dockerfile
 │   └── requirements.txt
@@ -98,8 +125,10 @@ When in doubt, ask `rugol-architect` first.
 │       │   ├── ant-farm/     (react-pixi scene)
 │       │   └── ui/           (shadcn primitives)
 │       └── lib/              (api client, sse hook)
+├── desktop/                  (wrapper Electron + variantes CRM/HRO)
 ├── cli/
-│   ├── rugol                 (Mac/Linux launcher — setup, up, login, doctor…)
+│   ├── rugol                 (Mac/Linux launcher — setup, up, chat, doctor…)
+│   ├── rugol-chat.py         (terminal: la carpeta elige el agente)
 │   ├── rugol.ps1             (Windows launcher, mirrors the bash one)
 │   ├── rugol.cmd             (cmd.exe shim → rugol.ps1)
 │   └── rugol-auth.py         (login/logout/auth — shared by both launchers)
